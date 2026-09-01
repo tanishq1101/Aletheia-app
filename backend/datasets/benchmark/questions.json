@@ -1,0 +1,2266 @@
+{
+  "version": 1,
+  "description": "Sprint 6 evaluation benchmark: 10 papers x 15 questions, hand-written against the text this pipeline actually extracted (see scripts/dump_corpus_text.py), not from the rendered PDFs and not from recollection of the papers.",
+  "label_policy": {
+    "expected_pages": "Gold pages are 1-based page numbers in the paper named by `paper`. Labels are PAGE-level, never chunk-level: chunk ids are regenerated on every reprocess and chunk boundaries move with CHUNK_MAX_TOKENS, so a chunk-keyed benchmark would be invalidated by the very 400/600/800 sweep PRD 3.2 requires. Pages are a stable property of the PDF.",
+    "must_contain": "Terms that a correct answer has to contain. Purely numeric terms are matched on word boundaries so that \"3\" does not match \"34\"; other terms are matched case-insensitively as substrings. Every one of these is machine-verified to appear on the question's own gold pages before the benchmark is allowed to run -- see tests/test_benchmark_dataset.py.",
+    "answerable": "false means the question CANNOT be answered from the corpus as a whole -- not merely from the paper it sounds like it belongs to. All ten papers live in one project, so retrieval sees all of them. Unanswerable questions carry no gold pages and no must_contain terms.",
+    "category": "fact | method | result | multi-page | cross-paper | unanswerable-absent (topic is in the corpus, this specific fact is not) | unanswerable-domain (outside the corpus entirely)"
+  },
+  "questions": [
+    {
+      "id": "resnet-01",
+      "paper": "resnet",
+      "category": "result",
+      "answerable": true,
+      "question": "What top-5 error did the ResNet ensemble achieve on the ImageNet test set?",
+      "expected_pages": [
+        1,
+        6
+      ],
+      "must_contain": [
+        "3.57"
+      ],
+      "must_not_contain": [],
+      "notes": "Stated in the abstract and again in Table 5."
+    },
+    {
+      "id": "resnet-02",
+      "paper": "resnet",
+      "category": "fact",
+      "answerable": true,
+      "question": "How deep is the deepest residual network evaluated on ImageNet in this paper?",
+      "expected_pages": [
+        1,
+        7
+      ],
+      "must_contain": [
+        "152"
+      ],
+      "must_not_contain": [],
+      "notes": "Abstract says depth up to 152 layers, 8x deeper than VGG but lower complexity."
+    },
+    {
+      "id": "resnet-03",
+      "paper": "resnet",
+      "category": "method",
+      "answerable": true,
+      "question": "What weight decay and momentum were used when training the ImageNet models?",
+      "expected_pages": [
+        4
+      ],
+      "must_contain": [
+        "0.0001",
+        "0.9"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 3.4 Implementation."
+    },
+    {
+      "id": "resnet-04",
+      "paper": "resnet",
+      "category": "method",
+      "answerable": true,
+      "question": "What mini-batch size and initial learning rate were used for ImageNet training?",
+      "expected_pages": [
+        4
+      ],
+      "must_contain": [
+        "256",
+        "0.1"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 3.4: SGD, mini-batch 256, LR starts at 0.1 and is divided by 10 on plateau."
+    },
+    {
+      "id": "resnet-05",
+      "paper": "resnet",
+      "category": "fact",
+      "answerable": true,
+      "question": "What is the degradation problem, and is it caused by overfitting?",
+      "expected_pages": [
+        1
+      ],
+      "must_contain": [
+        "degradation",
+        "overfitting"
+      ],
+      "must_not_contain": [],
+      "notes": "Introduction is explicit that degradation is NOT caused by overfitting -- the negation is the point of the question."
+    },
+    {
+      "id": "resnet-06",
+      "paper": "resnet",
+      "category": "method",
+      "answerable": true,
+      "question": "In the bottleneck design, how many stacked layers make up each residual function instead of two?",
+      "expected_pages": [
+        6
+      ],
+      "must_contain": [
+        "3"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 4.1: a stack of 3 layers instead of 2, being 1x1, 3x3, 1x1 convolutions."
+    },
+    {
+      "id": "resnet-07",
+      "paper": "resnet",
+      "category": "result",
+      "answerable": true,
+      "question": "On CIFAR-10, what test error did the 110-layer ResNet reach, and how did the 1202-layer network compare?",
+      "expected_pages": [
+        7,
+        8
+      ],
+      "must_contain": [
+        "6.43",
+        "7.93"
+      ],
+      "must_not_contain": [],
+      "notes": "Table 6 gives both; page 8 attributes the 1202-layer regression to overfitting. Genuinely spans two pages."
+    },
+    {
+      "id": "resnet-08",
+      "paper": "resnet",
+      "category": "method",
+      "answerable": true,
+      "question": "What are the three shortcut options A, B and C compared in the ImageNet experiments?",
+      "expected_pages": [
+        6
+      ],
+      "must_contain": [
+        "zero-padding",
+        "projection",
+        "identity"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 4.1 Identity vs Projection Shortcuts."
+    },
+    {
+      "id": "resnet-09",
+      "paper": "resnet",
+      "category": "result",
+      "answerable": true,
+      "question": "How many FLOPs does the 34-layer plain baseline use, and what fraction of VGG-19 is that?",
+      "expected_pages": [
+        3
+      ],
+      "must_contain": [
+        "3.6",
+        "18"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 3.3: 3.6 billion FLOPs, only 18% of VGG-19's 19.6 billion."
+    },
+    {
+      "id": "resnet-10",
+      "paper": "resnet",
+      "category": "result",
+      "answerable": true,
+      "question": "What relative improvement did ResNet-101 give over VGG-16 on the COCO standard metric?",
+      "expected_pages": [
+        1,
+        8
+      ],
+      "must_contain": [
+        "28"
+      ],
+      "must_not_contain": [],
+      "notes": "Abstract and Section 4.3 both state a 28% relative improvement on COCO."
+    },
+    {
+      "id": "resnet-11",
+      "paper": "resnet",
+      "category": "method",
+      "answerable": true,
+      "question": "How was the 110-layer CIFAR-10 network warmed up, and why was that necessary?",
+      "expected_pages": [
+        7
+      ],
+      "must_contain": [
+        "0.01",
+        "0.1"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 4.2: initial 0.1 was slightly too large, so 0.01 warms up until training error is below 80%."
+    },
+    {
+      "id": "resnet-12",
+      "paper": "resnet",
+      "category": "result",
+      "answerable": true,
+      "question": "What do the standard deviations of layer responses show about residual functions?",
+      "expected_pages": [
+        8
+      ],
+      "must_contain": [
+        "smaller"
+      ],
+      "must_not_contain": [],
+      "notes": "Analysis of Layer Responses: ResNets have generally smaller responses than plain counterparts."
+    },
+    {
+      "id": "resnet-13",
+      "paper": "resnet",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What top-1 error does ResNet-152 achieve on the CIFAR-100 dataset?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "CIFAR-10 is evaluated, CIFAR-100 is never used anywhere in the corpus, and ResNet-152 is ImageNet-only. Retrieval will surface plausible CIFAR-10 and ResNet-152 passages; the system must decline rather than blend them."
+    },
+    {
+      "id": "resnet-14",
+      "paper": "resnet",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "How many GPU-hours did it take to train ResNet-152 on ImageNet?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "Training iterations are given but wall-clock or GPU-hour cost for ResNet is never reported. Other papers in the corpus DO report training time, which is exactly the trap."
+    },
+    {
+      "id": "resnet-15",
+      "paper": "resnet",
+      "category": "unanswerable-domain",
+      "answerable": false,
+      "question": "What licence are the released ResNet model weights distributed under?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "No licence terms appear anywhere in the corpus."
+    },
+    {
+      "id": "vgg-01",
+      "paper": "vgg",
+      "category": "fact",
+      "answerable": true,
+      "question": "What convolution filter size is used throughout the VGG networks, and why is it the smallest sensible choice?",
+      "expected_pages": [
+        2
+      ],
+      "must_contain": [
+        "left/right",
+        "up/down"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 2.1: 3x3 is the smallest size to capture the notion of left/right, up/down, center."
+    },
+    {
+      "id": "vgg-02",
+      "paper": "vgg",
+      "category": "fact",
+      "answerable": true,
+      "question": "How many weight layers do the shallowest and deepest VGG configurations have?",
+      "expected_pages": [
+        2
+      ],
+      "must_contain": [
+        "11",
+        "19"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 2.2: from 11 weight layers in network A to 19 in network E."
+    },
+    {
+      "id": "vgg-03",
+      "paper": "vgg",
+      "category": "method",
+      "answerable": true,
+      "question": "What input image size do the VGG ConvNets take during training, and what preprocessing is applied?",
+      "expected_pages": [
+        2
+      ],
+      "must_contain": [
+        "224",
+        "mean RGB"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 2.1: fixed-size 224x224 RGB image, only preprocessing is subtracting the mean RGB value."
+    },
+    {
+      "id": "vgg-04",
+      "paper": "vgg",
+      "category": "method",
+      "answerable": true,
+      "question": "What batch size, momentum and weight decay were used to train VGG?",
+      "expected_pages": [
+        4
+      ],
+      "must_contain": [
+        "256",
+        "0.9"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 3.1: batch size 256, momentum 0.9, L2 penalty 5e-4."
+    },
+    {
+      "id": "vgg-05",
+      "paper": "vgg",
+      "category": "method",
+      "answerable": true,
+      "question": "What dropout ratio was applied, and to which layers?",
+      "expected_pages": [
+        4
+      ],
+      "must_contain": [
+        "0.5",
+        "fully-connected"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 3.1: dropout 0.5 for the first two fully-connected layers."
+    },
+    {
+      "id": "vgg-06",
+      "paper": "vgg",
+      "category": "method",
+      "answerable": true,
+      "question": "How many iterations and epochs was VGG trained for?",
+      "expected_pages": [
+        4
+      ],
+      "must_contain": [
+        "370K",
+        "74"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 3.1: stopped after 370K iterations (74 epochs)."
+    },
+    {
+      "id": "vgg-07",
+      "paper": "vgg",
+      "category": "result",
+      "answerable": true,
+      "question": "Why does the paper prefer a stack of three 3x3 convolutions over a single 7x7 layer?",
+      "expected_pages": [
+        3
+      ],
+      "must_contain": [
+        "81"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 2.3: three non-linear rectification layers, and a 7x7 layer needs 81% more parameters."
+    },
+    {
+      "id": "vgg-08",
+      "paper": "vgg",
+      "category": "result",
+      "answerable": true,
+      "question": "Did local response normalisation improve VGG's performance?",
+      "expected_pages": [
+        6
+      ],
+      "must_contain": [
+        "not improve"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 4.1 is explicit that A-LRN does not improve on A -- a question whose correct answer is negative."
+    },
+    {
+      "id": "vgg-09",
+      "paper": "vgg",
+      "category": "result",
+      "answerable": true,
+      "question": "What is VGG's best single-network top-1 and top-5 validation error under multi-scale evaluation?",
+      "expected_pages": [
+        7
+      ],
+      "must_contain": [
+        "24.8",
+        "7.5"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 4.2 and Table 4."
+    },
+    {
+      "id": "vgg-10",
+      "paper": "vgg",
+      "category": "result",
+      "answerable": true,
+      "question": "What place did the VGG team take in the ILSVRC-2014 classification task and with what test error?",
+      "expected_pages": [
+        7,
+        8
+      ],
+      "must_contain": [
+        "2nd",
+        "7.3"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 4.5 starts on page 7 ('secured the 2nd place with') and the sentence finishes on page 8 ('7.3% test error using an ensemble of 7 models')."
+    },
+    {
+      "id": "vgg-11",
+      "paper": "vgg",
+      "category": "method",
+      "answerable": true,
+      "question": "What range of scales was used for multi-scale training by scale jittering?",
+      "expected_pages": [
+        4
+      ],
+      "must_contain": [
+        "256",
+        "512"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 3.1: S sampled from [Smin, Smax] with Smin=256 and Smax=512."
+    },
+    {
+      "id": "vgg-12",
+      "paper": "vgg",
+      "category": "multi-page",
+      "answerable": true,
+      "question": "How many parameters does the deepest VGG configuration have, and how long did training a single net take?",
+      "expected_pages": [
+        3,
+        5
+      ],
+      "must_contain": [
+        "144"
+      ],
+      "must_not_contain": [],
+      "notes": "Table 2 on page 3 gives 144M for config E; page 5 gives 2-3 weeks on four NVIDIA Titan Black GPUs. Deliberately spans two pages."
+    },
+    {
+      "id": "vgg-13",
+      "paper": "vgg",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What top-5 error does VGG-19 achieve when trained with batch normalisation?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "Batch normalisation is heavily covered by another paper in this corpus, but VGG never uses it. A strong distractor for retrieval."
+    },
+    {
+      "id": "vgg-14",
+      "paper": "vgg",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What is VGG's inference latency in milliseconds per image on a single GPU?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "Training time is reported; inference latency never is, anywhere in the corpus."
+    },
+    {
+      "id": "vgg-15",
+      "paper": "vgg",
+      "category": "unanswerable-domain",
+      "answerable": false,
+      "question": "What was the total electricity cost in pounds sterling of running the VGG experiments?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "Out of domain. One corpus paper discusses energy usage in petaflop/s-days, which is a near-miss, not an answer."
+    },
+    {
+      "id": "batchnorm-01",
+      "paper": "batchnorm",
+      "category": "fact",
+      "answerable": true,
+      "question": "What does this paper define as internal covariate shift?",
+      "expected_pages": [
+        2
+      ],
+      "must_contain": [
+        "distribution",
+        "activations"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 2: the change in the distribution of network activations due to the change in network parameters during training."
+    },
+    {
+      "id": "batchnorm-02",
+      "paper": "batchnorm",
+      "category": "result",
+      "answerable": true,
+      "question": "How many fewer training steps does Batch Normalization need to match the same accuracy?",
+      "expected_pages": [
+        1
+      ],
+      "must_contain": [
+        "14"
+      ],
+      "must_not_contain": [],
+      "notes": "Abstract: same accuracy with 14 times fewer training steps."
+    },
+    {
+      "id": "batchnorm-03",
+      "paper": "batchnorm",
+      "category": "result",
+      "answerable": true,
+      "question": "What top-5 validation and test error did the ensemble of batch-normalized networks reach on ImageNet?",
+      "expected_pages": [
+        1,
+        7
+      ],
+      "must_contain": [
+        "4.9",
+        "4.8"
+      ],
+      "must_not_contain": [],
+      "notes": "Abstract says 4.9% validation and 4.8% test; Section 4.2.3 gives 4.9% and 4.82%."
+    },
+    {
+      "id": "batchnorm-04",
+      "paper": "batchnorm",
+      "category": "method",
+      "answerable": true,
+      "question": "What two learned parameters does the Batch Normalizing Transform introduce, and what do they do?",
+      "expected_pages": [
+        3
+      ],
+      "must_contain": [
+        "scale",
+        "shift"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 3: gamma and beta scale and shift the normalized value, restoring representation power."
+    },
+    {
+      "id": "batchnorm-05",
+      "paper": "batchnorm",
+      "category": "method",
+      "answerable": true,
+      "question": "Where in the layer is the BN transform inserted relative to the nonlinearity?",
+      "expected_pages": [
+        5
+      ],
+      "must_contain": [
+        "before"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 3.2: immediately before the nonlinearity, normalizing Wu+b."
+    },
+    {
+      "id": "batchnorm-06",
+      "paper": "batchnorm",
+      "category": "method",
+      "answerable": true,
+      "question": "Why can the bias b be ignored when Batch Normalization is applied to a convolutional layer?",
+      "expected_pages": [
+        5
+      ],
+      "must_contain": [
+        "mean subtraction"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 3.2: its effect is cancelled by the subsequent mean subtraction; the role of the bias is subsumed by beta."
+    },
+    {
+      "id": "batchnorm-07",
+      "paper": "batchnorm",
+      "category": "method",
+      "answerable": true,
+      "question": "What statistics are used for normalization at inference time rather than mini-batch statistics?",
+      "expected_pages": [
+        4
+      ],
+      "must_contain": [
+        "population"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 3.1: population rather than mini-batch statistics, with the unbiased variance estimate."
+    },
+    {
+      "id": "batchnorm-08",
+      "paper": "batchnorm",
+      "category": "result",
+      "answerable": true,
+      "question": "What learning rates were used for Inception, BN-x5 and BN-x30?",
+      "expected_pages": [
+        7
+      ],
+      "must_contain": [
+        "0.0015",
+        "0.0075",
+        "0.045"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 4.2.2 lists all three explicitly."
+    },
+    {
+      "id": "batchnorm-09",
+      "paper": "batchnorm",
+      "category": "result",
+      "answerable": true,
+      "question": "What accuracy did BN-x30 reach, and how many steps did the original Inception need to reach 72.2%?",
+      "expected_pages": [
+        7
+      ],
+      "must_contain": [
+        "74.8",
+        "72.2"
+      ],
+      "must_not_contain": [],
+      "notes": "Figure 3 table: Inception 31e6 steps to 72.2%; BN-x30 max accuracy 74.8%."
+    },
+    {
+      "id": "batchnorm-10",
+      "paper": "batchnorm",
+      "category": "result",
+      "answerable": true,
+      "question": "Could the batch-normalized network be trained with a sigmoid nonlinearity, and what accuracy resulted?",
+      "expected_pages": [
+        7
+      ],
+      "must_contain": [
+        "69.8"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 4.2.2: BN-x5-Sigmoid achieves 69.8%, while Inception with sigmoid never beats chance."
+    },
+    {
+      "id": "batchnorm-11",
+      "paper": "batchnorm",
+      "category": "method",
+      "answerable": true,
+      "question": "What architecture and mini-batch size were used for the MNIST experiment?",
+      "expected_pages": [
+        5,
+        6
+      ],
+      "must_contain": [
+        "100",
+        "60"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 4.1: 3 fully-connected hidden layers with 100 activations each, 60 examples per mini-batch. Spans the page break."
+    },
+    {
+      "id": "batchnorm-12",
+      "paper": "batchnorm",
+      "category": "fact",
+      "answerable": true,
+      "question": "Does Batch Normalization reduce the need for Dropout?",
+      "expected_pages": [
+        1,
+        5
+      ],
+      "must_contain": [
+        "regularizer"
+      ],
+      "must_not_contain": [],
+      "notes": "Abstract and Section 3.4: it acts as a regularizer, in some cases eliminating the need for Dropout."
+    },
+    {
+      "id": "batchnorm-13",
+      "paper": "batchnorm",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What accuracy does Batch Normalization achieve when applied to a recurrent neural network on a language modelling task?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "The corpus contains recurrent language models and contains Batch Normalization, but never their combination."
+    },
+    {
+      "id": "batchnorm-14",
+      "paper": "batchnorm",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What value of epsilon was used for numerical stability in the ImageNet experiments?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "Epsilon is defined as a constant for numerical stability but its value is never given. Another paper in the corpus gives an epsilon of 1e-8 for a different algorithm -- a precise trap."
+    },
+    {
+      "id": "batchnorm-15",
+      "paper": "batchnorm",
+      "category": "unanswerable-domain",
+      "answerable": false,
+      "question": "Which conference rejected the first submission of the Batch Normalization paper?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "Review history appears nowhere in the corpus."
+    },
+    {
+      "id": "attention-01",
+      "paper": "attention",
+      "category": "fact",
+      "answerable": true,
+      "question": "How many identical layers make up the Transformer encoder and decoder stacks?",
+      "expected_pages": [
+        3
+      ],
+      "must_contain": [
+        "6"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 3.1: N = 6 for both encoder and decoder."
+    },
+    {
+      "id": "attention-02",
+      "paper": "attention",
+      "category": "fact",
+      "answerable": true,
+      "question": "What is the model dimension and the inner feed-forward dimension of the base Transformer?",
+      "expected_pages": [
+        5
+      ],
+      "must_contain": [
+        "512",
+        "2048"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 3.3: d_model = 512, d_ff = 2048."
+    },
+    {
+      "id": "attention-03",
+      "paper": "attention",
+      "category": "method",
+      "answerable": true,
+      "question": "Why are the dot products scaled by the square root of d_k in scaled dot-product attention?",
+      "expected_pages": [
+        4
+      ],
+      "must_contain": [
+        "small gradients"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 3.2.1: large dot products push softmax into regions with extremely small gradients."
+    },
+    {
+      "id": "attention-04",
+      "paper": "attention",
+      "category": "fact",
+      "answerable": true,
+      "question": "How many attention heads does the base model use, and what is the dimension of each head?",
+      "expected_pages": [
+        5
+      ],
+      "must_contain": [
+        "8",
+        "64"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 3.2.2: h = 8 heads, d_k = d_v = d_model/h = 64."
+    },
+    {
+      "id": "attention-05",
+      "paper": "attention",
+      "category": "result",
+      "answerable": true,
+      "question": "What BLEU score did the big Transformer achieve on WMT 2014 English-to-German?",
+      "expected_pages": [
+        1,
+        8
+      ],
+      "must_contain": [
+        "28.4"
+      ],
+      "must_not_contain": [],
+      "notes": "Abstract and Section 6.1 / Table 2."
+    },
+    {
+      "id": "attention-06",
+      "paper": "attention",
+      "category": "method",
+      "answerable": true,
+      "question": "What optimizer settings and warmup schedule were used to train the Transformer?",
+      "expected_pages": [
+        7
+      ],
+      "must_contain": [
+        "Adam",
+        "4000"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 5.3: Adam with beta1 0.9, beta2 0.98, eps 1e-9, warmup_steps = 4000. Cross-references another corpus paper by name."
+    },
+    {
+      "id": "attention-07",
+      "paper": "attention",
+      "category": "method",
+      "answerable": true,
+      "question": "What hardware was used, and how long did the base and big models take to train?",
+      "expected_pages": [
+        7
+      ],
+      "must_contain": [
+        "P100",
+        "12 hours",
+        "3.5 days"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 5.2: 8 NVIDIA P100 GPUs, base 100,000 steps / 12 hours, big 300,000 steps / 3.5 days."
+    },
+    {
+      "id": "attention-08",
+      "paper": "attention",
+      "category": "method",
+      "answerable": true,
+      "question": "What form of positional encoding does the Transformer use, and why was it chosen over learned embeddings?",
+      "expected_pages": [
+        6
+      ],
+      "must_contain": [
+        "sine",
+        "cosine",
+        "extrapolate"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 3.5: sine and cosine of different frequencies; chosen because it may let the model extrapolate to longer sequences."
+    },
+    {
+      "id": "attention-09",
+      "paper": "attention",
+      "category": "result",
+      "answerable": true,
+      "question": "What is the maximum path length of a self-attention layer compared with a recurrent layer?",
+      "expected_pages": [
+        6
+      ],
+      "must_contain": [
+        "O(1)",
+        "O(n)"
+      ],
+      "must_not_contain": [],
+      "notes": "Table 1: self-attention O(1), recurrent O(n)."
+    },
+    {
+      "id": "attention-10",
+      "paper": "attention",
+      "category": "method",
+      "answerable": true,
+      "question": "What dropout rate and label smoothing value were used for the base model?",
+      "expected_pages": [
+        8
+      ],
+      "must_contain": [
+        "0.1"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 5.4: P_drop = 0.1 and label smoothing eps_ls = 0.1."
+    },
+    {
+      "id": "attention-11",
+      "paper": "attention",
+      "category": "result",
+      "answerable": true,
+      "question": "How well did the Transformer do on English constituency parsing when trained only on WSJ?",
+      "expected_pages": [
+        10
+      ],
+      "must_contain": [
+        "91.3"
+      ],
+      "must_not_contain": [],
+      "notes": "Table 4: Transformer 4 layers, WSJ only, F1 91.3."
+    },
+    {
+      "id": "attention-12",
+      "paper": "attention",
+      "category": "multi-page",
+      "answerable": true,
+      "question": "What vocabulary encoding and training set size were used for English-to-German, and what beam size was used at inference?",
+      "expected_pages": [
+        7,
+        8
+      ],
+      "must_contain": [
+        "37000",
+        "4"
+      ],
+      "must_not_contain": [],
+      "notes": "Page 7 gives byte-pair encoding with ~37000 shared tokens on 4.5M sentence pairs; page 8 gives beam size 4, length penalty 0.6."
+    },
+    {
+      "id": "attention-13",
+      "paper": "attention",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What perplexity does the Transformer reach on the WikiText-103 language modelling benchmark?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "Perplexities are reported for the newstest2013 dev set only; WikiText-103 appears nowhere in the corpus."
+    },
+    {
+      "id": "attention-14",
+      "paper": "attention",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "How many parameters does the Transformer big model have when trained for English-to-French?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "Table 3 gives 213M parameters for the big model on the English-to-German development set; no per-language parameter count is given, and answering with 213M would be an unsupported inference."
+    },
+    {
+      "id": "attention-15",
+      "paper": "attention",
+      "category": "unanswerable-domain",
+      "answerable": false,
+      "question": "What is the current price of an NVIDIA P100 GPU?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "P100 hardware is named in the corpus; pricing is not in it."
+    },
+    {
+      "id": "bert-01",
+      "paper": "bert",
+      "category": "fact",
+      "answerable": true,
+      "question": "How many layers, hidden units and attention heads do BERT-BASE and BERT-LARGE have?",
+      "expected_pages": [
+        3
+      ],
+      "must_contain": [
+        "12",
+        "768",
+        "24",
+        "1024",
+        "16"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 3: BASE L=12 H=768 A=12 (110M); LARGE L=24 H=1024 A=16 (340M)."
+    },
+    {
+      "id": "bert-02",
+      "paper": "bert",
+      "category": "fact",
+      "answerable": true,
+      "question": "How many parameters does BERT-LARGE contain?",
+      "expected_pages": [
+        3,
+        8
+      ],
+      "must_contain": [
+        "340M"
+      ],
+      "must_not_contain": [],
+      "notes": "Stated in Section 3 and repeated in Section 5.2."
+    },
+    {
+      "id": "bert-03",
+      "paper": "bert",
+      "category": "method",
+      "answerable": true,
+      "question": "What percentage of WordPiece tokens are masked, and how are the chosen positions actually replaced?",
+      "expected_pages": [
+        4
+      ],
+      "must_contain": [
+        "15",
+        "80",
+        "10"
+      ],
+      "must_not_contain": [],
+      "notes": "Task #1 Masked LM: 15% chosen; [MASK] 80% of the time, random token 10%, unchanged 10%."
+    },
+    {
+      "id": "bert-04",
+      "paper": "bert",
+      "category": "method",
+      "answerable": true,
+      "question": "What is the next sentence prediction task and what is the split between IsNext and NotNext examples?",
+      "expected_pages": [
+        4
+      ],
+      "must_contain": [
+        "50"
+      ],
+      "must_not_contain": [],
+      "notes": "Task #2: 50% actual next sentence, 50% random sentence."
+    },
+    {
+      "id": "bert-05",
+      "paper": "bert",
+      "category": "method",
+      "answerable": true,
+      "question": "What corpora were used to pre-train BERT and how large were they?",
+      "expected_pages": [
+        5,
+        14
+      ],
+      "must_contain": [
+        "BooksCorpus",
+        "800M",
+        "2,500M"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 3.1 Pre-training data (p5); the GPT comparison on p14 independently states 'BERT is trained on the BooksCorpus (800M words) and Wikipedia (2,500M words)'."
+    },
+    {
+      "id": "bert-06",
+      "paper": "bert",
+      "category": "fact",
+      "answerable": true,
+      "question": "What vocabulary size does BERT's WordPiece embedding use?",
+      "expected_pages": [
+        4
+      ],
+      "must_contain": [
+        "30,000"
+      ],
+      "must_not_contain": [],
+      "notes": "Input/Output Representations: WordPiece embeddings with a 30,000 token vocabulary."
+    },
+    {
+      "id": "bert-07",
+      "paper": "bert",
+      "category": "result",
+      "answerable": true,
+      "question": "What GLUE score did BERT-LARGE obtain and what was the prior state of the art?",
+      "expected_pages": [
+        1,
+        6
+      ],
+      "must_contain": [
+        "80.5"
+      ],
+      "must_not_contain": [],
+      "notes": "Abstract: GLUE pushed to 80.5%, a 7.7 point absolute improvement; Table 1 and Section 4.1 repeat it."
+    },
+    {
+      "id": "bert-08",
+      "paper": "bert",
+      "category": "result",
+      "answerable": true,
+      "question": "What SQuAD v1.1 and v2.0 test F1 scores did BERT achieve?",
+      "expected_pages": [
+        1,
+        7
+      ],
+      "must_contain": [
+        "93.2",
+        "83.1"
+      ],
+      "must_not_contain": [],
+      "notes": "Abstract (p1) and Tables 2 and 3 on p7, which give 93.2 SQuAD 1.1 test F1 and 83.1 SQuAD 2.0 test F1 for BERT."
+    },
+    {
+      "id": "bert-09",
+      "paper": "bert",
+      "category": "method",
+      "answerable": true,
+      "question": "What batch size, learning rates and number of epochs were used to fine-tune on GLUE?",
+      "expected_pages": [
+        6
+      ],
+      "must_contain": [
+        "32",
+        "3"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 4.1: batch size 32, 3 epochs, LR chosen from 5e-5, 4e-5, 3e-5, 2e-5."
+    },
+    {
+      "id": "bert-10",
+      "paper": "bert",
+      "category": "result",
+      "answerable": true,
+      "question": "In the ablation, what happens to performance when the next sentence prediction task is removed?",
+      "expected_pages": [
+        8
+      ],
+      "must_contain": [
+        "QNLI",
+        "MNLI"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 5.1 and Table 5: removing NSP hurts QNLI, MNLI and SQuAD 1.1."
+    },
+    {
+      "id": "bert-11",
+      "paper": "bert",
+      "category": "result",
+      "answerable": true,
+      "question": "In the feature-based approach on CoNLL-2003 NER, which layer combination performed best and how far behind fine-tuning was it?",
+      "expected_pages": [
+        9
+      ],
+      "must_contain": [
+        "0.3",
+        "four"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 5.3 and Table 7: concatenating the top four hidden layers is only 0.3 F1 behind fine-tuning."
+    },
+    {
+      "id": "bert-12",
+      "paper": "bert",
+      "category": "result",
+      "answerable": true,
+      "question": "How much did BERT-LARGE outperform OpenAI GPT on the SWAG dataset?",
+      "expected_pages": [
+        7
+      ],
+      "must_contain": [
+        "8.3"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 4.4: BERT-LARGE outperforms ESIM+ELMo by 27.1% and OpenAI GPT by 8.3%."
+    },
+    {
+      "id": "bert-13",
+      "paper": "bert",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What BLEU score does BERT achieve on WMT 2014 English-to-German translation?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "BLEU on exactly this task IS in the corpus, for the Transformer. BERT is never evaluated on translation. The strongest fabrication trap in the set."
+    },
+    {
+      "id": "bert-14",
+      "paper": "bert",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "How many TPU-days did it take to pre-train BERT-LARGE?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "Fine-tuning cost is given (about 1 hour on a Cloud TPU); pre-training cost is not in the extracted body text."
+    },
+    {
+      "id": "bert-15",
+      "paper": "bert",
+      "category": "unanswerable-domain",
+      "answerable": false,
+      "question": "How many citations has the BERT paper received?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "Bibliometrics are not in any paper."
+    },
+    {
+      "id": "adam-01",
+      "paper": "adam",
+      "category": "fact",
+      "answerable": true,
+      "question": "What are the recommended default values for Adam's stepsize, beta1, beta2 and epsilon?",
+      "expected_pages": [
+        2
+      ],
+      "must_contain": [
+        "0.001",
+        "0.9",
+        "0.999"
+      ],
+      "must_not_contain": [],
+      "notes": "Algorithm 1 caption: alpha = 0.001, beta1 = 0.9, beta2 = 0.999, eps = 1e-8."
+    },
+    {
+      "id": "adam-02",
+      "paper": "adam",
+      "category": "fact",
+      "answerable": true,
+      "question": "Where does the name Adam come from?",
+      "expected_pages": [
+        1
+      ],
+      "must_contain": [
+        "adaptive moment estimation"
+      ],
+      "must_not_contain": [],
+      "notes": "Introduction states it explicitly."
+    },
+    {
+      "id": "adam-03",
+      "paper": "adam",
+      "category": "method",
+      "answerable": true,
+      "question": "Which two existing methods was Adam designed to combine the advantages of?",
+      "expected_pages": [
+        1
+      ],
+      "must_contain": [
+        "AdaGrad",
+        "RMSProp"
+      ],
+      "must_not_contain": [],
+      "notes": "Introduction: AdaGrad for sparse gradients, RMSProp for on-line and non-stationary settings."
+    },
+    {
+      "id": "adam-04",
+      "paper": "adam",
+      "category": "method",
+      "answerable": true,
+      "question": "Why does Adam apply bias correction to its moment estimates?",
+      "expected_pages": [
+        2,
+        3
+      ],
+      "must_contain": [
+        "zero"
+      ],
+      "must_not_contain": [],
+      "notes": "Sections 2 and 3: moving averages initialized at zero are biased toward zero, especially early and when betas are close to 1."
+    },
+    {
+      "id": "adam-05",
+      "paper": "adam",
+      "category": "fact",
+      "answerable": true,
+      "question": "What regret bound does Adam achieve, and what does the average regret converge to?",
+      "expected_pages": [
+        4
+      ],
+      "must_contain": [
+        "O("
+      ],
+      "must_not_contain": [],
+      "notes": "Theorem 4.1 gives an O(sqrt(T)) regret bound; Corollary 4.2 gives R(T)/T = O(1/sqrt(T))."
+    },
+    {
+      "id": "adam-06",
+      "paper": "adam",
+      "category": "method",
+      "answerable": true,
+      "question": "What is the signal-to-noise ratio in Adam and what happens to the step size when it is small?",
+      "expected_pages": [
+        3
+      ],
+      "must_contain": [
+        "closer to zero"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 2.1: a smaller SNR makes the effective stepsize closer to zero -- a form of automatic annealing."
+    },
+    {
+      "id": "adam-07",
+      "paper": "adam",
+      "category": "method",
+      "answerable": true,
+      "question": "What is AdaMax and how does it differ from Adam?",
+      "expected_pages": [
+        8,
+        9
+      ],
+      "must_contain": [
+        "infinity norm"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 7.1 and Algorithm 2: a variant based on the infinity norm, default alpha 0.002."
+    },
+    {
+      "id": "adam-08",
+      "paper": "adam",
+      "category": "fact",
+      "answerable": true,
+      "question": "What is AdaMax's recommended default stepsize?",
+      "expected_pages": [
+        9
+      ],
+      "must_contain": [
+        "0.002"
+      ],
+      "must_not_contain": [],
+      "notes": "Algorithm 2 caption. Deliberately close to adam-01 so that retrieval must distinguish the two algorithms' defaults."
+    },
+    {
+      "id": "adam-09",
+      "paper": "adam",
+      "category": "method",
+      "answerable": true,
+      "question": "What minibatch size was used in the logistic regression and neural network experiments?",
+      "expected_pages": [
+        5,
+        6
+      ],
+      "must_contain": [
+        "128"
+      ],
+      "must_not_contain": [],
+      "notes": "Sections 6.1 and 6.2 both use minibatch size 128."
+    },
+    {
+      "id": "adam-10",
+      "paper": "adam",
+      "category": "result",
+      "answerable": true,
+      "question": "How does Adam compare to SFO on multi-layer neural networks, and what is SFO's drawback?",
+      "expected_pages": [
+        6
+      ],
+      "must_contain": [
+        "memory"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 6.2: SFO is 5-10x slower per iteration and has memory requirements linear in the number of minibatches."
+    },
+    {
+      "id": "adam-11",
+      "paper": "adam",
+      "category": "result",
+      "answerable": true,
+      "question": "Why did Adagrad converge more slowly than Adam on the CIFAR-10 ConvNet experiment?",
+      "expected_pages": [
+        7
+      ],
+      "must_contain": [
+        "second moment"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 6.3: the second moment estimate vanishes and is dominated by epsilon, making it a poor approximation of the geometry for CNNs."
+    },
+    {
+      "id": "adam-12",
+      "paper": "adam",
+      "category": "method",
+      "answerable": true,
+      "question": "What model was used to evaluate the effect of the bias-correction terms?",
+      "expected_pages": [
+        8
+      ],
+      "must_contain": [
+        "autoencoder"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 6.4: a variational autoencoder with a single hidden layer of 500 units."
+    },
+    {
+      "id": "adam-13",
+      "paper": "adam",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What ImageNet top-5 error does a ResNet-50 trained with Adam achieve?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "Adam's experiments stop at CIFAR-10; the ResNet paper in this corpus uses SGD, not Adam. Both halves are retrievable, the combination does not exist."
+    },
+    {
+      "id": "adam-14",
+      "paper": "adam",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What default value of beta1 does the paper recommend for training transformers?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "A near-miss by construction: the Transformer paper in this corpus specifies beta1 = 0.9 and beta2 = 0.98 for Adam, but the Adam paper makes no transformer-specific recommendation. Answering from the other paper would be an attribution error, not a citation of this one."
+    },
+    {
+      "id": "adam-15",
+      "paper": "adam",
+      "category": "unanswerable-domain",
+      "answerable": false,
+      "question": "Which university employed Diederik Kingma at the time the AdaMax follow-up was published?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "Affiliations at submission are on page 1, but no follow-up publication is mentioned anywhere."
+    },
+    {
+      "id": "word2vec-01",
+      "paper": "word2vec",
+      "category": "fact",
+      "answerable": true,
+      "question": "What are the two new model architectures this paper proposes?",
+      "expected_pages": [
+        4
+      ],
+      "must_contain": [
+        "Bag-of-Words",
+        "Skip-gram"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 3: Continuous Bag-of-Words (CBOW) and Continuous Skip-gram."
+    },
+    {
+      "id": "word2vec-02",
+      "paper": "word2vec",
+      "category": "fact",
+      "answerable": true,
+      "question": "What is the classic vector arithmetic example given for semantic regularity?",
+      "expected_pages": [
+        2
+      ],
+      "must_contain": [
+        "King",
+        "Queen"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 1.1: vector(King) - vector(Man) + vector(Woman) is closest to Queen."
+    },
+    {
+      "id": "word2vec-03",
+      "paper": "word2vec",
+      "category": "fact",
+      "answerable": true,
+      "question": "How many semantic and syntactic questions are in the Semantic-Syntactic Word Relationship test set?",
+      "expected_pages": [
+        6
+      ],
+      "must_contain": [
+        "8869",
+        "10675"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 4.1."
+    },
+    {
+      "id": "word2vec-04",
+      "paper": "word2vec",
+      "category": "fact",
+      "answerable": true,
+      "question": "How many types of semantic and syntactic questions does the test set contain?",
+      "expected_pages": [
+        6
+      ],
+      "must_contain": [
+        "five",
+        "nine"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 4.1 and Table 1: five semantic types, nine syntactic types."
+    },
+    {
+      "id": "word2vec-05",
+      "paper": "word2vec",
+      "category": "method",
+      "answerable": true,
+      "question": "What corpus was used for training and how was the vocabulary restricted?",
+      "expected_pages": [
+        6
+      ],
+      "must_contain": [
+        "Google News",
+        "6B",
+        "1 million"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 4.2: Google News corpus of about 6B tokens, vocabulary restricted to 1 million most frequent words."
+    },
+    {
+      "id": "word2vec-06",
+      "paper": "word2vec",
+      "category": "method",
+      "answerable": true,
+      "question": "How does the Skip-gram model weight distant context words?",
+      "expected_pages": [
+        4
+      ],
+      "must_contain": [
+        "less weight"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 3.2: less weight to distant words by sampling less from them."
+    },
+    {
+      "id": "word2vec-07",
+      "paper": "word2vec",
+      "category": "method",
+      "answerable": true,
+      "question": "What value of C, the maximum word distance, was used in the experiments?",
+      "expected_pages": [
+        5
+      ],
+      "must_contain": [
+        "10"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 3.2 continues onto page 5: 'In the following experiments, we use C = 10.'"
+    },
+    {
+      "id": "word2vec-08",
+      "paper": "word2vec",
+      "category": "result",
+      "answerable": true,
+      "question": "In the architecture comparison at 640 dimensions, which model was best on semantic accuracy and what did it score?",
+      "expected_pages": [
+        7
+      ],
+      "must_contain": [
+        "Skip-gram",
+        "55"
+      ],
+      "must_not_contain": [],
+      "notes": "Table 3: Skip-gram 55 semantic vs CBOW 24, NNLM 23, RNNLM 9."
+    },
+    {
+      "id": "word2vec-09",
+      "paper": "word2vec",
+      "category": "method",
+      "answerable": true,
+      "question": "What starting learning rate was used and how was it decayed?",
+      "expected_pages": [
+        7
+      ],
+      "must_contain": [
+        "0.025",
+        "linearly"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 4.2: starting learning rate 0.025, decreased linearly to approach zero at the end of the last epoch."
+    },
+    {
+      "id": "word2vec-10",
+      "paper": "word2vec",
+      "category": "result",
+      "answerable": true,
+      "question": "What accuracy was achieved on the Microsoft Sentence Completion Challenge by combining Skip-gram with RNNLMs?",
+      "expected_pages": [
+        9
+      ],
+      "must_contain": [
+        "58.9"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 4.5 and Table 7: Skip-gram alone 48.0, combined 58.9, a new state of the art."
+    },
+    {
+      "id": "word2vec-11",
+      "paper": "word2vec",
+      "category": "result",
+      "answerable": true,
+      "question": "How long did it take to train the CBOW and Skip-gram models on the Google News subset?",
+      "expected_pages": [
+        8
+      ],
+      "must_contain": [
+        "day",
+        "three days"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 4.3 continuation: CBOW about a day, Skip-gram about three days."
+    },
+    {
+      "id": "word2vec-12",
+      "paper": "word2vec",
+      "category": "result",
+      "answerable": true,
+      "question": "How much does averaging ten examples instead of one improve the relationship vector accuracy?",
+      "expected_pages": [
+        10
+      ],
+      "must_contain": [
+        "10"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 5: about 10% absolute improvement on the semantic-syntactic test."
+    },
+    {
+      "id": "word2vec-13",
+      "paper": "word2vec",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What accuracy does the Skip-gram model reach on the SQuAD question answering benchmark?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "SQuAD is well covered in this corpus by BERT. Skip-gram is never evaluated on it."
+    },
+    {
+      "id": "word2vec-14",
+      "paper": "word2vec",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What subword or character-level information do these word vectors use to handle morphology?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "The paper explicitly says the models have no information about word morphology and flags incorporating it as future work -- so the question presupposes something the paper denies. Byte-pair and WordPiece encodings elsewhere in the corpus are the distractor."
+    },
+    {
+      "id": "word2vec-15",
+      "paper": "word2vec",
+      "category": "unanswerable-domain",
+      "answerable": false,
+      "question": "What is the population of Brno, where several of the cited theses were written?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "Brno University of Technology appears in the references; the city's population does not."
+    },
+    {
+      "id": "gan-01",
+      "paper": "gan",
+      "category": "fact",
+      "answerable": true,
+      "question": "What are the two models trained simultaneously in the adversarial framework, and what does each do?",
+      "expected_pages": [
+        1
+      ],
+      "must_contain": [
+        "generative",
+        "discriminative"
+      ],
+      "must_not_contain": [],
+      "notes": "Abstract: generative model G captures the data distribution, discriminative model D estimates the probability a sample came from the training data."
+    },
+    {
+      "id": "gan-02",
+      "paper": "gan",
+      "category": "fact",
+      "answerable": true,
+      "question": "What analogy is used to describe the competition between the generator and discriminator?",
+      "expected_pages": [
+        1
+      ],
+      "must_contain": [
+        "counterfeit",
+        "police"
+      ],
+      "must_not_contain": [],
+      "notes": "Introduction: a team of counterfeiters versus the police."
+    },
+    {
+      "id": "gan-03",
+      "paper": "gan",
+      "category": "fact",
+      "answerable": true,
+      "question": "At the unique solution of the minimax game, what value does the discriminator output everywhere?",
+      "expected_pages": [
+        1,
+        3
+      ],
+      "must_contain": [
+        "1"
+      ],
+      "must_not_contain": [],
+      "notes": "Abstract and Figure 1 caption: D equal to 1/2 everywhere."
+    },
+    {
+      "id": "gan-04",
+      "paper": "gan",
+      "category": "method",
+      "answerable": true,
+      "question": "What is the optimal discriminator for a fixed generator?",
+      "expected_pages": [
+        4
+      ],
+      "must_contain": [
+        "pdata"
+      ],
+      "must_not_contain": [],
+      "notes": "Proposition 1: D*(x) = pdata(x) / (pdata(x) + pg(x))."
+    },
+    {
+      "id": "gan-05",
+      "paper": "gan",
+      "category": "result",
+      "answerable": true,
+      "question": "What value does the virtual training criterion C(G) achieve at its global minimum, and what divergence does it correspond to?",
+      "expected_pages": [
+        5
+      ],
+      "must_contain": [
+        "Jensen",
+        "log 4"
+      ],
+      "must_not_contain": [],
+      "notes": "Theorem 1: C(G) = -log 4 at pg = pdata, and C(G) = -log(4) + 2 * JSD(pdata || pg)."
+    },
+    {
+      "id": "gan-06",
+      "paper": "gan",
+      "category": "method",
+      "answerable": true,
+      "question": "Why is the generator trained to maximise log D(G(z)) rather than minimise log(1 - D(G(z)))?",
+      "expected_pages": [
+        3
+      ],
+      "must_contain": [
+        "saturates",
+        "stronger gradients"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 3: the original objective saturates early in learning when G is poor."
+    },
+    {
+      "id": "gan-07",
+      "paper": "gan",
+      "category": "method",
+      "answerable": true,
+      "question": "What value of k, the number of discriminator steps per generator step, was used in the experiments?",
+      "expected_pages": [
+        4
+      ],
+      "must_contain": [
+        "1"
+      ],
+      "must_not_contain": [],
+      "notes": "Algorithm 1 caption: k = 1, the least expensive option."
+    },
+    {
+      "id": "gan-08",
+      "paper": "gan",
+      "category": "method",
+      "answerable": true,
+      "question": "Which datasets were the adversarial nets trained on?",
+      "expected_pages": [
+        5
+      ],
+      "must_contain": [
+        "MNIST",
+        "Toronto Face",
+        "CIFAR-10"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 5 Experiments."
+    },
+    {
+      "id": "gan-09",
+      "paper": "gan",
+      "category": "method",
+      "answerable": true,
+      "question": "What activation functions were used in the generator and discriminator nets?",
+      "expected_pages": [
+        5
+      ],
+      "must_contain": [
+        "maxout",
+        "sigmoid"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 5: generator uses rectifier linear and sigmoid activations, discriminator uses maxout."
+    },
+    {
+      "id": "gan-10",
+      "paper": "gan",
+      "category": "result",
+      "answerable": true,
+      "question": "How was the likelihood of the test data estimated, and what is the drawback of that method?",
+      "expected_pages": [
+        5,
+        6
+      ],
+      "must_contain": [
+        "Parzen",
+        "high variance"
+      ],
+      "must_not_contain": [],
+      "notes": "Sections 5 and 6: a Gaussian Parzen window fit, which has high variance and does not perform well in high dimensional spaces. Spans the page break."
+    },
+    {
+      "id": "gan-11",
+      "paper": "gan",
+      "category": "result",
+      "answerable": true,
+      "question": "What log-likelihood did adversarial nets achieve on MNIST and TFD in the Parzen window comparison?",
+      "expected_pages": [
+        6
+      ],
+      "must_contain": [
+        "225",
+        "2057"
+      ],
+      "must_not_contain": [],
+      "notes": "Table 1."
+    },
+    {
+      "id": "gan-12",
+      "paper": "gan",
+      "category": "fact",
+      "answerable": true,
+      "question": "What is the Helvetica scenario and what causes it?",
+      "expected_pages": [
+        7
+      ],
+      "must_contain": [
+        "Helvetica",
+        "collapses"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 6: G collapses too many values of z to the same x when it is trained too much without updating D."
+    },
+    {
+      "id": "gan-13",
+      "paper": "gan",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What Inception Score do the generated CIFAR-10 samples achieve?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "The Inception architecture is discussed elsewhere in this corpus and CIFAR-10 samples are shown here, but the Inception Score metric postdates this paper and appears nowhere."
+    },
+    {
+      "id": "gan-14",
+      "paper": "gan",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What learning rate and momentum coefficient were used to train the adversarial nets?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "The paper says only that momentum was used, without values. Several other corpus papers give momentum 0.9, which is the trap."
+    },
+    {
+      "id": "gan-15",
+      "paper": "gan",
+      "category": "unanswerable-domain",
+      "answerable": false,
+      "question": "What is Les Trois Brasseurs, thanked in the acknowledgments?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "The name appears verbatim in the acknowledgments, so retrieval will hit it with high confidence, but the corpus never says what it is. Tests whether a lexical match is mistaken for evidence."
+    },
+    {
+      "id": "rag-01",
+      "paper": "rag",
+      "category": "fact",
+      "answerable": true,
+      "question": "What are the parametric and non-parametric memories in the RAG model?",
+      "expected_pages": [
+        1,
+        2
+      ],
+      "must_contain": [
+        "seq2seq",
+        "Wikipedia"
+      ],
+      "must_not_contain": [],
+      "notes": "Abstract and Section 1: parametric memory is a pre-trained seq2seq model, non-parametric memory is a dense vector index of Wikipedia."
+    },
+    {
+      "id": "rag-02",
+      "paper": "rag",
+      "category": "fact",
+      "answerable": true,
+      "question": "What is the difference between RAG-Sequence and RAG-Token?",
+      "expected_pages": [
+        3
+      ],
+      "must_contain": [
+        "same document",
+        "different"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 2.1: RAG-Sequence uses the same retrieved document for the whole sequence; RAG-Token can draw a different document per token."
+    },
+    {
+      "id": "rag-03",
+      "paper": "rag",
+      "category": "method",
+      "answerable": true,
+      "question": "Which retriever and which generator does RAG use?",
+      "expected_pages": [
+        2,
+        3
+      ],
+      "must_contain": [
+        "DPR",
+        "BART"
+      ],
+      "must_not_contain": [],
+      "notes": "Sections 2.2 and 2.3: Dense Passage Retriever and BART-large with 400M parameters."
+    },
+    {
+      "id": "rag-04",
+      "paper": "rag",
+      "category": "method",
+      "answerable": true,
+      "question": "Which Wikipedia dump was used, how was it chunked, and how many documents resulted?",
+      "expected_pages": [
+        4
+      ],
+      "must_contain": [
+        "December 2018",
+        "100-word",
+        "21M"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 3: December 2018 dump, disjoint 100-word chunks, 21M documents."
+    },
+    {
+      "id": "rag-05",
+      "paper": "rag",
+      "category": "method",
+      "answerable": true,
+      "question": "Which components of the retriever are fine-tuned during training and which are kept fixed?",
+      "expected_pages": [
+        4
+      ],
+      "must_contain": [
+        "query encoder",
+        "fixed"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 2.4: the document encoder and index are kept fixed; only the query encoder and BART generator are fine-tuned."
+    },
+    {
+      "id": "rag-06",
+      "paper": "rag",
+      "category": "method",
+      "answerable": true,
+      "question": "What library and index structure were used for the MIPS search?",
+      "expected_pages": [
+        4
+      ],
+      "must_contain": [
+        "FAISS",
+        "Hierarchical Navigable Small World"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 3."
+    },
+    {
+      "id": "rag-07",
+      "paper": "rag",
+      "category": "method",
+      "answerable": true,
+      "question": "What are Thorough Decoding and Fast Decoding, and which model needs them?",
+      "expected_pages": [
+        4
+      ],
+      "must_contain": [
+        "RAG-Sequence",
+        "beam"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 2.5: RAG-Sequence cannot use a single beam search, so it runs beam search per document."
+    },
+    {
+      "id": "rag-08",
+      "paper": "rag",
+      "category": "result",
+      "answerable": true,
+      "question": "What Exact Match scores did RAG achieve on Natural Questions?",
+      "expected_pages": [
+        6
+      ],
+      "must_contain": [
+        "44.5",
+        "44.1"
+      ],
+      "must_not_contain": [],
+      "notes": "Table 1: RAG-Sequence 44.5, RAG-Token 44.1 on NQ."
+    },
+    {
+      "id": "rag-09",
+      "paper": "rag",
+      "category": "result",
+      "answerable": true,
+      "question": "How often did RAG generate a correct answer for Natural Questions when the answer was in none of the retrieved documents?",
+      "expected_pages": [
+        6
+      ],
+      "must_contain": [
+        "11.8"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 4.1: 11.8% accuracy in such cases, where an extractive model would score 0%."
+    },
+    {
+      "id": "rag-10",
+      "paper": "rag",
+      "category": "result",
+      "answerable": true,
+      "question": "In the human evaluation of Jeopardy question generation, how often was RAG judged more factual than BART?",
+      "expected_pages": [
+        6,
+        8
+      ],
+      "must_contain": [
+        "42.7",
+        "7.1"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 4.3 and Table 4: RAG more factual in 42.7% of cases, BART in only 7.1%."
+    },
+    {
+      "id": "rag-11",
+      "paper": "rag",
+      "category": "result",
+      "answerable": true,
+      "question": "How often was the top retrieved document from a gold FEVER article?",
+      "expected_pages": [
+        7
+      ],
+      "must_contain": [
+        "71",
+        "90"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 4.4: top document is from a gold article in 71% of cases, a gold article is in the top 10 in 90%."
+    },
+    {
+      "id": "rag-12",
+      "paper": "rag",
+      "category": "result",
+      "answerable": true,
+      "question": "What did the index hot-swapping experiment show about updating RAG's world knowledge?",
+      "expected_pages": [
+        8
+      ],
+      "must_contain": [
+        "70",
+        "68"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 4.5: 70% correct with the 2016 index on 2016 leaders, 68% with the 2018 index on 2018 leaders, and low accuracy when mismatched."
+    },
+    {
+      "id": "rag-13",
+      "paper": "rag",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What reranking model does RAG apply to the retrieved passages before generation?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "RAG explicitly states that neither a re-ranker nor an extractive reader is necessary -- the question presupposes a component the paper says it does without. A cross-encoder re-ranker IS mentioned in passing as part of the DPR QA system, making this a precise trap."
+    },
+    {
+      "id": "rag-14",
+      "paper": "rag",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "How many GPUs were used to fine-tune the RAG models and for how long?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "Training hardware is not reported in the extracted body text, though several other corpus papers report theirs in detail."
+    },
+    {
+      "id": "rag-15",
+      "paper": "rag",
+      "category": "unanswerable-domain",
+      "answerable": false,
+      "question": "What is the monthly cost of hosting the RAG demo on HuggingFace?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "The HuggingFace demo URL is in the corpus; hosting costs are not."
+    },
+    {
+      "id": "gpt3-01",
+      "paper": "gpt3",
+      "category": "fact",
+      "answerable": true,
+      "question": "How many parameters does GPT-3 have?",
+      "expected_pages": [
+        1,
+        5,
+        8
+      ],
+      "must_contain": [
+        "175"
+      ],
+      "must_not_contain": [],
+      "notes": "Abstract (p1), the introduction's 'training a 175 billion parameter autoregressive language model, which we call GPT-3' (p5), and Table 2.1 (p8)."
+    },
+    {
+      "id": "gpt3-02",
+      "paper": "gpt3",
+      "category": "fact",
+      "answerable": true,
+      "question": "How many layers, what d_model and how many attention heads does the 175B model use?",
+      "expected_pages": [
+        8
+      ],
+      "must_contain": [
+        "96",
+        "12288"
+      ],
+      "must_not_contain": [],
+      "notes": "Table 2.1: n_layers 96, d_model 12288, n_heads 96, d_head 128."
+    },
+    {
+      "id": "gpt3-03",
+      "paper": "gpt3",
+      "category": "fact",
+      "answerable": true,
+      "question": "What is GPT-3's context window size?",
+      "expected_pages": [
+        6,
+        8
+      ],
+      "must_contain": [
+        "2048"
+      ],
+      "must_not_contain": [],
+      "notes": "Sections 2 and 2.1: n_ctx = 2048 for all models."
+    },
+    {
+      "id": "gpt3-04",
+      "paper": "gpt3",
+      "category": "fact",
+      "answerable": true,
+      "question": "How many tokens was every GPT-3 model trained on?",
+      "expected_pages": [
+        8
+      ],
+      "must_contain": [
+        "300 billion"
+      ],
+      "must_not_contain": [],
+      "notes": "Table 2.1 caption: all models trained for a total of 300 billion tokens."
+    },
+    {
+      "id": "gpt3-05",
+      "paper": "gpt3",
+      "category": "method",
+      "answerable": true,
+      "question": "What five datasets make up GPT-3's training mix, and what weight does Common Crawl have?",
+      "expected_pages": [
+        9
+      ],
+      "must_contain": [
+        "WebText2",
+        "Books1",
+        "Books2",
+        "Wikipedia",
+        "60"
+      ],
+      "must_not_contain": [],
+      "notes": "Table 2.2: Common Crawl 60%, WebText2 22%, Books1 8%, Books2 8%, Wikipedia 3%."
+    },
+    {
+      "id": "gpt3-06",
+      "paper": "gpt3",
+      "category": "method",
+      "answerable": true,
+      "question": "How large was the Common Crawl data before and after filtering?",
+      "expected_pages": [
+        8
+      ],
+      "must_contain": [
+        "45TB",
+        "570GB"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 2.2: 45TB of compressed plaintext before filtering, 570GB after."
+    },
+    {
+      "id": "gpt3-07",
+      "paper": "gpt3",
+      "category": "method",
+      "answerable": true,
+      "question": "How do the few-shot, one-shot and zero-shot settings differ?",
+      "expected_pages": [
+        6
+      ],
+      "must_contain": [
+        "demonstrations",
+        "no weight updates"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 2: few-shot allows K demonstrations (typically 10 to 100) with no gradient updates; one-shot allows one; zero-shot allows none."
+    },
+    {
+      "id": "gpt3-08",
+      "paper": "gpt3",
+      "category": "result",
+      "answerable": true,
+      "question": "What TriviaQA accuracy did GPT-3 reach in the zero-, one- and few-shot settings?",
+      "expected_pages": [
+        5
+      ],
+      "must_contain": [
+        "64.3",
+        "68.0",
+        "71.2"
+      ],
+      "must_not_contain": [],
+      "notes": "Introduction gives all three."
+    },
+    {
+      "id": "gpt3-09",
+      "paper": "gpt3",
+      "category": "result",
+      "answerable": true,
+      "question": "What F1 did GPT-3 achieve on CoQA across the three settings?",
+      "expected_pages": [
+        5
+      ],
+      "must_contain": [
+        "81.5",
+        "84.0",
+        "85.0"
+      ],
+      "must_not_contain": [],
+      "notes": "Introduction."
+    },
+    {
+      "id": "gpt3-10",
+      "paper": "gpt3",
+      "category": "method",
+      "answerable": true,
+      "question": "What hardware was GPT-3 trained on and who provided it?",
+      "expected_pages": [
+        9
+      ],
+      "must_contain": [
+        "V100",
+        "Microsoft"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 2.3: V100 GPUs on a high-bandwidth cluster provided by Microsoft."
+    },
+    {
+      "id": "gpt3-11",
+      "paper": "gpt3",
+      "category": "fact",
+      "answerable": true,
+      "question": "What went wrong with the data contamination filtering, and what did the authors do about it?",
+      "expected_pages": [
+        9,
+        31
+      ],
+      "must_contain": [
+        "bug",
+        "retrain"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 2.2 (p9) and Section 4 (p31), which states the bug resulted in only partial removal of detected overlaps and that retraining was not feasible given the cost."
+    },
+    {
+      "id": "gpt3-12",
+      "paper": "gpt3",
+      "category": "multi-page",
+      "answerable": true,
+      "question": "How much compute did training GPT-3 175B consume, and what does generating 100 pages of content from the trained model cost in energy?",
+      "expected_pages": [
+        39
+      ],
+      "must_contain": [
+        "petaflop/s-days",
+        "0.4"
+      ],
+      "must_not_contain": [],
+      "notes": "Section 6.3 Energy Usage. Printed as page 39 and physically page 39 of the PDF; the earlier label of 41 came from the table of contents, not the page itself."
+    },
+    {
+      "id": "gpt3-13",
+      "paper": "gpt3",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What is GPT-3's accuracy on SuperGLUE after fine-tuning?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "The paper states explicitly that it does not fine-tune GPT-3 and leaves it to future work. SuperGLUE results exist, but only few-shot -- so a plausible number is retrievable under the wrong condition."
+    },
+    {
+      "id": "gpt3-14",
+      "paper": "gpt3",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What was the dollar cost of training GPT-3?",
+      "expected_pages": [],
+      "must_contain": [],
+      "must_not_contain": [],
+      "notes": "Compute and energy are quantified; the paper gives a few cents for generation but never a training cost in dollars. The nearby cents figure is the trap."
+    },
+    {
+      "id": "gpt3-15",
+      "paper": "gpt3",
+      "category": "cross-paper",
+      "answerable": true,
+      "question": "Which architecture does GPT-3 build on, and how many parameters did the model in the paper that introduced that architecture have?",
+      "expected_pages": [
+        39
+      ],
+      "must_contain": [
+        "213 million"
+      ],
+      "must_not_contain": [],
+      "notes": "GPT-3's Related Work section, physical page 39, lists '213 million parameters [VSP+17] in the original paper' -- citing the Transformer paper that is also in this corpus."
+    }
+  ]
+}

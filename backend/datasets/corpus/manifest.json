@@ -1,0 +1,77 @@
+{
+  "description": "Sprint 6 ingestion + benchmark corpus. Ten open-access arXiv papers in ML/NLP, chosen because they are textually rich, structurally varied (4 to 75 pages), and cover distinct enough topics that a retrieval query for one should not be satisfied by another. The PDFs are not checked in; this manifest plus scripts/fetch_corpus.py reproduces them byte-for-byte via the pinned SHA-256.",
+  "source": "arXiv (https://arxiv.org) - see docs/dataset-references.md",
+  "license_note": "arXiv PDFs are downloaded for local research use. Individual papers carry their own licenses; this corpus is not redistributed with the repository, which is one reason the PDFs are gitignored rather than committed.",
+  "papers": [
+    {
+      "key": "attention",
+      "arxiv_id": "1706.03762",
+      "title": "Attention Is All You Need",
+      "sha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697",
+      "page_count": 15
+    },
+    {
+      "key": "resnet",
+      "arxiv_id": "1512.03385",
+      "title": "Deep Residual Learning for Image Recognition",
+      "sha256": "1e0651b6810ecba34a3dbc5b5b0209226f889004607c1f203540a48d64e5a93a",
+      "page_count": 12
+    },
+    {
+      "key": "bert",
+      "arxiv_id": "1810.04805",
+      "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+      "sha256": "5692a5514787a8c6727b4ff3b726a3385798bc68e12138d1d4af83947e2acf6e",
+      "page_count": 16
+    },
+    {
+      "key": "adam",
+      "arxiv_id": "1412.6980",
+      "title": "Adam: A Method for Stochastic Optimization",
+      "sha256": "eab9c73ae2ceda884b94830bda99312254bac4806f6c9f045cbab90721ecda31",
+      "page_count": 15
+    },
+    {
+      "key": "vgg",
+      "arxiv_id": "1409.1556",
+      "title": "Very Deep Convolutional Networks for Large-Scale Image Recognition",
+      "sha256": "83728f9efc21081792902b4c17a4657022d1e4a92ec81655c2427f4ef0755e50",
+      "page_count": 14
+    },
+    {
+      "key": "batchnorm",
+      "arxiv_id": "1502.03167",
+      "title": "Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift",
+      "sha256": "bdc69e0b568f41d8d3181cc9077a461f58fcdd1c70c9f49efe60a05ee6109655",
+      "page_count": 11
+    },
+    {
+      "key": "rag",
+      "arxiv_id": "2005.11401",
+      "title": "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks",
+      "sha256": "23e3249e9a1e75418d82efecab0ea8c4d033b89c93742f63208d47ce01f21233",
+      "page_count": 19
+    },
+    {
+      "key": "gpt3",
+      "arxiv_id": "2005.14165",
+      "title": "Language Models are Few-Shot Learners",
+      "sha256": "97fd272f1fdfc18677462d0292f5fbf26ca86b4d1b485c2dba03269b643a0e83",
+      "page_count": 75
+    },
+    {
+      "key": "word2vec",
+      "arxiv_id": "1301.3781",
+      "title": "Efficient Estimation of Word Representations in Vector Space",
+      "sha256": "a44d7e22d2005752271c9cc1929c6462d4c8270916b063977992a883e3a54362",
+      "page_count": 12
+    },
+    {
+      "key": "gan",
+      "arxiv_id": "1406.2661",
+      "title": "Generative Adversarial Networks",
+      "sha256": "ff5819e3a7b713c3bd3107b7de3d51fe0a347aa5d8444f0efdcf2345ef0a8b63",
+      "page_count": 9
+    }
+  ]
+}

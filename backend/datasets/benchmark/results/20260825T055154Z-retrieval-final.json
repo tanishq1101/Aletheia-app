@@ -1,0 +1,4839 @@
+{
+  "run": "20260825T055154Z-retrieval-final",
+  "timestamp": "2026-08-25T05:51:54.565336+00:00",
+  "summary": {
+    "questions": 150,
+    "answerable": 121,
+    "unanswerable": 29,
+    "errors": 0,
+    "config": {
+      "candidate_k": 20,
+      "evidence_k": 6,
+      "chunk_max_tokens": 600,
+      "chunk_overlap_tokens": 80,
+      "embedding_context_max_tokens": 6000,
+      "rerank_model": "jinaai/jina-reranker-v1-turbo-en",
+      "llm_model": null
+    },
+    "retrieval": {
+      "recall_at_6": 0.8209366391184573,
+      "hit_at_6": 0.8760330578512396,
+      "mrr": 0.7194214876033057,
+      "recall_before_rerank": 0.7424242424242424,
+      "mrr_before_rerank": 0.5854700510692247,
+      "recall_lift": 0.07851239669421488,
+      "mrr_lift": 0.13395143653408118,
+      "evidence_sufficiency": 0.8842975206611571,
+      "scored_questions": 121
+    },
+    "answering": {
+      "skipped": "OPENROUTER_API_KEY is not set. Grounded answering needs an LLM; add a key to .env or configure a different LLM_PROVIDER."
+    },
+    "citations": {
+      "skipped": "OPENROUTER_API_KEY is not set. Grounded answering needs an LLM; add a key to .env or configure a different LLM_PROVIDER."
+    },
+    "faithfulness": {
+      "skipped": "OPENROUTER_API_KEY is not set. Grounded answering needs an LLM; add a key to .env or configure a different LLM_PROVIDER."
+    },
+    "latency": {
+      "total_p50_ms": 1239.0923340320587,
+      "total_p95_ms": 1573.1502079963684,
+      "retrieve_p50_ms": 13.016707956790924,
+      "rerank_p50_ms": 1220.6134580373764,
+      "llm_p50_ms": 0.0,
+      "llm_p95_ms": 0.0
+    }
+  },
+  "errors": [],
+  "questions": [
+    {
+      "id": "resnet-01",
+      "paper": "resnet",
+      "category": "result",
+      "answerable": true,
+      "question": "What top-5 error did the ResNet ensemble achieve on the ImageNet test set?",
+      "expected_pages": [
+        1,
+        6
+      ],
+      "retrieval": {
+        "recall_at_k": 0.5,
+        "hit_at_k": 1.0,
+        "mrr": 0.25,
+        "recall_before": 0.5,
+        "recall_after": 0.5,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 0.25,
+        "mrr_lift": -0.75,
+        "retrieved_pages": [
+          "batchnorm:p8",
+          "resnet:p12",
+          "vgg:p8",
+          "resnet:p6",
+          "resnet:p12",
+          "vgg:p8"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 375.1,
+        "rerank_ms": 1567.2,
+        "llm_ms": 0.0,
+        "total_ms": 1943.3
+      }
+    },
+    {
+      "id": "resnet-02",
+      "paper": "resnet",
+      "category": "fact",
+      "answerable": true,
+      "question": "How deep is the deepest residual network evaluated on ImageNet in this paper?",
+      "expected_pages": [
+        1,
+        7
+      ],
+      "retrieval": {
+        "recall_at_k": 0.5,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 0.5,
+        "recall_lift": -0.5,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "resnet:p1",
+          "vgg:p1",
+          "resnet:p2",
+          "resnet:p2",
+          "resnet:p5",
+          "resnet:p1"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 28.6,
+        "rerank_ms": 959.1,
+        "llm_ms": 0.0,
+        "total_ms": 987.9
+      }
+    },
+    {
+      "id": "resnet-03",
+      "paper": "resnet",
+      "category": "method",
+      "answerable": true,
+      "question": "What weight decay and momentum were used when training the ImageNet models?",
+      "expected_pages": [
+        4
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "resnet:p4",
+          "gpt3:p42",
+          "batchnorm:p9",
+          "resnet:p7",
+          "resnet:p4",
+          "vgg:p4"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 10.5,
+        "rerank_ms": 935.2,
+        "llm_ms": 0.0,
+        "total_ms": 946.0
+      }
+    },
+    {
+      "id": "resnet-04",
+      "paper": "resnet",
+      "category": "method",
+      "answerable": true,
+      "question": "What mini-batch size and initial learning rate were used for ImageNet training?",
+      "expected_pages": [
+        4
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 0.3333333333333333,
+        "recall_before": 0.0,
+        "recall_after": 1.0,
+        "recall_lift": 1.0,
+        "mrr_before": 0.125,
+        "mrr_after": 0.3333333333333333,
+        "mrr_lift": 0.20833333333333331,
+        "retrieved_pages": [
+          "resnet:p12",
+          "batchnorm:p1",
+          "resnet:p4",
+          "batchnorm:p6",
+          "batchnorm:p6",
+          "resnet:p7"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 9.7,
+        "rerank_ms": 1012.9,
+        "llm_ms": 0.0,
+        "total_ms": 1022.9
+      }
+    },
+    {
+      "id": "resnet-05",
+      "paper": "resnet",
+      "category": "fact",
+      "answerable": true,
+      "question": "What is the degradation problem, and is it caused by overfitting?",
+      "expected_pages": [
+        1
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.3333333333333333,
+        "mrr_after": 0.5,
+        "mrr_lift": 0.16666666666666669,
+        "retrieved_pages": [
+          "resnet:p2",
+          "resnet:p1",
+          "gpt3:p44",
+          "gpt3:p31",
+          "resnet:p4",
+          "resnet:p6"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 11.4,
+        "rerank_ms": 1036.7,
+        "llm_ms": 0.0,
+        "total_ms": 1048.4
+      }
+    },
+    {
+      "id": "resnet-06",
+      "paper": "resnet",
+      "category": "method",
+      "answerable": true,
+      "question": "In the bottleneck design, how many stacked layers make up each residual function instead of two?",
+      "expected_pages": [
+        6
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 0.3333333333333333,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 0.3333333333333333,
+        "mrr_lift": -0.6666666666666667,
+        "retrieved_pages": [
+          "resnet:p3",
+          "attention:p3",
+          "resnet:p6",
+          "resnet:p6",
+          "vgg:p3",
+          "resnet:p7"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 13.2,
+        "rerank_ms": 1028.0,
+        "llm_ms": 0.0,
+        "total_ms": 1041.4
+      }
+    },
+    {
+      "id": "resnet-07",
+      "paper": "resnet",
+      "category": "result",
+      "answerable": true,
+      "question": "On CIFAR-10, what test error did the 110-layer ResNet reach, and how did the 1202-layer network compare?",
+      "expected_pages": [
+        7,
+        8
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "resnet:p8",
+          "resnet:p8",
+          "resnet:p7",
+          "resnet:p7",
+          "resnet:p7",
+          "resnet:p4"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 11.2,
+        "rerank_ms": 1235.9,
+        "llm_ms": 0.0,
+        "total_ms": 1247.4
+      }
+    },
+    {
+      "id": "resnet-08",
+      "paper": "resnet",
+      "category": "method",
+      "answerable": true,
+      "question": "What are the three shortcut options A, B and C compared in the ImageNet experiments?",
+      "expected_pages": [
+        6
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.5,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.5,
+        "retrieved_pages": [
+          "resnet:p6",
+          "resnet:p4",
+          "resnet:p6",
+          "resnet:p7",
+          "resnet:p12",
+          "resnet:p5"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 17.7,
+        "rerank_ms": 981.6,
+        "llm_ms": 0.0,
+        "total_ms": 999.5
+      }
+    },
+    {
+      "id": "resnet-09",
+      "paper": "resnet",
+      "category": "result",
+      "answerable": true,
+      "question": "How many FLOPs does the 34-layer plain baseline use, and what fraction of VGG-19 is that?",
+      "expected_pages": [
+        3
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "resnet:p3",
+          "resnet:p7",
+          "resnet:p4",
+          "resnet:p5",
+          "resnet:p6",
+          "resnet:p5"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 16.0,
+        "rerank_ms": 1083.5,
+        "llm_ms": 0.0,
+        "total_ms": 1099.7
+      }
+    },
+    {
+      "id": "resnet-10",
+      "paper": "resnet",
+      "category": "result",
+      "answerable": true,
+      "question": "What relative improvement did ResNet-101 give over VGG-16 on the COCO standard metric?",
+      "expected_pages": [
+        1,
+        8
+      ],
+      "retrieval": {
+        "recall_at_k": 0.5,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "recall_before": 0.5,
+        "recall_after": 0.5,
+        "recall_lift": 0.0,
+        "mrr_before": 0.16666666666666666,
+        "mrr_after": 0.5,
+        "mrr_lift": 0.33333333333333337,
+        "retrieved_pages": [
+          "resnet:p10",
+          "resnet:p8",
+          "resnet:p11",
+          "resnet:p11",
+          "resnet:p10",
+          "resnet:p7"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 15.7,
+        "rerank_ms": 983.8,
+        "llm_ms": 0.0,
+        "total_ms": 999.8
+      }
+    },
+    {
+      "id": "resnet-11",
+      "paper": "resnet",
+      "category": "method",
+      "answerable": true,
+      "question": "How was the 110-layer CIFAR-10 network warmed up, and why was that necessary?",
+      "expected_pages": [
+        7
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.3333333333333333,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.6666666666666667,
+        "retrieved_pages": [
+          "resnet:p7",
+          "resnet:p8",
+          "resnet:p8",
+          "resnet:p7",
+          "resnet:p1",
+          "batchnorm:p6"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 12.3,
+        "rerank_ms": 957.4,
+        "llm_ms": 0.0,
+        "total_ms": 970.0
+      }
+    },
+    {
+      "id": "resnet-12",
+      "paper": "resnet",
+      "category": "result",
+      "answerable": true,
+      "question": "What do the standard deviations of layer responses show about residual functions?",
+      "expected_pages": [
+        8
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "resnet:p8",
+          "resnet:p3",
+          "resnet:p2",
+          "resnet:p3",
+          "resnet:p7",
+          "resnet:p2"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 11.9,
+        "rerank_ms": 1162.9,
+        "llm_ms": 0.0,
+        "total_ms": 1174.9
+      }
+    },
+    {
+      "id": "resnet-13",
+      "paper": "resnet",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What top-1 error does ResNet-152 achieve on the CIFAR-100 dataset?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 11.5,
+        "rerank_ms": 972.0,
+        "llm_ms": 0.0,
+        "total_ms": 983.5
+      }
+    },
+    {
+      "id": "resnet-14",
+      "paper": "resnet",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "How many GPU-hours did it take to train ResNet-152 on ImageNet?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 9.8,
+        "rerank_ms": 996.5,
+        "llm_ms": 0.0,
+        "total_ms": 1006.3
+      }
+    },
+    {
+      "id": "resnet-15",
+      "paper": "resnet",
+      "category": "unanswerable-domain",
+      "answerable": false,
+      "question": "What licence are the released ResNet model weights distributed under?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 10.8,
+        "rerank_ms": 953.3,
+        "llm_ms": 0.0,
+        "total_ms": 964.2
+      }
+    },
+    {
+      "id": "vgg-01",
+      "paper": "vgg",
+      "category": "fact",
+      "answerable": true,
+      "question": "What convolution filter size is used throughout the VGG networks, and why is it the smallest sensible choice?",
+      "expected_pages": [
+        2
+      ],
+      "retrieval": {
+        "recall_at_k": 0.0,
+        "hit_at_k": 0.0,
+        "mrr": 0.0,
+        "recall_before": 1.0,
+        "recall_after": 0.0,
+        "recall_lift": -1.0,
+        "mrr_before": 0.25,
+        "mrr_after": 0.0,
+        "mrr_lift": -0.25,
+        "retrieved_pages": [
+          "vgg:p1",
+          "vgg:p3",
+          "vgg:p4",
+          "resnet:p3",
+          "vgg:p1",
+          "vgg:p6"
+        ],
+        "evidence_sufficiency": false
+      },
+      "latency": {
+        "retrieve_ms": 9.7,
+        "rerank_ms": 999.7,
+        "llm_ms": 0.0,
+        "total_ms": 1009.6
+      }
+    },
+    {
+      "id": "vgg-02",
+      "paper": "vgg",
+      "category": "fact",
+      "answerable": true,
+      "question": "How many weight layers do the shallowest and deepest VGG configurations have?",
+      "expected_pages": [
+        2
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 0.3333333333333333,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.5,
+        "mrr_after": 0.3333333333333333,
+        "mrr_lift": -0.16666666666666669,
+        "retrieved_pages": [
+          "resnet:p3",
+          "vgg:p3",
+          "vgg:p2",
+          "vgg:p3",
+          "resnet:p7",
+          "vgg:p4"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 12.3,
+        "rerank_ms": 1541.7,
+        "llm_ms": 0.0,
+        "total_ms": 1555.0
+      }
+    },
+    {
+      "id": "vgg-03",
+      "paper": "vgg",
+      "category": "method",
+      "answerable": true,
+      "question": "What input image size do the VGG ConvNets take during training, and what preprocessing is applied?",
+      "expected_pages": [
+        2
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 0.25,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.2,
+        "mrr_after": 0.25,
+        "mrr_lift": 0.04999999999999999,
+        "retrieved_pages": [
+          "vgg:p4",
+          "vgg:p4",
+          "vgg:p5",
+          "vgg:p2",
+          "vgg:p12",
+          "vgg:p1"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 44.0,
+        "rerank_ms": 1053.3,
+        "llm_ms": 0.0,
+        "total_ms": 1097.6
+      }
+    },
+    {
+      "id": "vgg-04",
+      "paper": "vgg",
+      "category": "method",
+      "answerable": true,
+      "question": "What batch size, momentum and weight decay were used to train VGG?",
+      "expected_pages": [
+        4
+      ],
+      "retrieval": {
+        "recall_at_k": 0.0,
+        "hit_at_k": 0.0,
+        "mrr": 0.0,
+        "recall_before": 1.0,
+        "recall_after": 0.0,
+        "recall_lift": -1.0,
+        "mrr_before": 0.25,
+        "mrr_after": 0.0,
+        "mrr_lift": -0.25,
+        "retrieved_pages": [
+          "bert:p13",
+          "batchnorm:p6",
+          "gpt3:p43",
+          "resnet:p4",
+          "resnet:p4",
+          "gpt3:p9"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 13.8,
+        "rerank_ms": 1017.0,
+        "llm_ms": 0.0,
+        "total_ms": 1030.8
+      }
+    },
+    {
+      "id": "vgg-05",
+      "paper": "vgg",
+      "category": "method",
+      "answerable": true,
+      "question": "What dropout ratio was applied, and to which layers?",
+      "expected_pages": [
+        4
+      ],
+      "retrieval": {
+        "recall_at_k": 0.0,
+        "hit_at_k": 0.0,
+        "mrr": 0.0,
+        "recall_before": 0.0,
+        "recall_after": 0.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.0,
+        "mrr_after": 0.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "adam:p7",
+          "resnet:p7",
+          "resnet:p4",
+          "vgg:p3",
+          "resnet:p10",
+          "resnet:p3"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 8.6,
+        "rerank_ms": 987.3,
+        "llm_ms": 0.0,
+        "total_ms": 996.1
+      }
+    },
+    {
+      "id": "vgg-06",
+      "paper": "vgg",
+      "category": "method",
+      "answerable": true,
+      "question": "How many iterations and epochs was VGG trained for?",
+      "expected_pages": [
+        4
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 0.3333333333333333,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.25,
+        "mrr_after": 0.3333333333333333,
+        "mrr_lift": 0.08333333333333331,
+        "retrieved_pages": [
+          "word2vec:p8",
+          "adam:p7",
+          "vgg:p4",
+          "bert:p13",
+          "resnet:p11",
+          "resnet:p10"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 9.8,
+        "rerank_ms": 976.5,
+        "llm_ms": 0.0,
+        "total_ms": 986.6
+      }
+    },
+    {
+      "id": "vgg-07",
+      "paper": "vgg",
+      "category": "result",
+      "answerable": true,
+      "question": "Why does the paper prefer a stack of three 3x3 convolutions over a single 7x7 layer?",
+      "expected_pages": [
+        3
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "vgg:p3",
+          "vgg:p1",
+          "vgg:p5",
+          "vgg:p12",
+          "vgg:p3",
+          "vgg:p2"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 9.2,
+        "rerank_ms": 1021.1,
+        "llm_ms": 0.0,
+        "total_ms": 1030.4
+      }
+    },
+    {
+      "id": "vgg-08",
+      "paper": "vgg",
+      "category": "result",
+      "answerable": true,
+      "question": "Did local response normalisation improve VGG's performance?",
+      "expected_pages": [
+        6
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.5,
+        "mrr_after": 0.5,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "vgg:p11",
+          "vgg:p6",
+          "vgg:p2",
+          "vgg:p12",
+          "vgg:p11",
+          "vgg:p1"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 8.3,
+        "rerank_ms": 951.3,
+        "llm_ms": 0.0,
+        "total_ms": 959.7
+      }
+    },
+    {
+      "id": "vgg-09",
+      "paper": "vgg",
+      "category": "result",
+      "answerable": true,
+      "question": "What is VGG's best single-network top-1 and top-5 validation error under multi-scale evaluation?",
+      "expected_pages": [
+        7
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.25,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.75,
+        "retrieved_pages": [
+          "vgg:p7",
+          "vgg:p6",
+          "vgg:p7",
+          "vgg:p11",
+          "vgg:p12",
+          "vgg:p8"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 10.3,
+        "rerank_ms": 1014.9,
+        "llm_ms": 0.0,
+        "total_ms": 1025.5
+      }
+    },
+    {
+      "id": "vgg-10",
+      "paper": "vgg",
+      "category": "result",
+      "answerable": true,
+      "question": "What place did the VGG team take in the ILSVRC-2014 classification task and with what test error?",
+      "expected_pages": [
+        7,
+        8
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 0.3333333333333333,
+        "recall_before": 0.5,
+        "recall_after": 1.0,
+        "recall_lift": 0.5,
+        "mrr_before": 1.0,
+        "mrr_after": 0.3333333333333333,
+        "mrr_lift": -0.6666666666666667,
+        "retrieved_pages": [
+          "vgg:p11",
+          "vgg:p6",
+          "vgg:p7",
+          "vgg:p12",
+          "vgg:p8",
+          "resnet:p12"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 16.0,
+        "rerank_ms": 953.7,
+        "llm_ms": 0.0,
+        "total_ms": 970.1
+      }
+    },
+    {
+      "id": "vgg-11",
+      "paper": "vgg",
+      "category": "method",
+      "answerable": true,
+      "question": "What range of scales was used for multi-scale training by scale jittering?",
+      "expected_pages": [
+        4
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 0.2,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.3333333333333333,
+        "mrr_after": 0.2,
+        "mrr_lift": -0.1333333333333333,
+        "retrieved_pages": [
+          "vgg:p6",
+          "vgg:p7",
+          "vgg:p5",
+          "resnet:p10",
+          "vgg:p4",
+          "gpt3:p42"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 9.9,
+        "rerank_ms": 987.4,
+        "llm_ms": 0.0,
+        "total_ms": 997.4
+      }
+    },
+    {
+      "id": "vgg-12",
+      "paper": "vgg",
+      "category": "multi-page",
+      "answerable": true,
+      "question": "How many parameters does the deepest VGG configuration have, and how long did training a single net take?",
+      "expected_pages": [
+        3,
+        5
+      ],
+      "retrieval": {
+        "recall_at_k": 0.5,
+        "hit_at_k": 1.0,
+        "mrr": 0.2,
+        "recall_before": 0.0,
+        "recall_after": 0.5,
+        "recall_lift": 0.5,
+        "mrr_before": 0.125,
+        "mrr_after": 0.2,
+        "mrr_lift": 0.07500000000000001,
+        "retrieved_pages": [
+          "vgg:p7",
+          "vgg:p4",
+          "vgg:p6",
+          "resnet:p7",
+          "vgg:p3",
+          "resnet:p7"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 8.6,
+        "rerank_ms": 981.0,
+        "llm_ms": 0.0,
+        "total_ms": 990.0
+      }
+    },
+    {
+      "id": "vgg-13",
+      "paper": "vgg",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What top-5 error does VGG-19 achieve when trained with batch normalisation?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 12.8,
+        "rerank_ms": 1592.7,
+        "llm_ms": 0.0,
+        "total_ms": 1605.7
+      }
+    },
+    {
+      "id": "vgg-14",
+      "paper": "vgg",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What is VGG's inference latency in milliseconds per image on a single GPU?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 36.0,
+        "rerank_ms": 1270.2,
+        "llm_ms": 0.0,
+        "total_ms": 1306.3
+      }
+    },
+    {
+      "id": "vgg-15",
+      "paper": "vgg",
+      "category": "unanswerable-domain",
+      "answerable": false,
+      "question": "What was the total electricity cost in pounds sterling of running the VGG experiments?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 19.4,
+        "rerank_ms": 1253.1,
+        "llm_ms": 0.0,
+        "total_ms": 1272.5
+      }
+    },
+    {
+      "id": "batchnorm-01",
+      "paper": "batchnorm",
+      "category": "fact",
+      "answerable": true,
+      "question": "What does this paper define as internal covariate shift?",
+      "expected_pages": [
+        2
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "batchnorm:p2",
+          "batchnorm:p2",
+          "batchnorm:p1",
+          "adam:p14",
+          "vgg:p3",
+          "attention:p2"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 11.1,
+        "rerank_ms": 970.1,
+        "llm_ms": 0.0,
+        "total_ms": 981.5
+      }
+    },
+    {
+      "id": "batchnorm-02",
+      "paper": "batchnorm",
+      "category": "result",
+      "answerable": true,
+      "question": "How many fewer training steps does Batch Normalization need to match the same accuracy?",
+      "expected_pages": [
+        1
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 0.2,
+        "recall_before": 0.0,
+        "recall_after": 1.0,
+        "recall_lift": 1.0,
+        "mrr_before": 0.1111111111111111,
+        "mrr_after": 0.2,
+        "mrr_lift": 0.0888888888888889,
+        "retrieved_pages": [
+          "batchnorm:p7",
+          "batchnorm:p7",
+          "batchnorm:p6",
+          "batchnorm:p6",
+          "batchnorm:p1",
+          "bert:p16"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 10.5,
+        "rerank_ms": 1007.2,
+        "llm_ms": 0.0,
+        "total_ms": 1018.3
+      }
+    },
+    {
+      "id": "batchnorm-03",
+      "paper": "batchnorm",
+      "category": "result",
+      "answerable": true,
+      "question": "What top-5 validation and test error did the ensemble of batch-normalized networks reach on ImageNet?",
+      "expected_pages": [
+        1,
+        7
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "recall_before": 0.5,
+        "recall_after": 1.0,
+        "recall_lift": 0.5,
+        "mrr_before": 0.5,
+        "mrr_after": 0.5,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "batchnorm:p8",
+          "batchnorm:p7",
+          "batchnorm:p2",
+          "resnet:p12",
+          "batchnorm:p1",
+          "vgg:p8"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 18.8,
+        "rerank_ms": 1055.4,
+        "llm_ms": 0.0,
+        "total_ms": 1074.7
+      }
+    },
+    {
+      "id": "batchnorm-04",
+      "paper": "batchnorm",
+      "category": "method",
+      "answerable": true,
+      "question": "What two learned parameters does the Batch Normalizing Transform introduce, and what do they do?",
+      "expected_pages": [
+        3
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.3333333333333333,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.6666666666666667,
+        "retrieved_pages": [
+          "batchnorm:p3",
+          "batchnorm:p4",
+          "batchnorm:p4",
+          "batchnorm:p5",
+          "batchnorm:p4",
+          "batchnorm:p8"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 10.1,
+        "rerank_ms": 1186.7,
+        "llm_ms": 0.0,
+        "total_ms": 1197.0
+      }
+    },
+    {
+      "id": "batchnorm-05",
+      "paper": "batchnorm",
+      "category": "method",
+      "answerable": true,
+      "question": "Where in the layer is the BN transform inserted relative to the nonlinearity?",
+      "expected_pages": [
+        5
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.3333333333333333,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.6666666666666667,
+        "retrieved_pages": [
+          "batchnorm:p5",
+          "batchnorm:p8",
+          "batchnorm:p4",
+          "resnet:p8",
+          "batchnorm:p3",
+          "attention:p3"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 11.0,
+        "rerank_ms": 996.4,
+        "llm_ms": 0.0,
+        "total_ms": 1007.6
+      }
+    },
+    {
+      "id": "batchnorm-06",
+      "paper": "batchnorm",
+      "category": "method",
+      "answerable": true,
+      "question": "Why can the bias b be ignored when Batch Normalization is applied to a convolutional layer?",
+      "expected_pages": [
+        5
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "batchnorm:p5",
+          "batchnorm:p8",
+          "batchnorm:p5",
+          "batchnorm:p6",
+          "batchnorm:p2",
+          "batchnorm:p7"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 11.9,
+        "rerank_ms": 998.2,
+        "llm_ms": 0.0,
+        "total_ms": 1010.3
+      }
+    },
+    {
+      "id": "batchnorm-07",
+      "paper": "batchnorm",
+      "category": "method",
+      "answerable": true,
+      "question": "What statistics are used for normalization at inference time rather than mini-batch statistics?",
+      "expected_pages": [
+        4
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 0.3333333333333333,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.5,
+        "mrr_after": 0.3333333333333333,
+        "mrr_lift": -0.16666666666666669,
+        "retrieved_pages": [
+          "batchnorm:p8",
+          "batchnorm:p3",
+          "batchnorm:p4",
+          "batchnorm:p8",
+          "batchnorm:p6",
+          "batchnorm:p7"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 12.8,
+        "rerank_ms": 999.1,
+        "llm_ms": 0.0,
+        "total_ms": 1012.1
+      }
+    },
+    {
+      "id": "batchnorm-08",
+      "paper": "batchnorm",
+      "category": "result",
+      "answerable": true,
+      "question": "What learning rates were used for Inception, BN-x5 and BN-x30?",
+      "expected_pages": [
+        7
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "batchnorm:p7",
+          "batchnorm:p7",
+          "batchnorm:p6",
+          "adam:p11",
+          "batchnorm:p10",
+          "bert:p14"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 9.9,
+        "rerank_ms": 1026.6,
+        "llm_ms": 0.0,
+        "total_ms": 1036.9
+      }
+    },
+    {
+      "id": "batchnorm-09",
+      "paper": "batchnorm",
+      "category": "result",
+      "answerable": true,
+      "question": "What accuracy did BN-x30 reach, and how many steps did the original Inception need to reach 72.2%?",
+      "expected_pages": [
+        7
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "batchnorm:p7",
+          "batchnorm:p7",
+          "batchnorm:p6",
+          "batchnorm:p10",
+          "gpt3:p26",
+          "attention:p7"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 9.4,
+        "rerank_ms": 1096.7,
+        "llm_ms": 0.0,
+        "total_ms": 1106.3
+      }
+    },
+    {
+      "id": "batchnorm-10",
+      "paper": "batchnorm",
+      "category": "result",
+      "answerable": true,
+      "question": "Could the batch-normalized network be trained with a sigmoid nonlinearity, and what accuracy resulted?",
+      "expected_pages": [
+        7
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 0.0,
+        "recall_after": 1.0,
+        "recall_lift": 1.0,
+        "mrr_before": 0.14285714285714285,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.8571428571428572,
+        "retrieved_pages": [
+          "batchnorm:p7",
+          "batchnorm:p6",
+          "batchnorm:p6",
+          "batchnorm:p7",
+          "batchnorm:p8",
+          "batchnorm:p2"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 15.5,
+        "rerank_ms": 1026.4,
+        "llm_ms": 0.0,
+        "total_ms": 1042.1
+      }
+    },
+    {
+      "id": "batchnorm-11",
+      "paper": "batchnorm",
+      "category": "method",
+      "answerable": true,
+      "question": "What architecture and mini-batch size were used for the MNIST experiment?",
+      "expected_pages": [
+        5,
+        6
+      ],
+      "retrieval": {
+        "recall_at_k": 0.5,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 0.0,
+        "recall_after": 0.5,
+        "recall_lift": 0.5,
+        "mrr_before": 0.125,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.875,
+        "retrieved_pages": [
+          "batchnorm:p6",
+          "batchnorm:p3",
+          "gpt3:p8",
+          "batchnorm:p1",
+          "batchnorm:p1",
+          "resnet:p7"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 10.8,
+        "rerank_ms": 1026.1,
+        "llm_ms": 0.0,
+        "total_ms": 1037.4
+      }
+    },
+    {
+      "id": "batchnorm-12",
+      "paper": "batchnorm",
+      "category": "fact",
+      "answerable": true,
+      "question": "Does Batch Normalization reduce the need for Dropout?",
+      "expected_pages": [
+        1,
+        5
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "batchnorm:p1",
+          "batchnorm:p7",
+          "batchnorm:p5",
+          "batchnorm:p6",
+          "batchnorm:p6",
+          "batchnorm:p8"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 10.4,
+        "rerank_ms": 974.6,
+        "llm_ms": 0.0,
+        "total_ms": 985.1
+      }
+    },
+    {
+      "id": "batchnorm-13",
+      "paper": "batchnorm",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What accuracy does Batch Normalization achieve when applied to a recurrent neural network on a language modelling task?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 10.3,
+        "rerank_ms": 1042.2,
+        "llm_ms": 0.0,
+        "total_ms": 1052.6
+      }
+    },
+    {
+      "id": "batchnorm-14",
+      "paper": "batchnorm",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What value of epsilon was used for numerical stability in the ImageNet experiments?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 16.1,
+        "rerank_ms": 1086.6,
+        "llm_ms": 0.0,
+        "total_ms": 1102.7
+      }
+    },
+    {
+      "id": "batchnorm-15",
+      "paper": "batchnorm",
+      "category": "unanswerable-domain",
+      "answerable": false,
+      "question": "Which conference rejected the first submission of the Batch Normalization paper?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 9.3,
+        "rerank_ms": 1007.4,
+        "llm_ms": 0.0,
+        "total_ms": 1016.7
+      }
+    },
+    {
+      "id": "attention-01",
+      "paper": "attention",
+      "category": "fact",
+      "answerable": true,
+      "question": "How many identical layers make up the Transformer encoder and decoder stacks?",
+      "expected_pages": [
+        3
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "attention:p3",
+          "attention:p5",
+          "bert:p3",
+          "attention:p5",
+          "attention:p6",
+          "attention:p8"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 10.9,
+        "rerank_ms": 973.2,
+        "llm_ms": 0.0,
+        "total_ms": 984.7
+      }
+    },
+    {
+      "id": "attention-02",
+      "paper": "attention",
+      "category": "fact",
+      "answerable": true,
+      "question": "What is the model dimension and the inner feed-forward dimension of the base Transformer?",
+      "expected_pages": [
+        5
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "attention:p5",
+          "attention:p3",
+          "bert:p3",
+          "attention:p9",
+          "attention:p8",
+          "attention:p5"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 10.6,
+        "rerank_ms": 981.6,
+        "llm_ms": 0.0,
+        "total_ms": 992.6
+      }
+    },
+    {
+      "id": "attention-03",
+      "paper": "attention",
+      "category": "method",
+      "answerable": true,
+      "question": "Why are the dot products scaled by the square root of d_k in scaled dot-product attention?",
+      "expected_pages": [
+        4
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "attention:p4",
+          "attention:p5",
+          "gpt3:p46",
+          "attention:p7",
+          "attention:p6",
+          "attention:p9"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 13.4,
+        "rerank_ms": 1058.4,
+        "llm_ms": 0.0,
+        "total_ms": 1071.9
+      }
+    },
+    {
+      "id": "attention-04",
+      "paper": "attention",
+      "category": "fact",
+      "answerable": true,
+      "question": "How many attention heads does the base model use, and what is the dimension of each head?",
+      "expected_pages": [
+        5
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "attention:p5",
+          "bert:p9",
+          "bert:p3",
+          "attention:p9",
+          "gpt3:p8",
+          "attention:p3"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 13.3,
+        "rerank_ms": 1042.7,
+        "llm_ms": 0.0,
+        "total_ms": 1056.2
+      }
+    },
+    {
+      "id": "attention-05",
+      "paper": "attention",
+      "category": "result",
+      "answerable": true,
+      "question": "What BLEU score did the big Transformer achieve on WMT 2014 English-to-German?",
+      "expected_pages": [
+        1,
+        8
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "attention:p8",
+          "attention:p8",
+          "attention:p1",
+          "attention:p10",
+          "gpt3:p15",
+          "attention:p9"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 9.9,
+        "rerank_ms": 1085.5,
+        "llm_ms": 0.0,
+        "total_ms": 1095.7
+      }
+    },
+    {
+      "id": "attention-06",
+      "paper": "attention",
+      "category": "method",
+      "answerable": true,
+      "question": "What optimizer settings and warmup schedule were used to train the Transformer?",
+      "expected_pages": [
+        7
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 0.0,
+        "recall_after": 1.0,
+        "recall_lift": 1.0,
+        "mrr_before": 0.125,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.875,
+        "retrieved_pages": [
+          "attention:p7",
+          "attention:p8",
+          "attention:p10",
+          "attention:p8",
+          "bert:p1",
+          "attention:p10"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 11.2,
+        "rerank_ms": 1042.5,
+        "llm_ms": 0.0,
+        "total_ms": 1053.9
+      }
+    },
+    {
+      "id": "attention-07",
+      "paper": "attention",
+      "category": "method",
+      "answerable": true,
+      "question": "What hardware was used, and how long did the base and big models take to train?",
+      "expected_pages": [
+        7
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.25,
+        "mrr_after": 0.5,
+        "mrr_lift": 0.25,
+        "retrieved_pages": [
+          "attention:p8",
+          "attention:p7",
+          "gpt3:p42",
+          "gpt3:p9",
+          "gpt3:p46",
+          "word2vec:p8"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 13.5,
+        "rerank_ms": 1085.3,
+        "llm_ms": 0.0,
+        "total_ms": 1099.0
+      }
+    },
+    {
+      "id": "attention-08",
+      "paper": "attention",
+      "category": "method",
+      "answerable": true,
+      "question": "What form of positional encoding does the Transformer use, and why was it chosen over learned embeddings?",
+      "expected_pages": [
+        6
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.5,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.5,
+        "retrieved_pages": [
+          "attention:p6",
+          "bert:p5",
+          "attention:p5",
+          "attention:p3",
+          "attention:p6",
+          "attention:p9"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 30.9,
+        "rerank_ms": 1061.8,
+        "llm_ms": 0.0,
+        "total_ms": 1092.9
+      }
+    },
+    {
+      "id": "attention-09",
+      "paper": "attention",
+      "category": "result",
+      "answerable": true,
+      "question": "What is the maximum path length of a self-attention layer compared with a recurrent layer?",
+      "expected_pages": [
+        6
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "attention:p6",
+          "attention:p6",
+          "attention:p7",
+          "word2vec:p3",
+          "attention:p2",
+          "attention:p5"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 9.3,
+        "rerank_ms": 1089.7,
+        "llm_ms": 0.0,
+        "total_ms": 1099.2
+      }
+    },
+    {
+      "id": "attention-10",
+      "paper": "attention",
+      "category": "method",
+      "answerable": true,
+      "question": "What dropout rate and label smoothing value were used for the base model?",
+      "expected_pages": [
+        8
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.5,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.5,
+        "retrieved_pages": [
+          "attention:p8",
+          "attention:p8",
+          "batchnorm:p6",
+          "resnet:p4",
+          "resnet:p7",
+          "adam:p6"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 11.5,
+        "rerank_ms": 1163.3,
+        "llm_ms": 0.0,
+        "total_ms": 1177.1
+      }
+    },
+    {
+      "id": "attention-11",
+      "paper": "attention",
+      "category": "result",
+      "answerable": true,
+      "question": "How well did the Transformer do on English constituency parsing when trained only on WSJ?",
+      "expected_pages": [
+        10
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "attention:p10",
+          "attention:p9",
+          "attention:p1",
+          "attention:p9",
+          "attention:p8",
+          "attention:p8"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 22.1,
+        "rerank_ms": 1474.5,
+        "llm_ms": 0.0,
+        "total_ms": 1497.4
+      }
+    },
+    {
+      "id": "attention-12",
+      "paper": "attention",
+      "category": "multi-page",
+      "answerable": true,
+      "question": "What vocabulary encoding and training set size were used for English-to-German, and what beam size was used at inference?",
+      "expected_pages": [
+        7,
+        8
+      ],
+      "retrieval": {
+        "recall_at_k": 0.0,
+        "hit_at_k": 0.0,
+        "mrr": 0.0,
+        "recall_before": 0.0,
+        "recall_after": 0.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.0,
+        "mrr_after": 0.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "word2vec:p6",
+          "word2vec:p7",
+          "gpt3:p71",
+          "gpt3:p14",
+          "word2vec:p8",
+          "gpt3:p9"
+        ],
+        "evidence_sufficiency": false
+      },
+      "latency": {
+        "retrieve_ms": 45.7,
+        "rerank_ms": 1526.6,
+        "llm_ms": 0.0,
+        "total_ms": 1573.2
+      }
+    },
+    {
+      "id": "attention-13",
+      "paper": "attention",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What perplexity does the Transformer reach on the WikiText-103 language modelling benchmark?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 52.3,
+        "rerank_ms": 1091.8,
+        "llm_ms": 0.0,
+        "total_ms": 1144.1
+      }
+    },
+    {
+      "id": "attention-14",
+      "paper": "attention",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "How many parameters does the Transformer big model have when trained for English-to-French?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 10.6,
+        "rerank_ms": 1055.6,
+        "llm_ms": 0.0,
+        "total_ms": 1066.2
+      }
+    },
+    {
+      "id": "attention-15",
+      "paper": "attention",
+      "category": "unanswerable-domain",
+      "answerable": false,
+      "question": "What is the current price of an NVIDIA P100 GPU?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 10.1,
+        "rerank_ms": 1356.5,
+        "llm_ms": 0.0,
+        "total_ms": 1366.7
+      }
+    },
+    {
+      "id": "bert-01",
+      "paper": "bert",
+      "category": "fact",
+      "answerable": true,
+      "question": "How many layers, hidden units and attention heads do BERT-BASE and BERT-LARGE have?",
+      "expected_pages": [
+        3
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.5,
+        "mrr_after": 0.5,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "bert:p9",
+          "bert:p3",
+          "bert:p9",
+          "attention:p5",
+          "bert:p16",
+          "attention:p3"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 46.3,
+        "rerank_ms": 1098.3,
+        "llm_ms": 0.0,
+        "total_ms": 1145.3
+      }
+    },
+    {
+      "id": "bert-02",
+      "paper": "bert",
+      "category": "fact",
+      "answerable": true,
+      "question": "How many parameters does BERT-LARGE contain?",
+      "expected_pages": [
+        3,
+        8
+      ],
+      "retrieval": {
+        "recall_at_k": 0.5,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 0.5,
+        "recall_after": 0.5,
+        "recall_lift": 0.0,
+        "mrr_before": 0.3333333333333333,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.6666666666666667,
+        "retrieved_pages": [
+          "bert:p3",
+          "bert:p7",
+          "bert:p9",
+          "bert:p9",
+          "bert:p6",
+          "bert:p14"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 10.5,
+        "rerank_ms": 1113.1,
+        "llm_ms": 0.0,
+        "total_ms": 1123.8
+      }
+    },
+    {
+      "id": "bert-03",
+      "paper": "bert",
+      "category": "method",
+      "answerable": true,
+      "question": "What percentage of WordPiece tokens are masked, and how are the chosen positions actually replaced?",
+      "expected_pages": [
+        4
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "bert:p4",
+          "bert:p12",
+          "bert:p16",
+          "bert:p4",
+          "gpt3:p26",
+          "gpt3:p46"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 19.6,
+        "rerank_ms": 1091.8,
+        "llm_ms": 0.0,
+        "total_ms": 1111.7
+      }
+    },
+    {
+      "id": "bert-04",
+      "paper": "bert",
+      "category": "method",
+      "answerable": true,
+      "question": "What is the next sentence prediction task and what is the split between IsNext and NotNext examples?",
+      "expected_pages": [
+        4
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 0.0,
+        "recall_after": 1.0,
+        "recall_lift": 1.0,
+        "mrr_before": 0.08333333333333333,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.9166666666666666,
+        "retrieved_pages": [
+          "bert:p4",
+          "bert:p13",
+          "bert:p7",
+          "bert:p2",
+          "bert:p14",
+          "bert:p15"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 13.9,
+        "rerank_ms": 1210.3,
+        "llm_ms": 0.0,
+        "total_ms": 1224.5
+      }
+    },
+    {
+      "id": "bert-05",
+      "paper": "bert",
+      "category": "method",
+      "answerable": true,
+      "question": "What corpora were used to pre-train BERT and how large were they?",
+      "expected_pages": [
+        5,
+        14
+      ],
+      "retrieval": {
+        "recall_at_k": 0.5,
+        "hit_at_k": 1.0,
+        "mrr": 0.3333333333333333,
+        "recall_before": 1.0,
+        "recall_after": 0.5,
+        "recall_lift": -0.5,
+        "mrr_before": 1.0,
+        "mrr_after": 0.3333333333333333,
+        "mrr_lift": -0.6666666666666667,
+        "retrieved_pages": [
+          "bert:p13",
+          "bert:p9",
+          "bert:p14",
+          "bert:p3",
+          "bert:p9",
+          "bert:p13"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 11.4,
+        "rerank_ms": 1097.3,
+        "llm_ms": 0.0,
+        "total_ms": 1109.1
+      }
+    },
+    {
+      "id": "bert-06",
+      "paper": "bert",
+      "category": "fact",
+      "answerable": true,
+      "question": "What vocabulary size does BERT's WordPiece embedding use?",
+      "expected_pages": [
+        4
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.5,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.5,
+        "retrieved_pages": [
+          "bert:p4",
+          "bert:p6",
+          "bert:p9",
+          "bert:p9",
+          "bert:p5",
+          "bert:p13"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 18.2,
+        "rerank_ms": 1356.2,
+        "llm_ms": 0.0,
+        "total_ms": 1375.8
+      }
+    },
+    {
+      "id": "bert-07",
+      "paper": "bert",
+      "category": "result",
+      "answerable": true,
+      "question": "What GLUE score did BERT-LARGE obtain and what was the prior state of the art?",
+      "expected_pages": [
+        1,
+        6
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 0.5,
+        "recall_after": 1.0,
+        "recall_lift": 0.5,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "bert:p6",
+          "bert:p1",
+          "bert:p6",
+          "bert:p9",
+          "gpt3:p20",
+          "attention:p8"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 22.6,
+        "rerank_ms": 1658.7,
+        "llm_ms": 0.0,
+        "total_ms": 1682.0
+      }
+    },
+    {
+      "id": "bert-08",
+      "paper": "bert",
+      "category": "result",
+      "answerable": true,
+      "question": "What SQuAD v1.1 and v2.0 test F1 scores did BERT achieve?",
+      "expected_pages": [
+        1,
+        7
+      ],
+      "retrieval": {
+        "recall_at_k": 0.5,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "recall_before": 0.5,
+        "recall_after": 0.5,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 0.5,
+        "mrr_lift": -0.5,
+        "retrieved_pages": [
+          "bert:p6",
+          "bert:p7",
+          "bert:p8",
+          "bert:p7",
+          "bert:p6",
+          "bert:p6"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 54.3,
+        "rerank_ms": 2037.1,
+        "llm_ms": 0.0,
+        "total_ms": 2092.8
+      }
+    },
+    {
+      "id": "bert-09",
+      "paper": "bert",
+      "category": "method",
+      "answerable": true,
+      "question": "What batch size, learning rates and number of epochs were used to fine-tune on GLUE?",
+      "expected_pages": [
+        6
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 0.5,
+        "mrr_lift": -0.5,
+        "retrieved_pages": [
+          "bert:p13",
+          "bert:p6",
+          "bert:p6",
+          "gpt3:p8",
+          "word2vec:p8",
+          "bert:p8"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 48.1,
+        "rerank_ms": 1388.4,
+        "llm_ms": 0.0,
+        "total_ms": 1436.9
+      }
+    },
+    {
+      "id": "bert-10",
+      "paper": "bert",
+      "category": "result",
+      "answerable": true,
+      "question": "In the ablation, what happens to performance when the next sentence prediction task is removed?",
+      "expected_pages": [
+        8
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "bert:p8",
+          "bert:p12",
+          "bert:p7",
+          "bert:p4",
+          "bert:p13",
+          "gpt3:p20"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 14.2,
+        "rerank_ms": 1303.1,
+        "llm_ms": 0.0,
+        "total_ms": 1317.5
+      }
+    },
+    {
+      "id": "bert-11",
+      "paper": "bert",
+      "category": "result",
+      "answerable": true,
+      "question": "In the feature-based approach on CoNLL-2003 NER, which layer combination performed best and how far behind fine-tuning was it?",
+      "expected_pages": [
+        9
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 0.0,
+        "recall_after": 1.0,
+        "recall_lift": 1.0,
+        "mrr_before": 0.0625,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.9375,
+        "retrieved_pages": [
+          "bert:p9",
+          "vgg:p1",
+          "resnet:p10",
+          "vgg:p10",
+          "vgg:p11",
+          "vgg:p7"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 13.0,
+        "rerank_ms": 1808.8,
+        "llm_ms": 0.0,
+        "total_ms": 1822.5
+      }
+    },
+    {
+      "id": "bert-12",
+      "paper": "bert",
+      "category": "result",
+      "answerable": true,
+      "question": "How much did BERT-LARGE outperform OpenAI GPT on the SWAG dataset?",
+      "expected_pages": [
+        7
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.3333333333333333,
+        "mrr_after": 0.5,
+        "mrr_lift": 0.16666666666666669,
+        "retrieved_pages": [
+          "bert:p6",
+          "bert:p7",
+          "bert:p14",
+          "bert:p6",
+          "gpt3:p20",
+          "bert:p13"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 83.4,
+        "rerank_ms": 1450.7,
+        "llm_ms": 0.0,
+        "total_ms": 1534.6
+      }
+    },
+    {
+      "id": "bert-13",
+      "paper": "bert",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What BLEU score does BERT achieve on WMT 2014 English-to-German translation?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 13.3,
+        "rerank_ms": 1229.5,
+        "llm_ms": 0.0,
+        "total_ms": 1243.0
+      }
+    },
+    {
+      "id": "bert-14",
+      "paper": "bert",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "How many TPU-days did it take to pre-train BERT-LARGE?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 23.1,
+        "rerank_ms": 1402.7,
+        "llm_ms": 0.0,
+        "total_ms": 1426.3
+      }
+    },
+    {
+      "id": "bert-15",
+      "paper": "bert",
+      "category": "unanswerable-domain",
+      "answerable": false,
+      "question": "How many citations has the BERT paper received?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 12.6,
+        "rerank_ms": 1263.5,
+        "llm_ms": 0.0,
+        "total_ms": 1276.2
+      }
+    },
+    {
+      "id": "adam-01",
+      "paper": "adam",
+      "category": "fact",
+      "answerable": true,
+      "question": "What are the recommended default values for Adam's stepsize, beta1, beta2 and epsilon?",
+      "expected_pages": [
+        2
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.5,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.5,
+        "retrieved_pages": [
+          "adam:p2",
+          "adam:p9",
+          "adam:p3",
+          "adam:p14",
+          "adam:p4",
+          "adam:p5"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 10.2,
+        "rerank_ms": 1297.9,
+        "llm_ms": 0.0,
+        "total_ms": 1308.8
+      }
+    },
+    {
+      "id": "adam-02",
+      "paper": "adam",
+      "category": "fact",
+      "answerable": true,
+      "question": "Where does the name Adam come from?",
+      "expected_pages": [
+        1
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.5,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.5,
+        "retrieved_pages": [
+          "adam:p1",
+          "adam:p10",
+          "adam:p5",
+          "adam:p1",
+          "adam:p6",
+          "adam:p4"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 12.8,
+        "rerank_ms": 1287.1,
+        "llm_ms": 0.0,
+        "total_ms": 1300.1
+      }
+    },
+    {
+      "id": "adam-03",
+      "paper": "adam",
+      "category": "method",
+      "answerable": true,
+      "question": "Which two existing methods was Adam designed to combine the advantages of?",
+      "expected_pages": [
+        1
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.3333333333333333,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.6666666666666667,
+        "retrieved_pages": [
+          "adam:p1",
+          "adam:p10",
+          "adam:p6",
+          "adam:p1",
+          "adam:p6",
+          "adam:p4"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 16.1,
+        "rerank_ms": 1466.4,
+        "llm_ms": 0.0,
+        "total_ms": 1482.8
+      }
+    },
+    {
+      "id": "adam-04",
+      "paper": "adam",
+      "category": "method",
+      "answerable": true,
+      "question": "Why does Adam apply bias correction to its moment estimates?",
+      "expected_pages": [
+        2,
+        3
+      ],
+      "retrieval": {
+        "recall_at_k": 0.5,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 0.5,
+        "recall_lift": -0.5,
+        "mrr_before": 0.5,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.5,
+        "retrieved_pages": [
+          "adam:p2",
+          "adam:p9",
+          "adam:p5",
+          "adam:p8",
+          "adam:p2",
+          "adam:p9"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 27.0,
+        "rerank_ms": 1343.1,
+        "llm_ms": 0.0,
+        "total_ms": 1370.3
+      }
+    },
+    {
+      "id": "adam-05",
+      "paper": "adam",
+      "category": "fact",
+      "answerable": true,
+      "question": "What regret bound does Adam achieve, and what does the average regret converge to?",
+      "expected_pages": [
+        4
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "adam:p4",
+          "adam:p4",
+          "adam:p1",
+          "adam:p12",
+          "adam:p15",
+          "adam:p14"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 14.1,
+        "rerank_ms": 1381.4,
+        "llm_ms": 0.0,
+        "total_ms": 1395.6
+      }
+    },
+    {
+      "id": "adam-06",
+      "paper": "adam",
+      "category": "method",
+      "answerable": true,
+      "question": "What is the signal-to-noise ratio in Adam and what happens to the step size when it is small?",
+      "expected_pages": [
+        3
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "adam:p3",
+          "adam:p1",
+          "adam:p2",
+          "adam:p6",
+          "adam:p1",
+          "adam:p4"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 17.2,
+        "rerank_ms": 1294.9,
+        "llm_ms": 0.0,
+        "total_ms": 1312.3
+      }
+    },
+    {
+      "id": "adam-07",
+      "paper": "adam",
+      "category": "method",
+      "answerable": true,
+      "question": "What is AdaMax and how does it differ from Adam?",
+      "expected_pages": [
+        8,
+        9
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "recall_before": 0.5,
+        "recall_after": 1.0,
+        "recall_lift": 0.5,
+        "mrr_before": 0.3333333333333333,
+        "mrr_after": 0.5,
+        "mrr_lift": 0.16666666666666669,
+        "retrieved_pages": [
+          "adam:p1",
+          "adam:p9",
+          "adam:p5",
+          "adam:p8",
+          "adam:p10",
+          "adam:p6"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 12.7,
+        "rerank_ms": 1284.5,
+        "llm_ms": 0.0,
+        "total_ms": 1297.4
+      }
+    },
+    {
+      "id": "adam-08",
+      "paper": "adam",
+      "category": "fact",
+      "answerable": true,
+      "question": "What is AdaMax's recommended default stepsize?",
+      "expected_pages": [
+        9
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.3333333333333333,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.6666666666666667,
+        "retrieved_pages": [
+          "adam:p9",
+          "adam:p8",
+          "adam:p3",
+          "adam:p8",
+          "adam:p2",
+          "attention:p7"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 12.9,
+        "rerank_ms": 1292.9,
+        "llm_ms": 0.0,
+        "total_ms": 1306.4
+      }
+    },
+    {
+      "id": "adam-09",
+      "paper": "adam",
+      "category": "method",
+      "answerable": true,
+      "question": "What minibatch size was used in the logistic regression and neural network experiments?",
+      "expected_pages": [
+        5,
+        6
+      ],
+      "retrieval": {
+        "recall_at_k": 0.5,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 0.0,
+        "recall_after": 0.5,
+        "recall_lift": 0.5,
+        "mrr_before": 0.06666666666666667,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.9333333333333333,
+        "retrieved_pages": [
+          "adam:p6",
+          "adam:p7",
+          "resnet:p7",
+          "batchnorm:p3",
+          "vgg:p4",
+          "gan:p5"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 13.6,
+        "rerank_ms": 1263.1,
+        "llm_ms": 0.0,
+        "total_ms": 1277.0
+      }
+    },
+    {
+      "id": "adam-10",
+      "paper": "adam",
+      "category": "result",
+      "answerable": true,
+      "question": "How does Adam compare to SFO on multi-layer neural networks, and what is SFO's drawback?",
+      "expected_pages": [
+        6
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "adam:p6",
+          "adam:p7",
+          "adam:p6",
+          "adam:p5",
+          "adam:p5",
+          "adam:p1"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 20.2,
+        "rerank_ms": 1339.7,
+        "llm_ms": 0.0,
+        "total_ms": 1360.2
+      }
+    },
+    {
+      "id": "adam-11",
+      "paper": "adam",
+      "category": "result",
+      "answerable": true,
+      "question": "Why did Adagrad converge more slowly than Adam on the CIFAR-10 ConvNet experiment?",
+      "expected_pages": [
+        7
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.5,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.5,
+        "retrieved_pages": [
+          "adam:p7",
+          "adam:p5",
+          "adam:p6",
+          "adam:p6",
+          "adam:p10",
+          "adam:p5"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 24.1,
+        "rerank_ms": 1348.7,
+        "llm_ms": 0.0,
+        "total_ms": 1373.0
+      }
+    },
+    {
+      "id": "adam-12",
+      "paper": "adam",
+      "category": "method",
+      "answerable": true,
+      "question": "What model was used to evaluate the effect of the bias-correction terms?",
+      "expected_pages": [
+        8
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "adam:p8",
+          "gpt3:p36",
+          "gpt3:p39",
+          "gpt3:p36",
+          "rag:p10",
+          "gan:p6"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 11.6,
+        "rerank_ms": 1182.1,
+        "llm_ms": 0.0,
+        "total_ms": 1193.9
+      }
+    },
+    {
+      "id": "adam-13",
+      "paper": "adam",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What ImageNet top-5 error does a ResNet-50 trained with Adam achieve?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 11.3,
+        "rerank_ms": 1267.6,
+        "llm_ms": 0.0,
+        "total_ms": 1279.0
+      }
+    },
+    {
+      "id": "adam-14",
+      "paper": "adam",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What default value of beta1 does the paper recommend for training transformers?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 11.9,
+        "rerank_ms": 1189.1,
+        "llm_ms": 0.0,
+        "total_ms": 1201.1
+      }
+    },
+    {
+      "id": "adam-15",
+      "paper": "adam",
+      "category": "unanswerable-domain",
+      "answerable": false,
+      "question": "Which university employed Diederik Kingma at the time the AdaMax follow-up was published?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 17.8,
+        "rerank_ms": 1378.9,
+        "llm_ms": 0.0,
+        "total_ms": 1396.8
+      }
+    },
+    {
+      "id": "word2vec-01",
+      "paper": "word2vec",
+      "category": "fact",
+      "answerable": true,
+      "question": "What are the two new model architectures this paper proposes?",
+      "expected_pages": [
+        4
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.16666666666666666,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.8333333333333334,
+        "retrieved_pages": [
+          "word2vec:p4",
+          "gpt3:p2",
+          "resnet:p7",
+          "bert:p3",
+          "gan:p8",
+          "bert:p13"
+        ],
+        "evidence_sufficiency": false
+      },
+      "latency": {
+        "retrieve_ms": 16.1,
+        "rerank_ms": 1410.3,
+        "llm_ms": 0.0,
+        "total_ms": 1426.8
+      }
+    },
+    {
+      "id": "word2vec-02",
+      "paper": "word2vec",
+      "category": "fact",
+      "answerable": true,
+      "question": "What is the classic vector arithmetic example given for semantic regularity?",
+      "expected_pages": [
+        2
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "word2vec:p2",
+          "word2vec:p10",
+          "word2vec:p1",
+          "word2vec:p2",
+          "word2vec:p8",
+          "word2vec:p6"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 16.9,
+        "rerank_ms": 1390.7,
+        "llm_ms": 0.0,
+        "total_ms": 1407.9
+      }
+    },
+    {
+      "id": "word2vec-03",
+      "paper": "word2vec",
+      "category": "fact",
+      "answerable": true,
+      "question": "How many semantic and syntactic questions are in the Semantic-Syntactic Word Relationship test set?",
+      "expected_pages": [
+        6
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "word2vec:p6",
+          "word2vec:p7",
+          "word2vec:p8",
+          "gpt3:p66",
+          "rag:p10",
+          "rag:p4"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 17.2,
+        "rerank_ms": 1297.8,
+        "llm_ms": 0.0,
+        "total_ms": 1315.7
+      }
+    },
+    {
+      "id": "word2vec-04",
+      "paper": "word2vec",
+      "category": "fact",
+      "answerable": true,
+      "question": "How many types of semantic and syntactic questions does the test set contain?",
+      "expected_pages": [
+        6
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "word2vec:p6",
+          "word2vec:p7",
+          "gpt3:p66",
+          "gpt3:p44",
+          "rag:p10",
+          "rag:p4"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 15.3,
+        "rerank_ms": 1355.9,
+        "llm_ms": 0.0,
+        "total_ms": 1371.4
+      }
+    },
+    {
+      "id": "word2vec-05",
+      "paper": "word2vec",
+      "category": "method",
+      "answerable": true,
+      "question": "What corpus was used for training and how was the vocabulary restricted?",
+      "expected_pages": [
+        6
+      ],
+      "retrieval": {
+        "recall_at_k": 0.0,
+        "hit_at_k": 0.0,
+        "mrr": 0.0,
+        "recall_before": 0.0,
+        "recall_after": 0.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.0,
+        "mrr_after": 0.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "word2vec:p7",
+          "bert:p4",
+          "word2vec:p2",
+          "bert:p14",
+          "attention:p12",
+          "gpt3:p72"
+        ],
+        "evidence_sufficiency": false
+      },
+      "latency": {
+        "retrieve_ms": 13.1,
+        "rerank_ms": 1261.5,
+        "llm_ms": 0.0,
+        "total_ms": 1275.0
+      }
+    },
+    {
+      "id": "word2vec-06",
+      "paper": "word2vec",
+      "category": "method",
+      "answerable": true,
+      "question": "How does the Skip-gram model weight distant context words?",
+      "expected_pages": [
+        4
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.25,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.75,
+        "retrieved_pages": [
+          "word2vec:p4",
+          "word2vec:p5",
+          "word2vec:p9",
+          "bert:p2",
+          "word2vec:p8",
+          "gpt3:p20"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 18.1,
+        "rerank_ms": 1219.2,
+        "llm_ms": 0.0,
+        "total_ms": 1237.6
+      }
+    },
+    {
+      "id": "word2vec-07",
+      "paper": "word2vec",
+      "category": "method",
+      "answerable": true,
+      "question": "What value of C, the maximum word distance, was used in the experiments?",
+      "expected_pages": [
+        5
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 0.0,
+        "recall_after": 1.0,
+        "recall_lift": 1.0,
+        "mrr_before": 0.09090909090909091,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.9090909090909091,
+        "retrieved_pages": [
+          "word2vec:p5",
+          "word2vec:p7",
+          "gpt3:p26",
+          "gan:p5",
+          "word2vec:p9",
+          "attention:p7"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 15.2,
+        "rerank_ms": 1195.6,
+        "llm_ms": 0.0,
+        "total_ms": 1211.1
+      }
+    },
+    {
+      "id": "word2vec-08",
+      "paper": "word2vec",
+      "category": "result",
+      "answerable": true,
+      "question": "In the architecture comparison at 640 dimensions, which model was best on semantic accuracy and what did it score?",
+      "expected_pages": [
+        7
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.5,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.5,
+        "retrieved_pages": [
+          "word2vec:p7",
+          "word2vec:p9",
+          "word2vec:p8",
+          "word2vec:p6",
+          "vgg:p13",
+          "word2vec:p10"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 27.3,
+        "rerank_ms": 1270.3,
+        "llm_ms": 0.0,
+        "total_ms": 1298.1
+      }
+    },
+    {
+      "id": "word2vec-09",
+      "paper": "word2vec",
+      "category": "method",
+      "answerable": true,
+      "question": "What starting learning rate was used and how was it decayed?",
+      "expected_pages": [
+        7
+      ],
+      "retrieval": {
+        "recall_at_k": 0.0,
+        "hit_at_k": 0.0,
+        "mrr": 0.0,
+        "recall_before": 0.0,
+        "recall_after": 0.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.0,
+        "mrr_after": 0.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "bert:p13",
+          "adam:p9",
+          "vgg:p4",
+          "vgg:p4",
+          "batchnorm:p6",
+          "adam:p13"
+        ],
+        "evidence_sufficiency": false
+      },
+      "latency": {
+        "retrieve_ms": 12.1,
+        "rerank_ms": 1277.7,
+        "llm_ms": 0.0,
+        "total_ms": 1290.3
+      }
+    },
+    {
+      "id": "word2vec-10",
+      "paper": "word2vec",
+      "category": "result",
+      "answerable": true,
+      "question": "What accuracy was achieved on the Microsoft Sentence Completion Challenge by combining Skip-gram with RNNLMs?",
+      "expected_pages": [
+        9
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "word2vec:p9",
+          "word2vec:p7",
+          "word2vec:p7",
+          "word2vec:p8",
+          "gpt3:p12",
+          "gpt3:p26"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 11.2,
+        "rerank_ms": 1309.3,
+        "llm_ms": 0.0,
+        "total_ms": 1320.8
+      }
+    },
+    {
+      "id": "word2vec-11",
+      "paper": "word2vec",
+      "category": "result",
+      "answerable": true,
+      "question": "How long did it take to train the CBOW and Skip-gram models on the Google News subset?",
+      "expected_pages": [
+        8
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 0.2,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.3333333333333333,
+        "mrr_after": 0.2,
+        "mrr_lift": -0.1333333333333333,
+        "retrieved_pages": [
+          "word2vec:p9",
+          "word2vec:p4",
+          "word2vec:p7",
+          "word2vec:p6",
+          "word2vec:p8",
+          "gpt3:p9"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 14.8,
+        "rerank_ms": 1432.0,
+        "llm_ms": 0.0,
+        "total_ms": 1447.3
+      }
+    },
+    {
+      "id": "word2vec-12",
+      "paper": "word2vec",
+      "category": "result",
+      "answerable": true,
+      "question": "How much does averaging ten examples instead of one improve the relationship vector accuracy?",
+      "expected_pages": [
+        10
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "word2vec:p10",
+          "word2vec:p9",
+          "word2vec:p7",
+          "word2vec:p8",
+          "word2vec:p2",
+          "vgg:p13"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 39.4,
+        "rerank_ms": 1349.5,
+        "llm_ms": 0.0,
+        "total_ms": 1389.2
+      }
+    },
+    {
+      "id": "word2vec-13",
+      "paper": "word2vec",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What accuracy does the Skip-gram model reach on the SQuAD question answering benchmark?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 12.2,
+        "rerank_ms": 1207.2,
+        "llm_ms": 0.0,
+        "total_ms": 1219.5
+      }
+    },
+    {
+      "id": "word2vec-14",
+      "paper": "word2vec",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What subword or character-level information do these word vectors use to handle morphology?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 10.9,
+        "rerank_ms": 1289.9,
+        "llm_ms": 0.0,
+        "total_ms": 1300.9
+      }
+    },
+    {
+      "id": "word2vec-15",
+      "paper": "word2vec",
+      "category": "unanswerable-domain",
+      "answerable": false,
+      "question": "What is the population of Brno, where several of the cited theses were written?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 13.8,
+        "rerank_ms": 1255.0,
+        "llm_ms": 0.0,
+        "total_ms": 1268.9
+      }
+    },
+    {
+      "id": "gan-01",
+      "paper": "gan",
+      "category": "fact",
+      "answerable": true,
+      "question": "What are the two models trained simultaneously in the adversarial framework, and what does each do?",
+      "expected_pages": [
+        1
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.5,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.5,
+        "retrieved_pages": [
+          "gan:p1",
+          "gan:p8",
+          "gan:p2",
+          "gan:p2",
+          "gan:p7",
+          "word2vec:p4"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 11.8,
+        "rerank_ms": 1435.0,
+        "llm_ms": 0.0,
+        "total_ms": 1447.1
+      }
+    },
+    {
+      "id": "gan-02",
+      "paper": "gan",
+      "category": "fact",
+      "answerable": true,
+      "question": "What analogy is used to describe the competition between the generator and discriminator?",
+      "expected_pages": [
+        1
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "gan:p1",
+          "gan:p5",
+          "gan:p4",
+          "gan:p4",
+          "gan:p7",
+          "gan:p3"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 21.0,
+        "rerank_ms": 1247.2,
+        "llm_ms": 0.0,
+        "total_ms": 1268.4
+      }
+    },
+    {
+      "id": "gan-03",
+      "paper": "gan",
+      "category": "fact",
+      "answerable": true,
+      "question": "At the unique solution of the minimax game, what value does the discriminator output everywhere?",
+      "expected_pages": [
+        1,
+        3
+      ],
+      "retrieval": {
+        "recall_at_k": 0.5,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 0.5,
+        "recall_after": 0.5,
+        "recall_lift": 0.0,
+        "mrr_before": 0.5,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.5,
+        "retrieved_pages": [
+          "gan:p3",
+          "gan:p3",
+          "gan:p4",
+          "gan:p5",
+          "attention:p5",
+          "gan:p5"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 11.7,
+        "rerank_ms": 1185.8,
+        "llm_ms": 0.0,
+        "total_ms": 1197.9
+      }
+    },
+    {
+      "id": "gan-04",
+      "paper": "gan",
+      "category": "method",
+      "answerable": true,
+      "question": "What is the optimal discriminator for a fixed generator?",
+      "expected_pages": [
+        4
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "gan:p4",
+          "gan:p3",
+          "gan:p5",
+          "gan:p5",
+          "gan:p7",
+          "gan:p4"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 10.2,
+        "rerank_ms": 1353.4,
+        "llm_ms": 0.0,
+        "total_ms": 1363.8
+      }
+    },
+    {
+      "id": "gan-05",
+      "paper": "gan",
+      "category": "result",
+      "answerable": true,
+      "question": "What value does the virtual training criterion C(G) achieve at its global minimum, and what divergence does it correspond to?",
+      "expected_pages": [
+        5
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "gan:p5",
+          "gan:p5",
+          "gan:p3",
+          "gan:p4",
+          "batchnorm:p4",
+          "batchnorm:p2"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 12.0,
+        "rerank_ms": 1514.7,
+        "llm_ms": 0.0,
+        "total_ms": 1526.9
+      }
+    },
+    {
+      "id": "gan-06",
+      "paper": "gan",
+      "category": "method",
+      "answerable": true,
+      "question": "Why is the generator trained to maximise log D(G(z)) rather than minimise log(1 - D(G(z)))?",
+      "expected_pages": [
+        3
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.5,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.5,
+        "retrieved_pages": [
+          "gan:p3",
+          "gan:p4",
+          "gan:p2",
+          "gan:p4",
+          "rag:p4",
+          "gan:p5"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 13.6,
+        "rerank_ms": 1345.2,
+        "llm_ms": 0.0,
+        "total_ms": 1358.9
+      }
+    },
+    {
+      "id": "gan-07",
+      "paper": "gan",
+      "category": "method",
+      "answerable": true,
+      "question": "What value of k, the number of discriminator steps per generator step, was used in the experiments?",
+      "expected_pages": [
+        4
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.5,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.5,
+        "retrieved_pages": [
+          "gan:p4",
+          "gan:p5",
+          "gan:p5",
+          "gan:p4",
+          "gpt3:p10",
+          "gan:p7"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 10.6,
+        "rerank_ms": 1274.8,
+        "llm_ms": 0.0,
+        "total_ms": 1285.5
+      }
+    },
+    {
+      "id": "gan-08",
+      "paper": "gan",
+      "category": "method",
+      "answerable": true,
+      "question": "Which datasets were the adversarial nets trained on?",
+      "expected_pages": [
+        5
+      ],
+      "retrieval": {
+        "recall_at_k": 0.0,
+        "hit_at_k": 0.0,
+        "mrr": 0.0,
+        "recall_before": 0.0,
+        "recall_after": 0.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.0,
+        "mrr_after": 0.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "gan:p1",
+          "gan:p8",
+          "gan:p3",
+          "gan:p2",
+          "vgg:p4",
+          "resnet:p7"
+        ],
+        "evidence_sufficiency": false
+      },
+      "latency": {
+        "retrieve_ms": 12.5,
+        "rerank_ms": 1228.8,
+        "llm_ms": 0.0,
+        "total_ms": 1241.6
+      }
+    },
+    {
+      "id": "gan-09",
+      "paper": "gan",
+      "category": "method",
+      "answerable": true,
+      "question": "What activation functions were used in the generator and discriminator nets?",
+      "expected_pages": [
+        5
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "gan:p5",
+          "gan:p1",
+          "gan:p7",
+          "gan:p4",
+          "gan:p2",
+          "gan:p5"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 12.0,
+        "rerank_ms": 1226.7,
+        "llm_ms": 0.0,
+        "total_ms": 1239.1
+      }
+    },
+    {
+      "id": "gan-10",
+      "paper": "gan",
+      "category": "result",
+      "answerable": true,
+      "question": "How was the likelihood of the test data estimated, and what is the drawback of that method?",
+      "expected_pages": [
+        5,
+        6
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 0.5,
+        "recall_after": 1.0,
+        "recall_lift": 0.5,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "gan:p6",
+          "gan:p5",
+          "gpt3:p31",
+          "gpt3:p31",
+          "gpt3:p10",
+          "resnet:p4"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 19.0,
+        "rerank_ms": 1253.9,
+        "llm_ms": 0.0,
+        "total_ms": 1273.1
+      }
+    },
+    {
+      "id": "gan-11",
+      "paper": "gan",
+      "category": "result",
+      "answerable": true,
+      "question": "What log-likelihood did adversarial nets achieve on MNIST and TFD in the Parzen window comparison?",
+      "expected_pages": [
+        6
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "gan:p6",
+          "gan:p1",
+          "gan:p8",
+          "gan:p3",
+          "gan:p7",
+          "resnet:p7"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 12.3,
+        "rerank_ms": 1230.9,
+        "llm_ms": 0.0,
+        "total_ms": 1243.7
+      }
+    },
+    {
+      "id": "gan-12",
+      "paper": "gan",
+      "category": "fact",
+      "answerable": true,
+      "question": "What is the Helvetica scenario and what causes it?",
+      "expected_pages": [
+        7
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 0.0,
+        "recall_after": 1.0,
+        "recall_lift": 1.0,
+        "mrr_before": 0.125,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.875,
+        "retrieved_pages": [
+          "gan:p7",
+          "rag:p10",
+          "gpt3:p54",
+          "gpt3:p29",
+          "gpt3:p53",
+          "gan:p1"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 10.8,
+        "rerank_ms": 1216.2,
+        "llm_ms": 0.0,
+        "total_ms": 1227.3
+      }
+    },
+    {
+      "id": "gan-13",
+      "paper": "gan",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What Inception Score do the generated CIFAR-10 samples achieve?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 12.0,
+        "rerank_ms": 1272.8,
+        "llm_ms": 0.0,
+        "total_ms": 1284.9
+      }
+    },
+    {
+      "id": "gan-14",
+      "paper": "gan",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What learning rate and momentum coefficient were used to train the adversarial nets?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 13.3,
+        "rerank_ms": 1406.7,
+        "llm_ms": 0.0,
+        "total_ms": 1420.1
+      }
+    },
+    {
+      "id": "gan-15",
+      "paper": "gan",
+      "category": "unanswerable-domain",
+      "answerable": false,
+      "question": "What is Les Trois Brasseurs, thanked in the acknowledgments?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 20.1,
+        "rerank_ms": 1314.4,
+        "llm_ms": 0.0,
+        "total_ms": 1334.6
+      }
+    },
+    {
+      "id": "rag-01",
+      "paper": "rag",
+      "category": "fact",
+      "answerable": true,
+      "question": "What are the parametric and non-parametric memories in the RAG model?",
+      "expected_pages": [
+        1,
+        2
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "rag:p2",
+          "rag:p9",
+          "rag:p19",
+          "rag:p1",
+          "rag:p2",
+          "rag:p6"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 20.0,
+        "rerank_ms": 1243.5,
+        "llm_ms": 0.0,
+        "total_ms": 1263.8
+      }
+    },
+    {
+      "id": "rag-02",
+      "paper": "rag",
+      "category": "fact",
+      "answerable": true,
+      "question": "What is the difference between RAG-Sequence and RAG-Token?",
+      "expected_pages": [
+        3
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "rag:p3",
+          "rag:p6",
+          "rag:p7",
+          "rag:p8",
+          "rag:p4",
+          "rag:p17"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 11.6,
+        "rerank_ms": 1192.7,
+        "llm_ms": 0.0,
+        "total_ms": 1204.5
+      }
+    },
+    {
+      "id": "rag-03",
+      "paper": "rag",
+      "category": "method",
+      "answerable": true,
+      "question": "Which retriever and which generator does RAG use?",
+      "expected_pages": [
+        2,
+        3
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "rag:p2",
+          "rag:p3",
+          "rag:p2",
+          "rag:p7",
+          "rag:p5",
+          "rag:p1"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 14.7,
+        "rerank_ms": 1199.3,
+        "llm_ms": 0.0,
+        "total_ms": 1214.3
+      }
+    },
+    {
+      "id": "rag-04",
+      "paper": "rag",
+      "category": "method",
+      "answerable": true,
+      "question": "Which Wikipedia dump was used, how was it chunked, and how many documents resulted?",
+      "expected_pages": [
+        4
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "rag:p4",
+          "rag:p18",
+          "gpt3:p44",
+          "rag:p7",
+          "rag:p8",
+          "rag:p4"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 11.4,
+        "rerank_ms": 2019.6,
+        "llm_ms": 0.0,
+        "total_ms": 2031.6
+      }
+    },
+    {
+      "id": "rag-05",
+      "paper": "rag",
+      "category": "method",
+      "answerable": true,
+      "question": "Which components of the retriever are fine-tuned during training and which are kept fixed?",
+      "expected_pages": [
+        4
+      ],
+      "retrieval": {
+        "recall_at_k": 0.0,
+        "hit_at_k": 0.0,
+        "mrr": 0.0,
+        "recall_before": 0.0,
+        "recall_after": 0.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.0,
+        "mrr_after": 0.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "rag:p3",
+          "bert:p1",
+          "bert:p3",
+          "bert:p14",
+          "bert:p5",
+          "gpt3:p75"
+        ],
+        "evidence_sufficiency": false
+      },
+      "latency": {
+        "retrieve_ms": 42.3,
+        "rerank_ms": 1217.1,
+        "llm_ms": 0.0,
+        "total_ms": 1259.6
+      }
+    },
+    {
+      "id": "rag-06",
+      "paper": "rag",
+      "category": "method",
+      "answerable": true,
+      "question": "What library and index structure were used for the MIPS search?",
+      "expected_pages": [
+        4
+      ],
+      "retrieval": {
+        "recall_at_k": 0.0,
+        "hit_at_k": 0.0,
+        "mrr": 0.0,
+        "recall_before": 0.0,
+        "recall_after": 0.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.07692307692307693,
+        "mrr_after": 0.0,
+        "mrr_lift": -0.07692307692307693,
+        "retrieved_pages": [
+          "rag:p3",
+          "rag:p12",
+          "rag:p12",
+          "rag:p9",
+          "gpt3:p75",
+          "gpt3:p72"
+        ],
+        "evidence_sufficiency": false
+      },
+      "latency": {
+        "retrieve_ms": 22.6,
+        "rerank_ms": 1362.0,
+        "llm_ms": 0.0,
+        "total_ms": 1384.9
+      }
+    },
+    {
+      "id": "rag-07",
+      "paper": "rag",
+      "category": "method",
+      "answerable": true,
+      "question": "What are Thorough Decoding and Fast Decoding, and which model needs them?",
+      "expected_pages": [
+        4
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 0.5,
+        "mrr_lift": -0.5,
+        "retrieved_pages": [
+          "rag:p17",
+          "rag:p4",
+          "resnet:p9",
+          "rag:p13",
+          "gan:p9",
+          "gan:p8"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 12.9,
+        "rerank_ms": 1220.6,
+        "llm_ms": 0.0,
+        "total_ms": 1233.8
+      }
+    },
+    {
+      "id": "rag-08",
+      "paper": "rag",
+      "category": "result",
+      "answerable": true,
+      "question": "What Exact Match scores did RAG achieve on Natural Questions?",
+      "expected_pages": [
+        6
+      ],
+      "retrieval": {
+        "recall_at_k": 0.0,
+        "hit_at_k": 0.0,
+        "mrr": 0.0,
+        "recall_before": 1.0,
+        "recall_after": 0.0,
+        "recall_lift": -1.0,
+        "mrr_before": 1.0,
+        "mrr_after": 0.0,
+        "mrr_lift": -1.0,
+        "retrieved_pages": [
+          "rag:p2",
+          "gpt3:p13",
+          "rag:p8",
+          "rag:p4",
+          "rag:p5",
+          "rag:p18"
+        ],
+        "evidence_sufficiency": false
+      },
+      "latency": {
+        "retrieve_ms": 18.2,
+        "rerank_ms": 1218.6,
+        "llm_ms": 0.0,
+        "total_ms": 1237.7
+      }
+    },
+    {
+      "id": "rag-09",
+      "paper": "rag",
+      "category": "result",
+      "answerable": true,
+      "question": "How often did RAG generate a correct answer for Natural Questions when the answer was in none of the retrieved documents?",
+      "expected_pages": [
+        6
+      ],
+      "retrieval": {
+        "recall_at_k": 0.0,
+        "hit_at_k": 0.0,
+        "mrr": 0.0,
+        "recall_before": 0.0,
+        "recall_after": 0.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.1111111111111111,
+        "mrr_after": 0.0,
+        "mrr_lift": -0.1111111111111111,
+        "retrieved_pages": [
+          "rag:p18",
+          "rag:p8",
+          "rag:p7",
+          "rag:p4",
+          "rag:p17",
+          "rag:p5"
+        ],
+        "evidence_sufficiency": false
+      },
+      "latency": {
+        "retrieve_ms": 13.8,
+        "rerank_ms": 1231.7,
+        "llm_ms": 0.0,
+        "total_ms": 1246.0
+      }
+    },
+    {
+      "id": "rag-10",
+      "paper": "rag",
+      "category": "result",
+      "answerable": true,
+      "question": "In the human evaluation of Jeopardy question generation, how often was RAG judged more factual than BART?",
+      "expected_pages": [
+        6,
+        8
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "rag:p6",
+          "rag:p8",
+          "rag:p5",
+          "rag:p7",
+          "rag:p17",
+          "rag:p10"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 13.0,
+        "rerank_ms": 1269.4,
+        "llm_ms": 0.0,
+        "total_ms": 1282.7
+      }
+    },
+    {
+      "id": "rag-11",
+      "paper": "rag",
+      "category": "result",
+      "answerable": true,
+      "question": "How often was the top retrieved document from a gold FEVER article?",
+      "expected_pages": [
+        7
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "rag:p7",
+          "rag:p7",
+          "rag:p18",
+          "rag:p18",
+          "rag:p6",
+          "rag:p3"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 17.9,
+        "rerank_ms": 1325.3,
+        "llm_ms": 0.0,
+        "total_ms": 1343.5
+      }
+    },
+    {
+      "id": "rag-12",
+      "paper": "rag",
+      "category": "result",
+      "answerable": true,
+      "question": "What did the index hot-swapping experiment show about updating RAG's world knowledge?",
+      "expected_pages": [
+        8
+      ],
+      "retrieval": {
+        "recall_at_k": 0.0,
+        "hit_at_k": 0.0,
+        "mrr": 0.0,
+        "recall_before": 1.0,
+        "recall_after": 0.0,
+        "recall_lift": -1.0,
+        "mrr_before": 0.5,
+        "mrr_after": 0.0,
+        "mrr_lift": -0.5,
+        "retrieved_pages": [
+          "rag:p7",
+          "rag:p9",
+          "rag:p4",
+          "rag:p2",
+          "rag:p10",
+          "rag:p6"
+        ],
+        "evidence_sufficiency": false
+      },
+      "latency": {
+        "retrieve_ms": 14.8,
+        "rerank_ms": 1470.2,
+        "llm_ms": 0.0,
+        "total_ms": 1485.8
+      }
+    },
+    {
+      "id": "rag-13",
+      "paper": "rag",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What reranking model does RAG apply to the retrieved passages before generation?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 11.2,
+        "rerank_ms": 1243.4,
+        "llm_ms": 0.0,
+        "total_ms": 1254.7
+      }
+    },
+    {
+      "id": "rag-14",
+      "paper": "rag",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "How many GPUs were used to fine-tune the RAG models and for how long?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 24.3,
+        "rerank_ms": 1298.7,
+        "llm_ms": 0.0,
+        "total_ms": 1323.1
+      }
+    },
+    {
+      "id": "rag-15",
+      "paper": "rag",
+      "category": "unanswerable-domain",
+      "answerable": false,
+      "question": "What is the monthly cost of hosting the RAG demo on HuggingFace?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 11.1,
+        "rerank_ms": 1262.6,
+        "llm_ms": 0.0,
+        "total_ms": 1273.8
+      }
+    },
+    {
+      "id": "gpt3-01",
+      "paper": "gpt3",
+      "category": "fact",
+      "answerable": true,
+      "question": "How many parameters does GPT-3 have?",
+      "expected_pages": [
+        1,
+        5,
+        8
+      ],
+      "retrieval": {
+        "recall_at_k": 0.3333333333333333,
+        "hit_at_k": 1.0,
+        "mrr": 0.3333333333333333,
+        "recall_before": 0.3333333333333333,
+        "recall_after": 0.3333333333333333,
+        "recall_lift": 0.0,
+        "mrr_before": 0.25,
+        "mrr_after": 0.3333333333333333,
+        "mrr_lift": 0.08333333333333331,
+        "retrieved_pages": [
+          "gpt3:p6",
+          "gpt3:p22",
+          "gpt3:p5",
+          "gpt3:p20",
+          "gpt3:p5",
+          "gpt3:p12"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 11.3,
+        "rerank_ms": 1169.0,
+        "llm_ms": 0.0,
+        "total_ms": 1180.8
+      }
+    },
+    {
+      "id": "gpt3-02",
+      "paper": "gpt3",
+      "category": "fact",
+      "answerable": true,
+      "question": "How many layers, what d_model and how many attention heads does the 175B model use?",
+      "expected_pages": [
+        8
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 0.0,
+        "recall_after": 1.0,
+        "recall_lift": 1.0,
+        "mrr_before": 0.125,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.875,
+        "retrieved_pages": [
+          "gpt3:p8",
+          "attention:p5",
+          "attention:p3",
+          "bert:p9",
+          "attention:p6",
+          "bert:p3"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 12.2,
+        "rerank_ms": 1295.8,
+        "llm_ms": 0.0,
+        "total_ms": 1308.3
+      }
+    },
+    {
+      "id": "gpt3-03",
+      "paper": "gpt3",
+      "category": "fact",
+      "answerable": true,
+      "question": "What is GPT-3's context window size?",
+      "expected_pages": [
+        6,
+        8
+      ],
+      "retrieval": {
+        "recall_at_k": 0.0,
+        "hit_at_k": 0.0,
+        "mrr": 0.0,
+        "recall_before": 0.0,
+        "recall_after": 0.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.125,
+        "mrr_after": 0.0,
+        "mrr_lift": -0.125,
+        "retrieved_pages": [
+          "gpt3:p5",
+          "gpt3:p20",
+          "gpt3:p18",
+          "gpt3:p20",
+          "gpt3:p14",
+          "gpt3:p33"
+        ],
+        "evidence_sufficiency": false
+      },
+      "latency": {
+        "retrieve_ms": 12.8,
+        "rerank_ms": 1201.8,
+        "llm_ms": 0.0,
+        "total_ms": 1215.0
+      }
+    },
+    {
+      "id": "gpt3-04",
+      "paper": "gpt3",
+      "category": "fact",
+      "answerable": true,
+      "question": "How many tokens was every GPT-3 model trained on?",
+      "expected_pages": [
+        8
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 0.5,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.16666666666666666,
+        "mrr_after": 0.5,
+        "mrr_lift": 0.33333333333333337,
+        "retrieved_pages": [
+          "gpt3:p9",
+          "gpt3:p8",
+          "gpt3:p46",
+          "gpt3:p46",
+          "gpt3:p5",
+          "gpt3:p31"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 14.6,
+        "rerank_ms": 1186.3,
+        "llm_ms": 0.0,
+        "total_ms": 1201.0
+      }
+    },
+    {
+      "id": "gpt3-05",
+      "paper": "gpt3",
+      "category": "method",
+      "answerable": true,
+      "question": "What five datasets make up GPT-3's training mix, and what weight does Common Crawl have?",
+      "expected_pages": [
+        9
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.3333333333333333,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.6666666666666667,
+        "retrieved_pages": [
+          "gpt3:p9",
+          "gpt3:p6",
+          "gpt3:p31",
+          "gpt3:p18",
+          "gpt3:p43",
+          "gpt3:p8"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 13.1,
+        "rerank_ms": 1209.2,
+        "llm_ms": 0.0,
+        "total_ms": 1222.7
+      }
+    },
+    {
+      "id": "gpt3-06",
+      "paper": "gpt3",
+      "category": "method",
+      "answerable": true,
+      "question": "How large was the Common Crawl data before and after filtering?",
+      "expected_pages": [
+        8
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.5,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.5,
+        "retrieved_pages": [
+          "gpt3:p8",
+          "gpt3:p43",
+          "gpt3:p9",
+          "gpt3:p2",
+          "gpt3:p44",
+          "gpt3:p44"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 17.2,
+        "rerank_ms": 1367.9,
+        "llm_ms": 0.0,
+        "total_ms": 1385.4
+      }
+    },
+    {
+      "id": "gpt3-07",
+      "paper": "gpt3",
+      "category": "method",
+      "answerable": true,
+      "question": "How do the few-shot, one-shot and zero-shot settings differ?",
+      "expected_pages": [
+        6
+      ],
+      "retrieval": {
+        "recall_at_k": 0.0,
+        "hit_at_k": 0.0,
+        "mrr": 0.0,
+        "recall_before": 1.0,
+        "recall_after": 0.0,
+        "recall_lift": -1.0,
+        "mrr_before": 0.5,
+        "mrr_after": 0.0,
+        "mrr_lift": -0.5,
+        "retrieved_pages": [
+          "gpt3:p7",
+          "gpt3:p12",
+          "gpt3:p22",
+          "gpt3:p5",
+          "gpt3:p24",
+          "gpt3:p19"
+        ],
+        "evidence_sufficiency": false
+      },
+      "latency": {
+        "retrieve_ms": 16.6,
+        "rerank_ms": 1390.2,
+        "llm_ms": 0.0,
+        "total_ms": 1406.9
+      }
+    },
+    {
+      "id": "gpt3-08",
+      "paper": "gpt3",
+      "category": "result",
+      "answerable": true,
+      "question": "What TriviaQA accuracy did GPT-3 reach in the zero-, one- and few-shot settings?",
+      "expected_pages": [
+        5
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 1.0,
+        "recall_before": 1.0,
+        "recall_after": 1.0,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 1.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "gpt3:p5",
+          "gpt3:p14",
+          "gpt3:p13",
+          "gpt3:p19",
+          "gpt3:p12",
+          "gpt3:p18"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 12.1,
+        "rerank_ms": 1333.5,
+        "llm_ms": 0.0,
+        "total_ms": 1346.5
+      }
+    },
+    {
+      "id": "gpt3-09",
+      "paper": "gpt3",
+      "category": "result",
+      "answerable": true,
+      "question": "What F1 did GPT-3 achieve on CoQA across the three settings?",
+      "expected_pages": [
+        5
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 0.25,
+        "recall_before": 0.0,
+        "recall_after": 1.0,
+        "recall_lift": 1.0,
+        "mrr_before": 0.125,
+        "mrr_after": 0.25,
+        "mrr_lift": 0.125,
+        "retrieved_pages": [
+          "gpt3:p19",
+          "gpt3:p18",
+          "gpt3:p18",
+          "gpt3:p5",
+          "gpt3:p14",
+          "gpt3:p13"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 17.9,
+        "rerank_ms": 1198.6,
+        "llm_ms": 0.0,
+        "total_ms": 1217.2
+      }
+    },
+    {
+      "id": "gpt3-10",
+      "paper": "gpt3",
+      "category": "method",
+      "answerable": true,
+      "question": "What hardware was GPT-3 trained on and who provided it?",
+      "expected_pages": [
+        9
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 0.3333333333333333,
+        "recall_before": 0.0,
+        "recall_after": 1.0,
+        "recall_lift": 1.0,
+        "mrr_before": 0.05555555555555555,
+        "mrr_after": 0.3333333333333333,
+        "mrr_lift": 0.2777777777777778,
+        "retrieved_pages": [
+          "gpt3:p14",
+          "gpt3:p18",
+          "gpt3:p9",
+          "gpt3:p33",
+          "gpt3:p14",
+          "gpt3:p18"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 12.5,
+        "rerank_ms": 1298.8,
+        "llm_ms": 0.0,
+        "total_ms": 1311.5
+      }
+    },
+    {
+      "id": "gpt3-11",
+      "paper": "gpt3",
+      "category": "fact",
+      "answerable": true,
+      "question": "What went wrong with the data contamination filtering, and what did the authors do about it?",
+      "expected_pages": [
+        9,
+        31
+      ],
+      "retrieval": {
+        "recall_at_k": 0.5,
+        "hit_at_k": 1.0,
+        "mrr": 0.16666666666666666,
+        "recall_before": 0.5,
+        "recall_after": 0.5,
+        "recall_lift": 0.0,
+        "mrr_before": 1.0,
+        "mrr_after": 0.16666666666666666,
+        "mrr_lift": -0.8333333333333334,
+        "retrieved_pages": [
+          "gpt3:p6",
+          "gpt3:p32",
+          "gpt3:p33",
+          "gpt3:p44",
+          "gpt3:p44",
+          "gpt3:p31"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 15.7,
+        "rerank_ms": 1216.8,
+        "llm_ms": 0.0,
+        "total_ms": 1232.7
+      }
+    },
+    {
+      "id": "gpt3-12",
+      "paper": "gpt3",
+      "category": "multi-page",
+      "answerable": true,
+      "question": "How much compute did training GPT-3 175B consume, and what does generating 100 pages of content from the trained model cost in energy?",
+      "expected_pages": [
+        39
+      ],
+      "retrieval": {
+        "recall_at_k": 1.0,
+        "hit_at_k": 1.0,
+        "mrr": 0.3333333333333333,
+        "recall_before": 0.0,
+        "recall_after": 1.0,
+        "recall_lift": 1.0,
+        "mrr_before": 0.09090909090909091,
+        "mrr_after": 0.3333333333333333,
+        "mrr_lift": 0.2424242424242424,
+        "retrieved_pages": [
+          "gpt3:p9",
+          "gpt3:p10",
+          "gpt3:p39",
+          "gpt3:p8",
+          "gpt3:p46",
+          "gpt3:p11"
+        ],
+        "evidence_sufficiency": true
+      },
+      "latency": {
+        "retrieve_ms": 11.6,
+        "rerank_ms": 1809.1,
+        "llm_ms": 0.0,
+        "total_ms": 1824.7
+      }
+    },
+    {
+      "id": "gpt3-13",
+      "paper": "gpt3",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What is GPT-3's accuracy on SuperGLUE after fine-tuning?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 41.5,
+        "rerank_ms": 1288.8,
+        "llm_ms": 0.0,
+        "total_ms": 1330.4
+      }
+    },
+    {
+      "id": "gpt3-14",
+      "paper": "gpt3",
+      "category": "unanswerable-absent",
+      "answerable": false,
+      "question": "What was the dollar cost of training GPT-3?",
+      "expected_pages": [],
+      "latency": {
+        "retrieve_ms": 13.3,
+        "rerank_ms": 1152.8,
+        "llm_ms": 0.0,
+        "total_ms": 1166.1
+      }
+    },
+    {
+      "id": "gpt3-15",
+      "paper": "gpt3",
+      "category": "cross-paper",
+      "answerable": true,
+      "question": "Which architecture does GPT-3 build on, and how many parameters did the model in the paper that introduced that architecture have?",
+      "expected_pages": [
+        39
+      ],
+      "retrieval": {
+        "recall_at_k": 0.0,
+        "hit_at_k": 0.0,
+        "mrr": 0.0,
+        "recall_before": 0.0,
+        "recall_after": 0.0,
+        "recall_lift": 0.0,
+        "mrr_before": 0.0,
+        "mrr_after": 0.0,
+        "mrr_lift": 0.0,
+        "retrieved_pages": [
+          "gpt3:p20",
+          "gpt3:p22",
+          "gpt3:p33",
+          "gpt3:p33",
+          "gpt3:p5",
+          "gpt3:p14"
+        ],
+        "evidence_sufficiency": false
+      },
+      "latency": {
+        "retrieve_ms": 13.1,
+        "rerank_ms": 1293.6,
+        "llm_ms": 0.0,
+        "total_ms": 1306.9
+      }
+    }
+  ]
+}

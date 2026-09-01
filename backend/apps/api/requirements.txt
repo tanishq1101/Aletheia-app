@@ -1,0 +1,22 @@
+fastapi==0.120.4
+uvicorn[standard]==0.38.0
+pydantic==2.12.4
+pydantic-settings==2.13.0
+psycopg[binary]==3.2.12
+psycopg-pool==3.2.6
+python-multipart==0.0.20
+
+# PDF text extraction (PRD Section 6). Only imported by app/services/parsing.py.
+pymupdf==1.28.2
+
+# Local embeddings via ONNX — no API key, no network at inference time.
+# Only imported by app/services/embedding.py. Downloads the model (~120MB) on
+# first use and caches it. Model choice is documented in PROGRESS.md.
+fastembed==0.8.0
+
+# LLM access. OpenRouter is OpenAI-compatible, so one HTTP client is enough --
+# no provider SDK. Only imported by app/services/llm.py.
+httpx==0.28.1
+
+# Tests
+pytest==8.4.2

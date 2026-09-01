@@ -1,0 +1,23 @@
+services:
+  db:
+    # pg17 matches the Postgres major version on the Supabase account, so the
+    # eventual migration does not cross a major version boundary.
+    image: pgvector/pgvector:pg17
+    container_name: research-intelligence-db
+    environment:
+      POSTGRES_USER: research
+      POSTGRES_PASSWORD: research
+      POSTGRES_DB: research_intelligence
+    ports:
+      # 5433 on the host to avoid colliding with an existing local Postgres.
+      - "5433:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U research -d research_intelligence"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  db_data:
