@@ -1,5 +1,6 @@
+import PreviewNotice from "@/components/PreviewNotice";
 import ClaimCard from "@/components/ClaimCard";
-import { claimVerification } from "@/lib/mock-data";
+import { claimVerification } from "@/lib/preview-data";
 
 export default function ClaimVerificationPage() {
   const { paperTitle, claims } = claimVerification;
@@ -18,6 +19,11 @@ export default function ClaimVerificationPage() {
   return (
     <div className="flex w-full flex-col items-start gap-6">
       <h1 className="font-display text-[28px] font-semibold text-primary">Claim Verification</h1>
+
+      <PreviewNotice>
+        Claim extraction and verification are a later phase of the backend PRD.
+        These claims, confidences and source counts are fixtures, not results.
+      </PreviewNotice>
 
       <p className="font-ui text-[13px] text-secondary">
         {paperTitle} · {claims.length} claims extracted

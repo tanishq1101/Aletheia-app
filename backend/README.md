@@ -70,11 +70,18 @@ Interactive API docs at http://localhost:8000/docs.
 
 **5. Start the frontend**
 
+The UI lives at the repository root (the Aletheia Next.js app), not in this
+directory — `apps/web` was a scaffold and has been removed now that the real
+frontend is wired to these endpoints.
+
 ```bash
-npm install --prefix apps/web && npm run dev --prefix apps/web
+cd .. && npm install && npm run dev
 ```
 
-Open http://localhost:3000, create a project, and upload a PDF.
+Open http://localhost:3000, pick or create a project from the top-right
+switcher, and upload a PDF. The frontend reads `NEXT_PUBLIC_API_URL` from
+`../.env.local` (copy `../.env.local.example`); it must match `CORS_ORIGINS`
+here.
 
 ## Tests
 
@@ -137,7 +144,6 @@ apps/api/          FastAPI backend
   app/services/    Ingestion, chunking, embedding, retrieval, reranking, context, LLM
   migrations/      Numbered SQL, applied by scripts/migrate.py
   tests/
-apps/web/          Next.js frontend
 docs/              Architecture notes and dataset references
 scripts/           Operational scripts
 storage/           Uploaded PDFs (git-ignored, created at runtime)

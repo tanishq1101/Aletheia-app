@@ -49,6 +49,16 @@ export default function SignInPage() {
         <span className="text-muted">New here?</span>
         <span className="font-semibold text-brass">Request access</span>
       </div>
+
+      {/* The API has no auth yet: every project belongs to a seeded dev user.
+          Saying so beats a sign-in form that silently does nothing. */}
+      <div className="flex w-full items-start gap-3 rounded-md border border-dashed border-hairline px-4 py-3">
+        <span className="mt-[5px] size-[5px] shrink-0 rounded-full bg-brass" />
+        <p className="min-w-px flex-1 font-ui text-[11px] text-muted">
+          Not wired up. The API runs without authentication for now — go
+          straight to <a href="/library" className="font-semibold text-brass">the library</a>.
+        </p>
+      </div>
     </div>
   );
 }

@@ -10,6 +10,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The FastAPI service and its own tooling live here; it is not part of
+    // this Next app's lint or type-check surface.
+    "backend/**",
   ]),
 ]);
 

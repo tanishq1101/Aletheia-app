@@ -1,6 +1,7 @@
+import PreviewNotice from "@/components/PreviewNotice";
 import RepoMetadataCard from "@/components/RepoMetadataCard";
 import CheckStatusIcon from "@/components/CheckStatusIcon";
-import { reproducibilityCheck } from "@/lib/mock-data";
+import { reproducibilityCheck } from "@/lib/preview-data";
 
 export default function ReproducibilityPage() {
   const { paperTitle, repo, checklist } = reproducibilityCheck;
@@ -10,6 +11,11 @@ export default function ReproducibilityPage() {
       <h1 className="font-display text-[28px] font-semibold text-primary">
         Reproducibility Checker
       </h1>
+
+      <PreviewNotice>
+        Nothing here talks to a repository yet. The checklist below is a fixture
+        showing the intended shape of the check.
+      </PreviewNotice>
 
       <p className="font-ui text-[13px] text-secondary">{paperTitle}</p>
 

@@ -20,7 +20,15 @@ function NavLink({ item, active }: { item: NavItem; active: boolean }) {
           active ? "bg-primary" : "bg-secondary"
         }`}
       />
-      {item.label}
+      <span className="min-w-px flex-1">{item.label}</span>
+      {item.preview && (
+        <span
+          title="Not backed by the API yet"
+          className="shrink-0 rounded-[3px] border border-hairline px-1.5 py-px font-mono text-[8px] tracking-[0.4px] text-muted"
+        >
+          PREVIEW
+        </span>
+      )}
     </Link>
   );
 }

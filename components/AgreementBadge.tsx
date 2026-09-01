@@ -1,4 +1,4 @@
-import type { AgreementStatus } from "@/lib/mock-data";
+import type { AgreementStatus } from "@/lib/preview-data";
 
 const agreementConfig: Record<AgreementStatus, { label: string; text: string; dot: string }> = {
   supports: { label: "Supports", text: "text-success", dot: "bg-success" },

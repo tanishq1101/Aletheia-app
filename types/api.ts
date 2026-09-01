@@ -1,3 +1,9 @@
+/** Wire types for the FastAPI backend in `backend/`.
+ *
+ * These mirror `backend/apps/api/app/schemas/models.py`. UUIDs and datetimes
+ * arrive as strings over JSON, so they are typed as such here rather than
+ * pretending to be richer types the fetch layer never constructs. */
+
 export type PaperStatus = "uploaded" | "processing" | "ready" | "failed";
 export type JobStatus = "pending" | "running" | "succeeded" | "failed";
 
@@ -13,35 +19,13 @@ export interface ProcessingJob {
   id: string;
   paper_id: string;
   status: JobStatus;
+  /** downloading | parsing | chunking | embedding | persisting | complete */
   stage: string | null;
   progress: number;
   error: string | null;
   attempts: number;
   created_at: string;
   updated_at: string;
-}
-
-export interface SearchResult {
-  chunk_id: string;
-  paper_id: string;
-  paper_title: string | null;
-  filename: string;
-  content: string;
-  section: string | null;
-  chunk_index: number;
-  token_count: number | null;
-  page_number: number | null;
-  similarity: number;
-}
-
-export interface PaperSection {
-  id: string;
-  paper_id: string;
-  title: string;
-  level: number;
-  section_index: number;
-  start_page: number;
-  start_offset: number | null;
 }
 
 export interface Paper {
@@ -58,8 +42,40 @@ export interface Paper {
   job: ProcessingJob | null;
 }
 
+export interface PaperPage {
+  id: string;
+  paper_id: string;
+  page_number: number;
+  cleaned_text: string | null;
+  character_count: number | null;
+}
+
+export interface PaperSection {
+  id: string;
+  paper_id: string;
+  title: string;
+  level: number;
+  section_index: number;
+  start_page: number;
+  start_offset: number | null;
+}
+
+export interface SearchResult {
+  chunk_id: string;
+  paper_id: string;
+  paper_title: string | null;
+  filename: string;
+  content: string;
+  section: string | null;
+  chunk_index: number;
+  token_count: number | null;
+  page_number: number | null;
+  /** Cosine similarity, 0..1. */
+  similarity: number;
+}
+
 /** A citation the backend resolved from an evidence ID it issued itself.
- *  The model never invents these labels (PRD 5.3). */
+ *  The model never invents these labels (backend PRD 5.3). */
 export interface Citation {
   evidence_id: string;
   chunk_id: string;
@@ -90,13 +106,19 @@ export interface Evidence {
 export interface AnswerResponse {
   answer: string;
   /** False when the model reported the evidence was insufficient. That is a
-   *  correct outcome, not an error (PRD 5.4). */
+   *  correct outcome, not an error (backend PRD 5.4). */
   sufficient_evidence: boolean;
   citations: Citation[];
   evidence: Evidence[];
-  /** Must be 0 (PRD Section 12). Shown in the UI if it ever is not. */
+  /** Must be 0 (backend PRD Section 12). Surfaced in the UI if it ever is not. */
   fabricated_citations_removed: number;
   candidates_considered: number;
   evidence_dropped_for_budget: number;
   model: string;
+}
+
+export interface HealthResponse {
+  status: string;
+  database: string;
+  storage: string;
 }

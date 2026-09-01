@@ -1,13 +1,15 @@
 import Badge, { type BadgeTone } from "@/components/Badge";
-import type { PaperStatus } from "@/lib/mock-data";
+import { statusLabel } from "@/lib/display";
+import type { PaperStatus } from "@/types/api";
 
-const statusConfig: Record<PaperStatus, { label: string; tone: BadgeTone }> = {
-  ready: { label: "Ready", tone: "success" },
-  processing: { label: "Processing", tone: "warning" },
-  failed: { label: "Failed", tone: "error" },
+const statusTone: Record<PaperStatus, BadgeTone> = {
+  // `uploaded` means stored but not yet picked up by the worker.
+  uploaded: "muted",
+  processing: "warning",
+  ready: "success",
+  failed: "error",
 };
 
 export default function StatusBadge({ status }: { status: PaperStatus }) {
-  const config = statusConfig[status];
-  return <Badge tone={config.tone} label={config.label} />;
+  return <Badge tone={statusTone[status]} label={statusLabel[status]} />;
 }

@@ -1,5 +1,5 @@
 import Badge, { type BadgeTone } from "@/components/Badge";
-import type { ClaimVerificationStatus } from "@/lib/mock-data";
+import type { ClaimVerificationStatus } from "@/lib/preview-data";
 
 const statusConfig: Record<ClaimVerificationStatus, { label: string; tone: BadgeTone }> = {
   verified: { label: "Verified", tone: "success" },

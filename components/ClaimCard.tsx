@@ -1,7 +1,7 @@
 import ClaimStatusBadge from "@/components/ClaimStatusBadge";
 import ConfidenceMeter from "@/components/ConfidenceMeter";
 import type { BadgeTone } from "@/components/Badge";
-import type { VerifiedClaim } from "@/lib/mock-data";
+import type { VerifiedClaim } from "@/lib/preview-data";
 
 const statusTone: Record<VerifiedClaim["status"], BadgeTone> = {
   verified: "success",

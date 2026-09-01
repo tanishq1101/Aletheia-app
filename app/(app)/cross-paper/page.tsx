@@ -1,5 +1,6 @@
+import PreviewNotice from "@/components/PreviewNotice";
 import ClaimAgreementTable from "@/components/ClaimAgreementTable";
-import { crossPaperWorkspace } from "@/lib/mock-data";
+import { crossPaperWorkspace } from "@/lib/preview-data";
 
 export default function CrossPaperPage() {
   return (
@@ -7,6 +8,12 @@ export default function CrossPaperPage() {
       <h1 className="font-display text-[28px] font-semibold text-primary">
         Cross-Paper Workspace
       </h1>
+
+      <PreviewNotice>
+        Cross-paper claim comparison is not implemented in the API yet — the
+        matrix below is a fixture. What is live today: upload, semantic search
+        and grounded answers over your own papers.
+      </PreviewNotice>
 
       <p className="font-ui text-[13px] text-secondary">{crossPaperWorkspace.summary}</p>
 

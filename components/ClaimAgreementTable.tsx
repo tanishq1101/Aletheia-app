@@ -1,5 +1,5 @@
 import AgreementBadge from "@/components/AgreementBadge";
-import type { ClaimAgreementRow, CrossPaperEntry } from "@/lib/mock-data";
+import type { ClaimAgreementRow, CrossPaperEntry } from "@/lib/preview-data";
 
 export default function ClaimAgreementTable({
   papers,

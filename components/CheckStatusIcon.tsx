@@ -1,5 +1,5 @@
 import type { BadgeTone } from "@/components/Badge";
-import type { CheckStatus } from "@/lib/mock-data";
+import type { CheckStatus } from "@/lib/preview-data";
 
 const statusConfig: Record<CheckStatus, { glyph: string; tone: BadgeTone }> = {
   pass: { glyph: "✓", tone: "success" },

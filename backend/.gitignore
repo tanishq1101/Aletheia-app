@@ -28,3 +28,14 @@ next-env.d.ts
 
 # Benchmark corpus PDFs — reproduced by scripts/fetch_corpus.py from the pinned manifest
 /datasets/corpus/pdfs/
+
+# AI tooling artifacts — never commit these
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+.claude/
+.cursor/
+.cursorrules
+.aider*
+.windsurfrules
+.github/copilot-instructions.md

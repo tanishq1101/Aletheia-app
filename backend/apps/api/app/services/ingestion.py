@@ -25,12 +25,14 @@ from app.services.storage import StorageError, build_storage
 
 log = get_logger(__name__)
 
-# (stage name, progress when that stage begins)
+# (stage name, progress when that stage begins). Listed in the order
+# `process_paper` actually runs them, so progress only ever moves forward --
+# persisting is the last stage before completion, not an early one.
 STAGE_DOWNLOAD = ("downloading", 0.05)
 STAGE_PARSE = ("parsing", 0.2)
-STAGE_PERSIST = ("persisting", 0.4)
-STAGE_CHUNK = ("chunking", 0.55)
-STAGE_EMBED = ("embedding", 0.7)
+STAGE_CHUNK = ("chunking", 0.4)
+STAGE_EMBED = ("embedding", 0.55)
+STAGE_PERSIST = ("persisting", 0.85)
 STAGE_DONE = ("complete", 1.0)
 
 # Embedding is batched so a long paper is not one model call per chunk.
