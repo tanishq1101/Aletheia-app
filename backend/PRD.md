@@ -233,7 +233,7 @@ To be filled in by the team — left blank intentionally rather than guessed.
 | *[ fill in ]* | *[ fill in ]* | *[ e.g. DB / Supabase / schema ]* |
 | *[ fill in ]* | *[ fill in ]* | *[ e.g. evaluation / benchmark ]* |
 
-## 15. Working Agreement (with Claude / with each other)
+## 15. Working Agreement
 
 - Explain a non-trivial change before making it: what, why, tradeoffs.
 - Verify before declaring anything done — run it, test it, then say so.

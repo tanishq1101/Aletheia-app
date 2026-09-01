@@ -27,7 +27,7 @@ unconstrained `vector` with no index.
 Rationale for both, plus the model change forced by PRD §3.2, is in PROGRESS.md.
 
 ## Still open from earlier, not mine to close
-- PRD §7 does not list `paper_sections` (flagged in Sprint 2). Unchanged on the Cowork side.
+- PRD §7 does not list `paper_sections` (flagged in Sprint 2). Still unresolved.
 - PRD §12's "retrieval measurable against benchmark data" still gates Phase 2 on a Sprint 6
   deliverable. Sprint 3 produces retrieval that *can* be measured; it does not resolve the gap.
 

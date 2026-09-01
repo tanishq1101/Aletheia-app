@@ -44,7 +44,7 @@ partial text — the same failure Sprint 3 caught in the embedding model.
 claim with a test rather than trusting the model card.
 
 ## Still open from earlier, not mine to close
-- PRD §7 does not list `paper_sections` (flagged in Sprint 2). Unchanged on the Cowork side.
+- PRD §7 does not list `paper_sections` (flagged in Sprint 2). Still unresolved.
 - PRD §12's "retrieval measurable against benchmark data" still gates Phase 2 on a Sprint 6
   deliverable. Sprint 4 produces answers that *can* be measured; it does not resolve the gap.
 

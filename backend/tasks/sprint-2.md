@@ -27,7 +27,7 @@ PRD Section 12 requires "basic section info retained", but the Section 7 schema 
 to put it — the only `section` field lives on `paper_chunks`, which is Sprint 3. Options are a
 new `paper_sections` table, or JSONB on `paper_pages`. **Proposing a `paper_sections` table**
 (sections span pages, so hanging them off a single page is wrong) and logging this as a PRD
-schema gap in PROGRESS.md. Raise with the Cowork side rather than quietly amending Section 7.
+schema gap in PROGRESS.md. Raise it for a project decision rather than quietly amending Section 7.
 
 ## Tasks
 

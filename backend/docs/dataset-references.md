@@ -1,6 +1,6 @@
 # Dataset References
 
-Compiled during Cowork planning. Match the source to the actual need — do not pull all of these indiscriminately.
+Compiled during project planning. Match the source to the actual need — do not pull all of these indiscriminately.
 
 ## Ingestion corpus (Sprint 1–5 — real PDFs to feed the pipeline)
 - arXiv Bulk Data Access: https://info.arxiv.org/help/bulk_data.html
