@@ -10,6 +10,8 @@ export const primaryNavItems: NavItem[] = [
   { label: "Library", href: "/library" },
   { label: "Search", href: "/search" },
   { label: "Ask", href: "/ask" },
+  { label: "Research Agent", href: "/agent" },
+  { label: "Training Lab", href: "/training" },
   { label: "Upload", href: "/upload" },
   { label: "Cross-Paper", href: "/cross-paper", preview: true },
   { label: "Claim Verification", href: "/claim-verification", preview: true },

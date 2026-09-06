@@ -44,6 +44,10 @@ class Settings(BaseSettings):
     # explicitly at load. Verified, not assumed — see tests/test_reranking.py.
     rerank_max_tokens: int = 8192
 
+    # Experimental local classifiers enrich inspectable diagnostics only.
+    research_models_enabled: bool = True
+    research_models_dir: str = "models/research"
+
     # Context builder. The budget covers evidence text only, not the whole
     # prompt. Evidence that does not fit is dropped lowest-rank-first and
     # reported, never silently truncated.
@@ -59,7 +63,7 @@ class Settings(BaseSettings):
     # Temperature 0: grounding is constraint-following, not a creative task,
     # and a deterministic answer is one that can actually be re-verified.
     llm_temperature: float = 0.0
-    llm_max_output_tokens: int = 1024
+    llm_max_output_tokens: int = 2048
     llm_timeout_seconds: float = 60.0
     # OpenRouter's optional attribution headers.
     llm_app_title: str = "AI Research Intelligence Platform"

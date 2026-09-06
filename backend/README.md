@@ -162,6 +162,28 @@ storage/           Uploaded PDFs (git-ignored, created at runtime)
 | `POST /papers/{id}/reprocess` | Retry extraction for a failed or stranded paper |
 | `POST /projects/{id}/search` | Semantic search over the project's chunks — the **raw candidate set, before reranking**. Kept separate so retrieval quality stays measurable independently of answer quality |
 | `POST /projects/{id}/answer` | Grounded answer: retrieve → rerank → build evidence → LLM → resolved citations |
+| `GET /papers/{id}/assets` | Structured figures, tables, and equation candidates linked to physical PDF pages |
+| `GET /assets/{id}/content` | Binary figure content resolved by asset ID; storage paths stay private |
+| `POST /assets/{id}/interpret` | One on-demand vision interpretation for a resolved figure; successful results are cached by asset/model/prompt version, with no batching |
+| `POST /projects/{id}/agent/research` | Bounded planner → grounded subquestions → visible execution trace |
+
+### Keys and model training
+
+`OPENROUTER_API_KEY` is the **only active AI API key**. It is required for
+`/answer`, agent planning/answers, and LLM-dependent benchmark metrics. PDF
+extraction, figures/tables, embeddings, reranking, semantic search, and the
+neural training script are local and need no secret. `SUPABASE_*` variables are
+reserved but unused while local Postgres/storage remain the configured backend.
+
+Train the compact neural relevance experiment against the real benchmark project:
+
+```bash
+./.venv/bin/python scripts/train_neural_reranker.py
+```
+
+It writes `models/neural_relevance_model.json` and a timestamped held-out report
+under `datasets/training/results/`. The production cross-encoder is not replaced
+unless the experiment improves held-out ranking; the report records that decision.
 
 ### How ingestion runs
 

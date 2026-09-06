@@ -13,6 +13,9 @@ pymupdf==1.28.2
 # Only imported by app/services/embedding.py. Downloads the model (~120MB) on
 # first use and caches it. Model choice is documented in PROGRESS.md.
 fastembed==0.8.0
+# Direct dependency for the local neural relevance training pipeline. Kept
+# explicit rather than relying on fastembed to pull it transitively.
+numpy==2.5.2
 
 # LLM access. OpenRouter is OpenAI-compatible, so one HTTP client is enough --
 # no provider SDK. Only imported by app/services/llm.py.

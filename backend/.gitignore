@@ -34,8 +34,13 @@ AGENTS.md
 CLAUDE.md
 GEMINI.md
 .claude/
+.codex/
 .cursor/
 .cursorrules
 .aider*
 .windsurfrules
 .github/copilot-instructions.md
+
+# Reproducible public research snapshots; keep manifests and reports.
+/datasets/research/raw/
+/datasets/research/*.jsonl

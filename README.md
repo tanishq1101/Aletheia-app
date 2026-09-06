@@ -23,14 +23,31 @@ backend/     FastAPI service — ingestion, chunking, embeddings, retrieval,
 | Reader | Live — extracted page text and detected section outline |
 | Semantic search | Live — `POST /projects/{id}/search`, raw candidates before reranking |
 | Ask | Live — `POST /projects/{id}/answer`: retrieve → rerank → evidence → LLM → resolved citations |
-| Figures / tables / equations / citation graph | **Not extracted yet** — the reader's Extraction tab says so rather than showing placeholders |
+| Figures / tables / equations | Live — raster figures + captions, structured tables, heuristic equation candidates, plus cached one-at-a-time AI figure interpretation; vector-chart extraction and math OCR remain future work |
+| Research Agent | Live API/UI — bounded planner → grounded subquestions → verified evidence trace; requires OpenRouter |
 | Cross-Paper, Claim Verification, Reproducibility | **Preview** — still fixtures from `lib/preview-data.ts`, each page carries a banner saying so |
 | Sign-in | **Not wired** — the API has no auth; every project belongs to a seeded dev user |
 
-Answering is the only feature that needs a hosted model (OpenRouter). Embedding
-and reranking run locally through fastembed — no key, no spend. Without a key
-the answer endpoint returns 503 with an explanation and the Ask page tells you
-how to set one; everything else works.
+Answering, research-agent generation, and explicitly requested figure interpretation use the
+hosted OpenRouter model. Embedding and reranking run locally through fastembed — no key, no spend.
+Without a key those three generation paths return 503 with an explanation; extraction, reading,
+search, and local training still work.
+
+## AI keys and local models
+
+| Capability | Provider | Key required |
+|---|---|---|
+| PDF text, figures, tables, equation candidates | PyMuPDF, local | No |
+| Embeddings | fastembed / Jina ONNX, local | No |
+| Cross-encoder reranking | fastembed / Jina ONNX, local | No |
+| Neural relevance-model training | NumPy, local | No |
+| Grounded answers | OpenRouter | `OPENROUTER_API_KEY` |
+| Research-agent planning and step answers | OpenRouter | `OPENROUTER_API_KEY` |
+| On-demand single-figure interpretation | OpenRouter vision; successful results cached by figure/model/prompt | `OPENROUTER_API_KEY` only on cache miss |
+| Supabase | Not wired | No key is currently used |
+
+There is exactly one active hosted-AI secret. Set it from `backend/` with
+`.venv/bin/python scripts/set_openrouter_key.py`; do not put it in frontend variables or commit it.
 
 ## Stack
 
@@ -82,8 +99,9 @@ app/
     library/      real papers for the selected project
     search/       semantic search over the project's chunks
     ask/          grounded answers with resolved citations
+    agent/        bounded research planner with an inspectable grounded trace
     upload/       real upload + live ingestion stages
-    paper/[id]/   the reader
+    paper/[id]/   readable text plus structured PDF assets
     cross-paper/, claim-verification/, reproducibility/   preview only
     settings/     live /health, workspace facts, provider notes
   (auth)/
@@ -111,3 +129,11 @@ the sidebar and topbar around every page, `(auth)` just centers its content.
 - Citation IDs in an answer are minted and validated server-side; anything the
   model invented is stripped before the response is serialized. The UI shows
   `fabricated_citations_removed` if it is ever non-zero rather than hiding it.
+
+## Multi-source training and research reports
+
+The project now includes **two additional trained neural classifiers**, three public training datasets, and two standalone Colab notebooks. The research agent searches Europe PMC and Crossref and combines library passages with clearly labeled public abstracts into a cited report. Answers support bold/italic Markdown, comparison tables, source coverage graphs, conservative citation-backed numeric charts, and experimental model diagnostics.
+
+See [training results, notebooks, setup and limitations](backend/docs/research-models.md). Relevance reached **89.87% held-out accuracy** versus a **84.96% lexical baseline**. Scientific stance remains experimental (**54% accuracy**, below the majority baseline); neither model is a replacement for the hosted language model or a verified claim checker.
+
+Open **Training Lab** in the sidebar to inspect the measured results and download both notebooks. [Validation record](backend/docs/validation-summary.json).

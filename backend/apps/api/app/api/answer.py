@@ -90,6 +90,7 @@ def answer(
                 "content": item.content,
                 "similarity": item.similarity,
                 "rerank_score": item.rerank_score,
+                "source_url": item.source_url,
             }
             for item in result.evidence
         ],
@@ -97,4 +98,7 @@ def answer(
         candidates_considered=result.candidates_considered,
         evidence_dropped_for_budget=result.evidence_dropped_for_budget,
         model=result.model,
+        model_diagnostics=result.model_diagnostics,
+        charts=result.charts,
+        truncated=result.truncated,
     )

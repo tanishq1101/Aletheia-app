@@ -35,6 +35,7 @@ class Evidence:
     page_number: int | None
     similarity: float
     rerank_score: float
+    source_url: str | None = None
 
     @property
     def location(self) -> str:

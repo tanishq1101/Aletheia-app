@@ -49,7 +49,8 @@ export default function ReadingPane({
   const groups = groupPages(pages, sections);
 
   return (
-    <div className="flex h-full min-w-px flex-1 flex-col items-start gap-[18px] overflow-y-auto px-16 py-12">
+    <div className="flex h-full min-w-px flex-1 flex-col items-center overflow-y-auto px-10 py-12">
+      <div className="flex w-full max-w-[820px] flex-col items-start gap-5">
       <p className="shrink-0 font-mono text-[10px] tracking-[0.8px] whitespace-nowrap text-brass">
         {paper.page_count != null ? `${paper.page_count} PAGES` : "PDF"} ·{" "}
         {sections.length} SECTION{sections.length === 1 ? "" : "S"}
@@ -78,21 +79,22 @@ export default function ReadingPane({
             </p>
           )}
           {group.pages.map((page) => (
-            <div
+            <article
               key={page.id}
               id={`page-${page.page_number}`}
-              className="flex w-full shrink-0 scroll-mt-6 flex-col items-start gap-2"
+              className="flex w-full shrink-0 scroll-mt-6 flex-col items-start gap-4 rounded-lg border border-hairline-subtle bg-surface px-10 py-9 shadow-[0_16px_50px_rgba(0,0,0,0.12)]"
             >
               <p className="font-mono text-[10px] tracking-[0.6px] text-muted">
                 PAGE {page.page_number}
               </p>
-              <p className="w-full font-reading text-base whitespace-pre-wrap text-secondary">
+              <p className="w-full font-reading text-[17px] leading-[1.85] whitespace-pre-wrap text-secondary">
                 {page.cleaned_text ?? ""}
               </p>
-            </div>
+            </article>
           ))}
         </Fragment>
       ))}
+      </div>
     </div>
   );
 }

@@ -6,8 +6,11 @@
 
 import type {
   AnswerResponse,
+  AgentResearchResponse,
+  FigureInterpretationResponse,
   HealthResponse,
   Paper,
+  PaperAsset,
   PaperPage,
   PaperSection,
   Project,
@@ -130,6 +133,17 @@ export const listPages = (paperId: string) =>
 export const listSections = (paperId: string) =>
   request<PaperSection[]>(`/papers/${paperId}/sections`);
 
+export const listAssets = (paperId: string) =>
+  request<PaperAsset[]>(`/papers/${paperId}/assets`);
+
+export const assetContentUrl = (assetId: string) =>
+  `${API_BASE_URL}/assets/${assetId}/content`;
+
+export const interpretFigure = (assetId: string) =>
+  request<FigureInterpretationResponse>(`/assets/${assetId}/interpret`, {
+    method: "POST",
+  });
+
 export const reprocessPaper = (paperId: string) =>
   request<Paper>(`/papers/${paperId}/reprocess`, { method: "POST" });
 
@@ -151,4 +165,15 @@ export const answerQuestion = (projectId: string, query: string) =>
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query }),
+  });
+
+export const runResearchAgent = (
+  projectId: string,
+  goal: string,
+  maxSteps = 3,
+) =>
+  request<AgentResearchResponse>(`/projects/${projectId}/agent/research`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ goal, max_steps: maxSteps, synthesize: true, discover_sources: true }),
   });

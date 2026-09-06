@@ -88,3 +88,13 @@ class LLMProvider(Protocol):
     """Sprint 4. Answers are built from supplied evidence only (PRD 5.3/5.4)."""
 
     def complete(self, *, system: str, prompt: str) -> str: ...
+
+    def complete_with_image(
+        self,
+        *,
+        system: str,
+        prompt: str,
+        image: bytes,
+        media_type: str,
+        max_output_tokens: int,
+    ) -> str: ...

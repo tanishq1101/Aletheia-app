@@ -1,0 +1,29 @@
+{
+  "created_at": "2026-09-06T07:14:52.200086+00:00",
+  "sources": {
+    "sciq": {
+      "url": "https://s3-us-west-2.amazonaws.com/ai2-website/data/SciQ.zip",
+      "license": "CC BY-NC 3.0",
+      "attribution": "https://huggingface.co/datasets/allenai/sciq",
+      "sha256": "7f3312f6ac6b09970b32942d106a8c44ec0dad46a0369f17d635aff8e348a87c",
+      "bytes": 2821345
+    },
+    "scifact": {
+      "url": "https://scifact.s3-us-west-2.amazonaws.com/release/latest/data.tar.gz",
+      "license": "Claims: CC BY 4.0; abstracts: ODC-By 1.0",
+      "attribution": "https://github.com/allenai/scifact/blob/master/LICENSE.md",
+      "sha256": "11c621288d41ac144d29b13b0f8503b3820b7d6e8b1f6ff24dff335c196d76be",
+      "bytes": 3115079
+    },
+    "squad": {
+      "url": "https://rajpurkar.github.io/SQuAD-explorer/dataset/train-v1.1.json",
+      "license": "CC BY-SA 4.0",
+      "attribution": "https://rajpurkar.github.io/SQuAD-explorer/",
+      "sha256": "3527663986b8295af4f7fcdff1ba1ff3f72d07d61a20f487cb238a6ef92fd955",
+      "bytes": 30288272
+    }
+  },
+  "max_qa_per_source": 6000,
+  "split_policy": "70/15/15 hash of connected document/query groups; official SciFact train+dev regrouped; no official leaderboard claim",
+  "negative_policy": "Weak relevance negatives: same-source passage with lexical overlap, different document, no answer substring; may contain false negatives."
+}

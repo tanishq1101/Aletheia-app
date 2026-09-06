@@ -11,6 +11,7 @@ Those live in `answering.py`, so they stay under test without a network call and
 apply identically whichever provider is configured.
 """
 
+import base64
 from functools import lru_cache
 
 import httpx
@@ -32,6 +33,14 @@ class LLMError(RuntimeError):
 
 class LLMConfigurationError(LLMError):
     """The provider is not configured — a deployment problem, not a model one."""
+
+
+class CompletionText(str):
+    """String-compatible completion carrying an explicit output-limit flag."""
+    def __new__(cls, value: str, *, truncated: bool = False):
+        result = super().__new__(cls, value)
+        result.truncated = truncated
+        return result
 
 
 class OpenRouterProvider:
@@ -80,14 +89,50 @@ class OpenRouterProvider:
         return headers
 
     def complete(self, *, system: str, prompt: str) -> str:
-        payload = {
-            "model": self._model,
-            "messages": [
+        return self._complete(
+            messages=[
                 {"role": "system", "content": system},
                 {"role": "user", "content": prompt},
             ],
+            max_output_tokens=self._max_output_tokens,
+        )
+
+    def complete_with_image(
+        self,
+        *,
+        system: str,
+        prompt: str,
+        image: bytes,
+        media_type: str,
+        max_output_tokens: int,
+    ) -> str:
+        """One bounded vision completion; image bytes never leave this provider seam."""
+        encoded = base64.b64encode(image).decode("ascii")
+        return self._complete(
+            messages=[
+                {"role": "system", "content": system},
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{media_type};base64,{encoded}"
+                            },
+                        },
+                    ],
+                },
+            ],
+            max_output_tokens=min(max_output_tokens, self._max_output_tokens),
+        )
+
+    def _complete(self, *, messages: list[dict], max_output_tokens: int) -> str:
+        payload = {
+            "model": self._model,
+            "messages": messages,
             "temperature": self._temperature,
-            "max_tokens": self._max_output_tokens,
+            "max_tokens": max_output_tokens,
         }
 
         try:
@@ -126,7 +171,7 @@ class OpenRouterProvider:
             usage.get("prompt_tokens", "?"),
             usage.get("completion_tokens", "?"),
         )
-        return content.strip()
+        return CompletionText(content.strip(), truncated=body["choices"][0].get("finish_reason") == "length")
 
 
 def _error_detail(response: httpx.Response) -> str:

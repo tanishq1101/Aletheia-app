@@ -10,8 +10,11 @@ Not in scope: chunking, token counting, embeddings (Sprint 3).
 
 from uuid import UUID
 
+from psycopg.types.json import Jsonb
+
 from app.core.config import get_settings
 from app.core.logging import get_logger
+from app.services.asset_extraction import ExtractedAsset, extract_assets
 from app.db.session import get_connection
 from app.services.chunking import Chunk, chunk_pages
 from app.services.embedding import (
@@ -30,7 +33,8 @@ log = get_logger(__name__)
 # persisting is the last stage before completion, not an early one.
 STAGE_DOWNLOAD = ("downloading", 0.05)
 STAGE_PARSE = ("parsing", 0.2)
-STAGE_CHUNK = ("chunking", 0.4)
+STAGE_ASSETS = ("extracting_assets", 0.35)
+STAGE_CHUNK = ("chunking", 0.45)
 STAGE_EMBED = ("embedding", 0.55)
 STAGE_PERSIST = ("persisting", 0.85)
 STAGE_DONE = ("complete", 1.0)
@@ -199,6 +203,42 @@ def _persist_chunks(
             )
 
 
+def _persist_assets(
+    conn,
+    paper_id: UUID,
+    assets: list[ExtractedAsset],
+    page_ids: dict[int, str],
+    storage_paths: dict[tuple[str, int], str],
+) -> None:
+    with conn.cursor() as cur:
+        for asset in assets:
+            page_id = page_ids.get(asset.page_number)
+            if page_id is None:
+                raise ValueError(
+                    f"Asset {asset.kind}:{asset.asset_index} references missing "
+                    f"page {asset.page_number}."
+                )
+            cur.execute(
+                """
+                INSERT INTO paper_assets
+                    (paper_id, page_id, kind, asset_index, caption,
+                     content_text, storage_path, bbox, metadata)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    str(paper_id),
+                    page_id,
+                    asset.kind,
+                    asset.asset_index,
+                    asset.caption,
+                    asset.content_text,
+                    storage_paths.get((asset.kind, asset.asset_index)),
+                    Jsonb(list(asset.bbox)),
+                    Jsonb(asset.metadata),
+                ),
+            )
+
+
 def process_paper(paper_id: UUID, job_id: UUID) -> None:
     """Run one paper through extraction. Safe to call as a background task."""
     settings = get_settings()
@@ -256,6 +296,29 @@ def process_paper(paper_id: UUID, job_id: UUID) -> None:
         _fail(job_id, paper_id, f"Unexpected error while parsing: {exc}")
         return
 
+    # --- extract structured assets ---
+    try:
+        with get_connection() as conn:
+            _set_stage(conn, job_id, *STAGE_ASSETS)
+        assets = extract_assets(data)
+        asset_storage_paths: dict[tuple[str, int], str] = {}
+        storage = build_storage(settings)
+        for asset in assets:
+            if asset.binary is None:
+                continue
+            extension = asset.extension or "bin"
+            key = f"assets/{paper_id}/{asset.kind}-{asset.asset_index}.{extension}"
+            asset_storage_paths[(asset.kind, asset.asset_index)] = storage.store(
+                key=key, data=asset.binary
+            )
+    except StorageError as exc:
+        _fail(job_id, paper_id, f"Could not store an extracted asset: {exc}")
+        return
+    except Exception as exc:
+        log.exception("Asset extraction failed for paper %s", paper_id)
+        _fail(job_id, paper_id, f"Could not extract structured PDF assets: {exc}")
+        return
+
     # --- chunk + embed ---
     # Done before opening the write transaction: both are slow, and holding a
     # transaction open across a model call would pin a pooled connection.
@@ -302,6 +365,9 @@ def process_paper(paper_id: UUID, job_id: UUID) -> None:
             _persist_chunks(
                 conn, paper_id, chunks, vectors, page_ids, provider.name
             )
+            _persist_assets(
+                conn, paper_id, assets, page_ids, asset_storage_paths
+            )
             with conn.cursor() as cur:
                 cur.execute(
                     """
@@ -321,10 +387,11 @@ def process_paper(paper_id: UUID, job_id: UUID) -> None:
         return
 
     log.info(
-        "Processed paper %s: %d pages, %d sections, %d chunks embedded with %s",
+        "Processed paper %s: %d pages, %d sections, %d assets, %d chunks embedded with %s",
         paper_id,
         len(parsed.pages),
         len(parsed.sections),
+        len(assets),
         len(chunks),
         provider.name,
     )
