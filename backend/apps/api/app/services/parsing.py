@@ -166,7 +166,7 @@ def _find_abstract(
 class PyMuPDFParser:
     """Implements the DocumentParser protocol."""
 
-    def parse(self, *, data: bytes) -> ParsedDocument:
+    def parse(self, *, data: bytes, filename: str = "") -> ParsedDocument:
         try:
             document = pymupdf.open(stream=data, filetype="pdf")
         except Exception as exc:

@@ -17,14 +17,10 @@ export default function Dropzone({
   const [localError, setLocalError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // The API validates properly (magic bytes, page count); this only catches
-  // the two mistakes worth catching before a 50MB round trip.
+  // The API is authoritative. The browser only catches size before a 50MB
+  // round trip; sources are deliberately not restricted to PDFs.
   const accept = (file: File | undefined) => {
     if (!file) return;
-    if (!file.name.toLowerCase().endsWith(".pdf")) {
-      setLocalError(`${file.name} is not a PDF.`);
-      return;
-    }
     if (file.size > MAX_BYTES) {
       setLocalError(
         `${file.name} is ${(file.size / 1024 / 1024).toFixed(1)}MB — the limit is 50MB.`,
@@ -83,17 +79,17 @@ export default function Dropzone({
         <p className="font-ui text-[15px] font-medium text-primary">
           {busy
             ? "Uploading…"
-            : "Drag & drop a PDF, or click to browse"}
+            : "Drag & drop a source, or click to browse"}
         </p>
         <p className="font-ui text-xs text-muted">
-          Single file · up to 50MB · .pdf only
+          Single file · up to 50MB · PDFs, text, documents, slides, data files, and attachments
         </p>
       </div>
 
       <input
         ref={inputRef}
         type="file"
-        accept="application/pdf,.pdf"
+        accept="*/*"
         onChange={handleChange}
         className="hidden"
       />

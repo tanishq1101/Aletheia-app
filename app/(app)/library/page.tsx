@@ -47,7 +47,7 @@ export default function LibraryPage() {
           href="/upload"
           className="shrink-0 rounded-md bg-oxblood px-[18px] py-[10px] font-ui text-[13px] font-semibold text-primary"
         >
-          + Upload paper
+          + Add source
         </Link>
       </div>
 
@@ -88,8 +88,8 @@ export default function LibraryPage() {
       ) : papers.length === 0 && !error ? (
         <EmptyState
           title="No papers yet"
-          description="Upload a PDF and the API will extract its text, chunk it, embed it, and index it for search."
-          actionLabel="Upload a paper"
+          description="Add PDFs, text files, documents, slide decks, datasets, or other attachments. Extractable text is indexed for search."
+          actionLabel="Add a source"
           actionHref="/upload"
         />
       ) : (

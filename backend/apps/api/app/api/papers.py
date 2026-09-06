@@ -1,4 +1,5 @@
 import hashlib
+import re
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile, status
@@ -13,7 +14,7 @@ from app.schemas.models import (
     ProcessingJob,
 )
 from app.services.ingestion import process_paper
-from app.services.pdf_validation import PdfValidationError, validate_pdf
+from app.services.pdf_validation import UploadValidationError, validate_upload
 from app.services.storage import StorageError, build_storage
 
 router = APIRouter(tags=["papers"])
@@ -46,24 +47,24 @@ async def upload_paper(
     background: BackgroundTasks,
     file: UploadFile = File(...),
 ) -> PaperWithJob:
-    """Accept a PDF, store it, and queue extraction.
+    """Accept a project source, store it, and queue extraction.
 
     Returns as soon as the records exist; extraction runs in the background
     (execution model decided in PROGRESS.md) so a long PDF cannot block the
     request. Poll the paper for status.
     """
     settings = get_settings()
-    filename = file.filename or "upload.pdf"
+    filename = file.filename or "upload"
 
     data = await file.read()
     try:
-        validate_pdf(
+        validate_upload(
             filename=filename,
             content_type=file.content_type,
             data=data,
             max_bytes=settings.max_upload_bytes,
         )
-    except PdfValidationError as exc:
+    except UploadValidationError as exc:
         log.warning("Rejected upload %r for project %s: %s", filename, project_id, exc)
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
 
@@ -95,7 +96,7 @@ async def upload_paper(
             status.HTTP_409_CONFLICT,
             {
                 "message": (
-                    f"This PDF is already in the project as "
+                    f"This file is already in the project as "
                     f"{existing['filename']!r}."
                 ),
                 "existing_paper_id": str(existing["id"]),
@@ -103,7 +104,8 @@ async def upload_paper(
         )
 
     paper_id = uuid4()
-    key = f"{project_id}/{paper_id}.pdf"
+    suffix = re.sub(r"[^a-zA-Z0-9]", "", filename.rsplit(".", 1)[-1]) if "." in filename else "bin"
+    key = f"{project_id}/{paper_id}.{suffix[:16] or 'bin'}"
     storage = build_storage(settings)
 
     try:
@@ -227,6 +229,26 @@ def get_paper(paper_id: UUID) -> PaperWithJob:
         job_row = cur.fetchone()
 
     return PaperWithJob(**paper, job=ProcessingJob(**job_row) if job_row else None)
+
+
+@router.delete("/papers/{paper_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_source(paper_id: UUID) -> None:
+    """Delete a source and all derived text, vectors, jobs, and assets."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT storage_path FROM papers WHERE id = %s", (str(paper_id),))
+            paper = cur.fetchone()
+        if paper is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, f"No paper {paper_id}")
+
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM papers WHERE id = %s", (str(paper_id),))
+        conn.commit()
+
+    try:
+        build_storage(get_settings()).delete(key=paper["storage_path"])
+    except StorageError as exc:
+        log.warning("Deleted source record %s but could not remove stored bytes: %s", paper_id, exc)
 
 
 def _require_paper(conn, paper_id: UUID) -> None:

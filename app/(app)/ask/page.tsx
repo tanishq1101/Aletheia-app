@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import ApiErrorNotice from "@/components/ApiErrorNotice";
 import AnswerView from "@/components/AnswerView";
 import EmptyState from "@/components/EmptyState";
+import ProjectSources from "@/components/ProjectSources";
 import { ApiError, answerQuestion } from "@/lib/api";
 import { useWorkspace } from "@/lib/workspace";
 import type { AnswerResponse } from "@/types/api";
@@ -113,6 +114,8 @@ export default function AskPage() {
           )}
         </div>
       )}
+
+      <ProjectSources />
 
       {asked && result && (
         <div className="flex w-full flex-col items-start gap-4">

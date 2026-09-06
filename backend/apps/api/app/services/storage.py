@@ -25,6 +25,8 @@ class StorageBackend(Protocol):
 
     def exists(self, *, key: str) -> bool: ...
 
+    def delete(self, *, key: str) -> None: ...
+
 
 class LocalStorage:
     def __init__(self, root: Path) -> None:
@@ -56,6 +58,12 @@ class LocalStorage:
 
     def exists(self, *, key: str) -> bool:
         return self._resolve(key).is_file()
+
+    def delete(self, *, key: str) -> None:
+        try:
+            self._resolve(key).unlink(missing_ok=True)
+        except OSError as exc:
+            raise StorageError(f"Could not delete {key}: {exc}") from exc
 
 
 def build_storage(settings: Settings) -> StorageBackend:

@@ -15,6 +15,7 @@ from psycopg.types.json import Jsonb
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.services.asset_extraction import ExtractedAsset, extract_assets
+from app.services.attachment_parsing import parse_attachment
 from app.db.session import get_connection
 from app.services.chunking import Chunk, chunk_pages
 from app.services.embedding import (
@@ -261,7 +262,7 @@ def process_paper(paper_id: UUID, job_id: UUID) -> None:
                     (str(paper_id),),
                 )
                 cur.execute(
-                    "SELECT storage_path FROM papers WHERE id = %s", (str(paper_id),)
+                    "SELECT storage_path, filename FROM papers WHERE id = %s", (str(paper_id),)
                 )
                 row = cur.fetchone()
             conn.commit()
@@ -271,6 +272,7 @@ def process_paper(paper_id: UUID, job_id: UUID) -> None:
             return
 
         storage_path = row["storage_path"]
+        filename = row["filename"]
     except Exception as exc:
         _fail(job_id, paper_id, f"Could not start processing: {exc}")
         return
@@ -286,7 +288,11 @@ def process_paper(paper_id: UUID, job_id: UUID) -> None:
     try:
         with get_connection() as conn:
             _set_stage(conn, job_id, *STAGE_PARSE)
-        parsed = build_parser().parse(data=data)
+        parsed = (
+            build_parser().parse(data=data)
+            if filename.lower().endswith(".pdf")
+            else parse_attachment(data=data, filename=filename)
+        )
     except ParserError as exc:
         _fail(job_id, paper_id, str(exc))
         return
@@ -300,7 +306,7 @@ def process_paper(paper_id: UUID, job_id: UUID) -> None:
     try:
         with get_connection() as conn:
             _set_stage(conn, job_id, *STAGE_ASSETS)
-        assets = extract_assets(data)
+        assets = extract_assets(data) if filename.lower().endswith(".pdf") else []
         asset_storage_paths: dict[tuple[str, int], str] = {}
         storage = build_storage(settings)
         for asset in assets:
