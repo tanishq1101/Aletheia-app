@@ -1,0 +1,111 @@
+{
+  "completed_at": "2026-09-06T07:29:12.726162+00:00",
+  "datasets": {
+    "sources": [
+      "SciQ",
+      "SQuAD 1.1",
+      "SciFact"
+    ],
+    "relevance_pairs": 23988,
+    "stance_pairs": 771,
+    "downloads_verified": true,
+    "split_leakage_checks": "passed"
+  },
+  "models": {
+    "relevance": {
+      "accuracy": 0.8987441130298273,
+      "macro_f1": 0.8987051072728853,
+      "per_class_f1": [
+        0.9006928406466512,
+        0.8967173738991193
+      ],
+      "confusion_matrix": [
+        [
+          1755,
+          155
+        ],
+        [
+          232,
+          1680
+        ]
+      ],
+      "log_loss": 0.2513514459133148
+    },
+    "stance": {
+      "accuracy": 0.54,
+      "macro_f1": 0.47150735294117646,
+      "per_class_f1": [
+        0.28125,
+        0.6617647058823529
+      ],
+      "confusion_matrix": [
+        [
+          9,
+          28
+        ],
+        [
+          18,
+          45
+        ]
+      ],
+      "log_loss": 0.9865509867668152
+    }
+  },
+  "backend_full_suite": {
+    "passed": 235,
+    "seconds": 9.73
+  },
+  "final_focused_suite": {
+    "passed": 21,
+    "seconds": 1.51,
+    "includes": "one additional extended agent API regression; remaining checks overlap the full suite"
+  },
+  "frontend": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "production_build": "passed with --webpack",
+    "default_turbopack": "blocked by local worker socket restriction"
+  },
+  "notebooks": [
+    {
+      "notebook": "Aletheia_Multisource_Relevance_Colab.ipynb",
+      "code_cells": 6,
+      "seconds": 5.36,
+      "status": "passed"
+    },
+    {
+      "notebook": "Aletheia_Scientific_Stance_Colab.ipynb",
+      "code_cells": 6,
+      "seconds": 3.51,
+      "status": "passed"
+    }
+  ],
+  "live_discovery": "Europe PMC and Crossref succeeded",
+  "live_llm_browser_test": "Configured OpenRouter model returned a public-abstract synthesis with resolved citations; both model tables and citation controls checked. Token truncation observed and explicit partial-response handling subsequently added and tested.",
+  "notebook_downloads": [
+    {
+      "task": "relevance",
+      "status": 200
+    },
+    {
+      "task": "stance",
+      "status": 200
+    },
+    {
+      "task": "unknown",
+      "status": 404
+    },
+    {
+      "task": "__proto__",
+      "status": 404
+    }
+  ],
+  "browser": "Training Lab metrics and graphs visually inspected; no client console errors",
+  "limitations": [
+    "Stance model is experimental and below majority baseline accuracy.",
+    "No hosted Google Colab execution.",
+    "No fine-tuning of the hosted chat language model.",
+    "No claim of improvement over production Jina or blinded end-to-end chat-quality evaluation.",
+    "Public search uses metadata/available abstracts, not full-text review."
+  ]
+}

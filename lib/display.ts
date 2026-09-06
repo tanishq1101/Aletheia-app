@@ -43,6 +43,7 @@ export const statusLabel: Record<PaperStatus, string> = {
 export const INGESTION_STAGES = [
   { key: "downloading", label: "Reading file" },
   { key: "parsing", label: "Parsing document" },
+  { key: "extracting_assets", label: "Figures & tables" },
   { key: "chunking", label: "Chunking text" },
   { key: "embedding", label: "Embedding chunks" },
   { key: "persisting", label: "Indexing for search" },

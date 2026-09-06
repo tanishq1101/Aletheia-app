@@ -103,3 +103,35 @@ def build_encrypted_pdf() -> bytes:
 def build_corrupt_pdf() -> bytes:
     """Valid %PDF- header (so upload validation passes) but unparseable body."""
     return b"%PDF-1.4\n" + b"\x00\xff garbage that is not a pdf body " * 20
+
+
+def build_multimodal_pdf() -> bytes:
+    """One raster figure, one ruled table, and one text equation."""
+    doc = pymupdf.open()
+    page = doc.new_page(width=612, height=792)
+
+    pixmap = pymupdf.Pixmap(
+        pymupdf.csRGB, pymupdf.IRect(0, 0, 240, 120), 0
+    )
+    pixmap.clear_with(220)
+    page.insert_image(
+        pymupdf.Rect(72, 80, 312, 200), stream=pixmap.tobytes("png")
+    )
+    page.insert_text((72, 220), "Figure 1. Model architecture", fontsize=10)
+
+    page.insert_text((72, 275), "Table 1. Validation results", fontsize=10)
+    xs = [72, 192, 312]
+    ys = [290, 320, 350]
+    for x in xs:
+        page.draw_line((x, ys[0]), (x, ys[-1]))
+    for y in ys:
+        page.draw_line((xs[0], y), (xs[-1], y))
+    page.insert_text((82, 310), "Model", fontsize=10)
+    page.insert_text((202, 310), "Score", fontsize=10)
+    page.insert_text((82, 340), "Aletheia", fontsize=10)
+    page.insert_text((202, 340), "0.91", fontsize=10)
+
+    page.insert_text((72, 410), "loss = -log p(y | x)", fontsize=12)
+    data = doc.tobytes()
+    doc.close()
+    return data

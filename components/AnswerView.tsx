@@ -1,64 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import ResearchMarkdown from "@/components/ResearchMarkdown";
+import EvidenceOverview from "@/components/EvidenceOverview";
+import { useId, useState } from "react";
 import Link from "next/link";
 import { matchPercent } from "@/lib/display";
 import type { AnswerResponse } from "@/types/api";
 
-// Mirrors the backend's own citation pattern: an ID inside brackets, so a
-// stray "E1" in the paper's prose is not turned into a link. Built per call --
-// a shared /g regex carries `lastIndex` between renders.
-const citationPattern = () => /\[([^[\]]*?E\d+[^[\]]*?)\]/g;
-
-/** Renders the answer with its [E1, E3] markers turned into pills that jump to
- *  the resolved citation. The backend has already stripped any ID it did not
- *  issue, so every marker left here resolves. */
-function AnswerText({
-  text,
-  known,
-  onFocus,
-}: {
-  text: string;
-  known: Set<string>;
-  onFocus: (id: string) => void;
-}) {
-  const nodes: React.ReactNode[] = [];
-  const pattern = citationPattern();
-  let cursor = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = pattern.exec(text)) !== null) {
-    if (match.index > cursor) {
-      nodes.push(text.slice(cursor, match.index));
-    }
-    const ids = match[1].match(/E\d+/g) ?? [];
-    nodes.push(
-      <span key={`${match.index}-cite`} className="whitespace-nowrap">
-        {ids.map((id) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => onFocus(id)}
-            disabled={!known.has(id)}
-            className="mx-[2px] rounded-[3px] border border-brass px-1 py-px align-baseline font-mono text-[10px] text-brass transition-colors hover:bg-brass hover:text-base disabled:border-hairline disabled:text-muted"
-          >
-            {id}
-          </button>
-        ))}
-      </span>,
-    );
-    cursor = match.index + match[0].length;
-  }
-  if (cursor < text.length) nodes.push(text.slice(cursor));
-
-  return (
-    <p className="w-full font-reading text-base whitespace-pre-wrap text-primary">
-      {nodes}
-    </p>
-  );
-}
-
 export default function AnswerView({ result }: { result: AnswerResponse }) {
+  const citationPrefix = useId();
+  const focusCitation = (id: string) => {
+    setFocused(id);
+    document.getElementById(`${citationPrefix}-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
   const [showEvidence, setShowEvidence] = useState(false);
   const [focused, setFocused] = useState<string | null>(null);
 
@@ -92,15 +46,16 @@ export default function AnswerView({ result }: { result: AnswerResponse }) {
           <div className="flex shrink-0 items-center gap-2 rounded-full border border-brass px-2.5 py-1">
             <span className="size-[5px] shrink-0 rounded-full bg-brass" />
             <p className="font-mono text-[10px] whitespace-nowrap text-brass">
-              Insufficient evidence
+              {result.truncated ? "Partial response — output limit reached" : "Insufficient evidence"}
             </p>
           </div>
         )}
 
-        <AnswerText
+        {result.truncated && <p className="text-sm text-secondary">The provider stopped before finishing. Ask a narrower question, or increase the response budget in the API configuration when credits allow.</p>}
+        <ResearchMarkdown
           text={result.answer}
           known={known}
-          onFocus={(id) => setFocused((current) => (current === id ? null : id))}
+          onFocus={focusCitation}
         />
 
         <p className="font-mono text-[10px] text-muted">
@@ -111,6 +66,9 @@ export default function AnswerView({ result }: { result: AnswerResponse }) {
         </p>
       </div>
 
+      {(result.charts ?? []).map((chart, index) => <figure key={index} className="w-full rounded border border-hairline bg-surface p-5"><figcaption className="font-semibold">{chart.title} ({chart.unit})</figcaption><p className="mb-4 text-xs text-secondary">Conditions: {chart.conditions}</p>{chart.points.map(point => <div key={point.label} className="mb-4"><div className="mb-1 flex flex-wrap items-center gap-2 text-sm"><strong>{point.label}</strong><span>{point.value} {chart.unit}</span>{point.evidence_ids.map(id => <button type="button" key={id} onClick={() => focusCitation(id)} className="rounded border border-brass px-1 text-xs text-brass">{id}</button>)}</div><div role="img" aria-label={`${point.label}: ${point.value} ${chart.unit}`} className="h-4 rounded bg-brass" style={{width: `${100 * point.value / Math.max(1, ...chart.points.map(p => p.value))}%`}} /></div>)}<p className="text-xs italic text-muted">{chart.note}</p></figure>)}
+      <EvidenceOverview result={result} />
+      {(result.model_diagnostics ?? []).length > 0 && <details className="w-full rounded border border-hairline p-4 text-sm"><summary className="cursor-pointer font-semibold">Experimental model analysis</summary><p className="my-3 italic text-secondary">These scores are uncalibrated diagnostics, not verification. The stance model performed poorly in held-out testing and does not determine this answer.</p>{result.model_diagnostics!.map((model) => <div key={model.task} className="mt-4 overflow-x-auto"><p className="font-semibold capitalize">{model.task} · {model.status}</p><p className="my-2 text-xs text-muted">{model.note}</p>{model.scores.length > 0 && <table className="w-full text-left text-xs"><thead><tr><th className="p-2">Evidence</th>{model.labels.map(label => <th className="p-2" key={label}>{label.replaceAll("_", " ")}</th>)}</tr></thead><tbody>{model.scores.map(row => <tr key={row.evidence_id}><td className="p-2">{row.evidence_id}</td>{row.values.map((value, i) => <td className="p-2 font-mono" key={i}>{value.toFixed(3)}</td>)}</tr>)}</tbody></table>}</div>)}</details>}
       {result.citations.length > 0 && (
         <div className="flex w-full shrink-0 flex-col items-start gap-3">
           <p className="font-ui text-[15px] font-semibold text-primary">
@@ -119,6 +77,7 @@ export default function AnswerView({ result }: { result: AnswerResponse }) {
           {result.citations.map((citation) => (
             <div
               key={citation.evidence_id}
+              id={`${citationPrefix}-${citation.evidence_id}`}
               className={`flex w-full shrink-0 flex-col items-start gap-2 rounded-md border bg-surface px-5 py-4 transition-colors ${
                 focused === citation.evidence_id
                   ? "border-brass"
@@ -130,7 +89,9 @@ export default function AnswerView({ result }: { result: AnswerResponse }) {
                   {citation.evidence_id}
                 </span>
                 <Link
-                  href={`/paper/${citation.paper_id}`}
+                  href={citation.source_url ?? `/paper/${citation.paper_id}`}
+                  target={citation.source_url ? "_blank" : undefined}
+                  rel={citation.source_url ? "noopener noreferrer" : undefined}
                   className="min-w-px flex-1 truncate font-ui text-[13px] font-medium text-primary hover:text-brass-bright"
                 >
                   {citation.paper_title ?? "Untitled paper"}
@@ -180,8 +141,7 @@ export default function AnswerView({ result }: { result: AnswerResponse }) {
                     {item.paper_title ?? "Untitled paper"}
                   </p>
                   <p className="shrink-0 font-mono text-[10px] whitespace-nowrap text-muted">
-                    {item.location} · {matchPercent(item.similarity)}% · rerank{" "}
-                    {item.rerank_score.toFixed(2)}
+                    {item.location}{item.source_url ? " · public abstract" : ` · ${matchPercent(item.similarity)}% · rerank ${item.rerank_score.toFixed(2)}`}
                   </p>
                 </div>
                 <p className="w-full font-reading text-sm whitespace-pre-wrap text-secondary">

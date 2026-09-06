@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -45,6 +46,33 @@ class PaperSection(BaseModel):
     section_index: int
     start_page: int
     start_offset: int | None
+
+
+class PaperAsset(BaseModel):
+    id: UUID
+    paper_id: UUID
+    page_id: UUID
+    page_number: int
+    kind: str
+    asset_index: int
+    caption: str | None
+    content_text: str | None
+    has_binary: bool
+    bbox: list[float]
+    metadata: dict[str, Any]
+    created_at: datetime
+
+
+class FigureInterpretationResponse(BaseModel):
+    asset_id: UUID
+    paper_id: UUID
+    page_number: int
+    caption: str | None
+    interpretation: str
+    model: str
+    ai_generated: bool = True
+    cached: bool
+    created_at: datetime
 
 
 class Paper(BaseModel):
@@ -104,6 +132,7 @@ class CitationOut(BaseModel):
     # sits before the first heading.
     location: str
     snippet: str
+    source_url: str | None = None
 
 
 class EvidenceOut(BaseModel):
@@ -125,6 +154,7 @@ class EvidenceOut(BaseModel):
     similarity: float
     # Cross-encoder logit. Unbounded, and NOT comparable to `similarity`.
     rerank_score: float
+    source_url: str | None = None
 
 
 class AnswerResponse(BaseModel):
@@ -140,6 +170,35 @@ class AnswerResponse(BaseModel):
     candidates_considered: int
     evidence_dropped_for_budget: int
     model: str
+    model_diagnostics: list[dict[str, Any]] = Field(default_factory=list)
+    charts: list[dict[str, Any]] = Field(default_factory=list)
+    truncated: bool = False
+
+
+class AgentResearchRequest(BaseModel):
+    goal: str = Field(min_length=1, max_length=4000)
+    max_steps: int = Field(default=3, ge=1, le=4)
+    synthesize: bool = False
+    discover_sources: bool = False
+
+
+class AgentStepResponse(BaseModel):
+    question: str
+    status: str
+    answer: AnswerResponse | None = None
+    error: str | None = None
+
+
+class AgentResearchResponse(BaseModel):
+    goal: str
+    planned_questions: list[str]
+    planner_fallback_used: bool
+    steps: list[AgentStepResponse]
+    model: str
+    synthesis: AnswerResponse | None = None
+    synthesis_error: str | None = None
+    discoveries: list[dict[str, Any]] = Field(default_factory=list)
+    discovery_errors: list[str] = Field(default_factory=list)
 
 
 class HealthResponse(BaseModel):

@@ -96,6 +96,34 @@ def test_request_carries_auth_model_and_messages(monkeypatch):
     ]
 
 
+def test_image_completion_is_single_bounded_multimodal_request(monkeypatch):
+    captured = {}
+
+    def handler(request):
+        captured["body"] = __import__("json").loads(request.content)
+        return ok_response(request)
+
+    respond(monkeypatch, handler)
+    result = build(max_output_tokens=1024).complete_with_image(
+        system="interpret conservatively",
+        prompt="caption and page context",
+        image=b"\x89PNG\r\nfigure",
+        media_type="image/png",
+        max_output_tokens=500,
+    )
+
+    assert result == "Depth helps [E1]."
+    body = captured["body"]
+    assert body["max_tokens"] == 500
+    assert len(body["messages"]) == 2
+    content = body["messages"][1]["content"]
+    assert content[0] == {"type": "text", "text": "caption and page context"}
+    assert content[1]["type"] == "image_url"
+    assert content[1]["image_url"]["url"].startswith(
+        "data:image/png;base64,iVBORw0K"
+    )
+
+
 def test_provider_error_message_is_surfaced(monkeypatch):
     """PRD Section 9: 'LLM call failed' alone is not diagnosable."""
     respond(

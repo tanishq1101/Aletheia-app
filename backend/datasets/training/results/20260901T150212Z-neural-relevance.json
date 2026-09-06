@@ -1,0 +1,28 @@
+{
+  "trained_at": "20260901T150212Z",
+  "dataset": "datasets/benchmark/questions.json",
+  "project": "Sprint 6 Benchmark Corpus",
+  "split": "sha256(question_id) modulo 5",
+  "seed": 42,
+  "epochs": 500,
+  "learning_rate": 0.02,
+  "candidate_top_k": 20,
+  "metrics": {
+    "train_examples": 1920,
+    "validation_examples": 500,
+    "train_positive": 169,
+    "validation_positive": 41,
+    "initial_train_loss": 1.2626284999997925,
+    "final_train_loss": 1.0327659118638912,
+    "validation_log_loss": 0.6247774827244507,
+    "validation_accuracy": 0.7,
+    "cosine_mrr": 0.5443030303030303,
+    "neural_mrr": 0.717047619047619,
+    "cosine_recall_at_6": 0.6458333333333334,
+    "neural_recall_at_6": 0.798611111111111,
+    "mrr_lift": 0.17274458874458876,
+    "recall_at_6_lift": 0.15277777777777768
+  },
+  "recommended_for_production": true,
+  "production_note": "Candidate for a later blended reranker experiment."
+}

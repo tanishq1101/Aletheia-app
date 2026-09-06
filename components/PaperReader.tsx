@@ -6,9 +6,16 @@ import ApiErrorNotice from "@/components/ApiErrorNotice";
 import ExtractionPanel from "@/components/ExtractionPanel";
 import ProcessingStepper from "@/components/ProcessingStepper";
 import ReadingPane from "@/components/ReadingPane";
-import { ApiError, getPaper, listPages, listSections, reprocessPaper } from "@/lib/api";
+import {
+  ApiError,
+  getPaper,
+  listAssets,
+  listPages,
+  listSections,
+  reprocessPaper,
+} from "@/lib/api";
 import { paperTitle } from "@/lib/display";
-import type { Paper, PaperPage, PaperSection } from "@/types/api";
+import type { Paper, PaperAsset, PaperPage, PaperSection } from "@/types/api";
 
 const POLL_INTERVAL_MS = 2500;
 
@@ -16,6 +23,7 @@ export default function PaperReader({ paperId }: { paperId: string }) {
   const [paper, setPaper] = useState<Paper | null>(null);
   const [pages, setPages] = useState<PaperPage[]>([]);
   const [sections, setSections] = useState<PaperSection[]>([]);
+  const [assets, setAssets] = useState<PaperAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,22 +31,24 @@ export default function PaperReader({ paperId }: { paperId: string }) {
   // instead of running synchronously inside the effect below.
   const load = useCallback(() => {
     return getPaper(paperId)
-      .then((next): Promise<[Paper, PaperPage[], PaperSection[]]> => {
+      .then((next): Promise<[Paper, PaperPage[], PaperSection[], PaperAsset[]]> => {
         // Text only exists once extraction has succeeded; asking earlier just
         // returns empty lists, so skip the two round trips.
         if (next.status !== "ready") {
-          return Promise.resolve([next, [], []]);
+          return Promise.resolve([next, [], [], []]);
         }
         return Promise.all([
           Promise.resolve(next),
           listPages(paperId),
           listSections(paperId),
+          listAssets(paperId),
         ]);
       })
-      .then(([next, nextPages, nextSections]) => {
+      .then(([next, nextPages, nextSections, nextAssets]) => {
         setPaper(next);
         setPages(nextPages);
         setSections(nextSections);
+        setAssets(nextAssets);
         setError(null);
         setLoading(false);
       })
@@ -90,7 +100,12 @@ export default function PaperReader({ paperId }: { paperId: string }) {
       ) : paper.status === "ready" ? (
         <div className="flex w-full flex-1 min-h-px items-start">
           <ReadingPane paper={paper} pages={pages} sections={sections} />
-          <ExtractionPanel paper={paper} pages={pages} sections={sections} />
+          <ExtractionPanel
+            paper={paper}
+            pages={pages}
+            sections={sections}
+            assets={assets}
+          />
         </div>
       ) : (
         // Not ready: show the job instead of an empty reader, so the state is

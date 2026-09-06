@@ -1,0 +1,111 @@
+{
+  "task": "stance",
+  "labels": [
+    "contradicts",
+    "supports"
+  ],
+  "architecture": [
+    516,
+    128,
+    48,
+    2
+  ],
+  "seed": 42,
+  "validation": {
+    "accuracy": 0.6581196581196581,
+    "macro_f1": 0.6153846153846154,
+    "per_class_f1": [
+      0.48717948717948717,
+      0.7435897435897436
+    ],
+    "confusion_matrix": [
+      [
+        19,
+        24
+      ],
+      [
+        16,
+        58
+      ]
+    ],
+    "log_loss": 0.8336061239242554
+  },
+  "test": {
+    "accuracy": 0.54,
+    "macro_f1": 0.47150735294117646,
+    "per_class_f1": [
+      0.28125,
+      0.6617647058823529
+    ],
+    "confusion_matrix": [
+      [
+        9,
+        28
+      ],
+      [
+        18,
+        45
+      ]
+    ],
+    "log_loss": 0.9865509867668152
+  },
+  "baseline_test": {
+    "accuracy": 0.63,
+    "macro_f1": 0.38650306748466257,
+    "per_class_f1": [
+      0.0,
+      0.7730061349693251
+    ],
+    "confusion_matrix": [
+      [
+        0,
+        37
+      ],
+      [
+        0,
+        63
+      ]
+    ],
+    "log_loss": 5.963695390854579
+  },
+  "counts": {
+    "train": {
+      "0": 185,
+      "1": 369
+    },
+    "validation": {
+      "1": 74,
+      "0": 43
+    },
+    "test": {
+      "0": 37,
+      "1": 63
+    }
+  },
+  "dataset_sha256": "d47502353b33e9d4af325d0bfbabaa5b45373b6ec88b170798dc71b6855aa129",
+  "status": "experimental_advisory",
+  "limitations": "Hashed lexical features lose word order. Scores are not calibrated. Sampled relevance negatives are weak labels. Stance is binary on annotated SciFact abstracts; no neutral detection. No demonstrated improvement over production Jina or end-to-end answer quality.",
+  "source_test_metrics": {
+    "scifact": {
+      "accuracy": 0.54,
+      "macro_f1": 0.47150735294117646,
+      "per_class_f1": [
+        0.28125,
+        0.6617647058823529
+      ],
+      "confusion_matrix": [
+        [
+          9,
+          28
+        ],
+        [
+          18,
+          45
+        ]
+      ],
+      "log_loss": 0.9865509867668152
+    }
+  },
+  "feature_version": "hashed-pair-v1",
+  "weights_sha256": "accbf59022615c2c092700257f37f8a0d487e919c2af0ee42fd26988dedae192"
+}

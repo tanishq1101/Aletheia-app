@@ -60,6 +60,35 @@ export interface PaperSection {
   start_offset: number | null;
 }
 
+export type PaperAssetKind = "figure" | "table" | "equation";
+
+export interface PaperAsset {
+  id: string;
+  paper_id: string;
+  page_id: string;
+  page_number: number;
+  kind: PaperAssetKind;
+  asset_index: number;
+  caption: string | null;
+  content_text: string | null;
+  has_binary: boolean;
+  bbox: number[];
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface FigureInterpretationResponse {
+  asset_id: string;
+  paper_id: string;
+  page_number: number;
+  caption: string | null;
+  interpretation: string;
+  model: string;
+  ai_generated: boolean;
+  cached: boolean;
+  created_at: string;
+}
+
 export interface SearchResult {
   chunk_id: string;
   paper_id: string;
@@ -86,6 +115,7 @@ export interface Citation {
   /** Pre-rendered "Section 3.2, page 7", degrading to "page 7". */
   location: string;
   snippet: string;
+  source_url?: string | null;
 }
 
 /** An evidence block handed to the model, whether or not it was cited. */
@@ -101,6 +131,16 @@ export interface Evidence {
   similarity: number;
   /** Cross-encoder logit. Unbounded, and NOT comparable to `similarity`. */
   rerank_score: number;
+  source_url?: string | null;
+}
+
+export interface ModelDiagnostic {
+  task: string;
+  status: string;
+  labels: string[];
+  note: string;
+  validation_macro_f1?: number;
+  scores: { evidence_id: string; values: number[] }[];
 }
 
 export interface AnswerResponse {
@@ -114,6 +154,28 @@ export interface AnswerResponse {
   fabricated_citations_removed: number;
   candidates_considered: number;
   evidence_dropped_for_budget: number;
+  model_diagnostics?: ModelDiagnostic[];
+  truncated?: boolean;
+  charts?: { title: string; unit: string; conditions: string; note: string; points: { label: string; value: number; evidence_ids: string[] }[] }[];
+  model: string;
+}
+
+export interface AgentStepResponse {
+  question: string;
+  status: "succeeded" | "failed";
+  answer: AnswerResponse | null;
+  error: string | null;
+}
+
+export interface AgentResearchResponse {
+  goal: string;
+  planned_questions: string[];
+  planner_fallback_used: boolean;
+  steps: AgentStepResponse[];
+  synthesis?: AnswerResponse | null;
+  synthesis_error?: string | null;
+  discoveries?: { provider: string; title: string; url: string; year: string; evidence_scope: string }[];
+  discovery_errors?: string[];
   model: string;
 }
 
