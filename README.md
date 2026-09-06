@@ -18,7 +18,7 @@ backend/     FastAPI service — ingestion, chunking, embeddings, retrieval,
 | Feature | State |
 |---|---|
 | Projects | Live — `/projects`, switcher in the topbar, selection persisted locally |
-| Upload + ingestion | Live — real upload, real job stages polled from `processing_jobs`, retry on failure |
+| Upload + ingestion | Live — PDFs, text, Office documents, slide decks, data files, and attachments; extractable text is indexed |
 | Library | Live — real papers and statuses, filter chips, polling while anything ingests |
 | Reader | Live — extracted page text and detected section outline |
 | Semantic search | Live — `POST /projects/{id}/search`, raw candidates before reranking |

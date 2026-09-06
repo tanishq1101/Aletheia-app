@@ -1,4 +1,21 @@
 services:
+  # The API owns ingestion and every local ML model. Keeping them in one image
+  # eliminates the old backend/DL-service split and its network boundary.
+  api:
+    build:
+      context: .
+    container_name: aletheia-api
+    environment:
+      DATABASE_URL: postgresql://research:research@db:5432/research_intelligence
+      CORS_ORIGINS: http://localhost:3000
+    ports:
+      - "8000:8000"
+    volumes:
+      - source_data:/data/storage
+    depends_on:
+      db:
+        condition: service_healthy
+
   db:
     # pg17 matches the Postgres major version on the Supabase account, so the
     # eventual migration does not cross a major version boundary.
@@ -19,5 +36,27 @@ services:
       timeout: 3s
       retries: 20
 
+  # Vector store. Chroma is the primary index for chunk embeddings; the same
+  # vectors are mirrored into Neon's pgvector column so retrieval degrades to
+  # SQL instead of failing when this container is down.
+  chroma:
+    image: chromadb/chroma:1.5.9
+    container_name: research-intelligence-chroma
+    environment:
+      IS_PERSISTENT: "TRUE"
+      ANONYMIZED_TELEMETRY: "FALSE"
+    ports:
+      # 8001 on the host: 8000 is the FastAPI port.
+      - "8001:8000"
+    volumes:
+      - chroma_data:/data
+    healthcheck:
+      test: ["CMD", "/bin/bash", "-c", "cat < /dev/null > /dev/tcp/localhost/8000"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
 volumes:
   db_data:
+  chroma_data:
+  source_data:

@@ -57,7 +57,7 @@ class ParsedDocument:
 class DocumentParser(Protocol):
     """Sprint 2. Keeps PyMuPDF swappable."""
 
-    def parse(self, *, data: bytes) -> ParsedDocument:
+    def parse(self, *, data: bytes, filename: str = "") -> ParsedDocument:
         """Parse a document. Raises ParserError on anything unreadable."""
 
 

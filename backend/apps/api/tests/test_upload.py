@@ -56,12 +56,11 @@ def test_upload_creates_paper_job_and_stored_file(client, project, storage_root)
 @pytest.mark.parametrize(
     "filename,data,content_type,expected_fragment",
     [
-        ("notes.txt", b"just text", "text/plain", "must end in .pdf"),
         ("fake.pdf", b"not a pdf at all", "application/pdf", "PDF header"),
         ("empty.pdf", b"", "application/pdf", "empty"),
         ("image.pdf", b"\x89PNG\r\n\x1a\n" + b"0" * 40, "image/png", "content type"),
     ],
-    ids=["wrong-extension", "pdf-name-but-not-pdf", "empty-file", "wrong-content-type"],
+    ids=["pdf-name-but-not-pdf", "empty-file", "wrong-content-type"],
 )
 def test_upload_rejects_invalid_files(
     client, project, storage_root, filename, data, content_type, expected_fragment
@@ -80,6 +79,29 @@ def test_upload_rejects_invalid_files(
         )
         assert cur.fetchone()["n"] == 0
     assert not (storage_root / project["id"]).exists()
+
+
+def test_upload_accepts_and_indexes_text_sources(client, project):
+    response = upload(
+        client, project["id"], filename="notes.txt", data=b"A source note about semantic retrieval.", content_type="text/plain"
+    )
+    assert response.status_code == 201, response.text
+    paper = client.get(f"/papers/{response.json()['id']}").json()
+    assert paper["status"] == "ready"
+    pages = client.get(f"/papers/{paper['id']}/pages").json()
+    assert "semantic retrieval" in pages[0]["cleaned_text"]
+
+
+def test_delete_source_removes_its_record_and_stored_file(client, project, storage_root):
+    created = upload(client, project["id"], filename="notes.txt", data=b"Disposable note", content_type="text/plain").json()
+    stored = storage_root / created["storage_path"]
+    assert stored.is_file()
+
+    response = client.delete(f"/papers/{created['id']}")
+
+    assert response.status_code == 204
+    assert client.get(f"/papers/{created['id']}").status_code == 404
+    assert not stored.exists()
 
 
 def test_upload_over_size_limit_is_rejected(client, project):

@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import AnswerView from "@/components/AnswerView";
 import ApiErrorNotice from "@/components/ApiErrorNotice";
+import ProjectSources from "@/components/ProjectSources";
 import { ApiError, runResearchAgent } from "@/lib/api";
 import { useWorkspace } from "@/lib/workspace";
 import type { AgentResearchResponse } from "@/types/api";
@@ -91,6 +92,8 @@ export default function ResearchAgentPage() {
         </p>
       )}
       {error && <ApiErrorNotice message={error} />}
+
+      <ProjectSources />
 
       {result && (
         <div className="flex w-full flex-col items-start gap-6">

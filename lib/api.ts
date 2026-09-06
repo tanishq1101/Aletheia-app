@@ -118,6 +118,9 @@ export const listPapers = (projectId: string) =>
 export const getPaper = (paperId: string) =>
   request<Paper>(`/papers/${paperId}`);
 
+export const deletePaper = (paperId: string) =>
+  request<void>(`/papers/${paperId}`, { method: "DELETE" });
+
 export const uploadPaper = (projectId: string, file: File) => {
   const form = new FormData();
   form.append("file", file);

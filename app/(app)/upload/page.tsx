@@ -5,7 +5,7 @@ import { useState } from "react";
 import ApiErrorNotice from "@/components/ApiErrorNotice";
 import Dropzone from "@/components/Dropzone";
 import ProcessingStepper from "@/components/ProcessingStepper";
-import { ApiError, reprocessPaper, uploadPaper } from "@/lib/api";
+import { ApiError, deletePaper, reprocessPaper, uploadPaper } from "@/lib/api";
 import { paperTitle, shortDate, statusLabel } from "@/lib/display";
 import { isInFlight, useWorkspace } from "@/lib/workspace";
 import type { Paper, PaperStatus } from "@/types/api";
@@ -38,7 +38,7 @@ export default function UploadPage() {
     } catch (err) {
       if (err instanceof ApiError) {
         setUploadError(err.message);
-        // A 409 carries the id of the paper this PDF duplicates — link to it
+        // A 409 carries the id of the source this file duplicates — link to it
         // instead of leaving the user to hunt for it.
         const detail = err.detail as { existing_paper_id?: string } | null;
         if (err.status === 409 && detail?.existing_paper_id) {
@@ -64,6 +64,21 @@ export default function UploadPage() {
     }
   };
 
+  const remove = async (paper: Paper) => {
+    if (!window.confirm(`Delete ${paper.filename}? Its extracted text and search index will also be removed.`)) return;
+    setBusy(true);
+    setUploadError(null);
+    try {
+      await deletePaper(paper.id);
+      if (trackedId === paper.id) setTrackedId(null);
+      await refresh();
+    } catch (err) {
+      setUploadError(err instanceof ApiError ? err.message : "Could not delete the source.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   // Track the explicit upload if there is one, otherwise whatever is running.
   const tracked =
     papers.find((p) => p.id === trackedId) ?? papers.find(isInFlight) ?? null;
@@ -73,7 +88,7 @@ export default function UploadPage() {
   return (
     <div className="flex w-full flex-col items-start gap-8">
       <h1 className="font-display text-3xl font-semibold text-primary">
-        Upload a paper
+        Add project sources
       </h1>
 
       {error && <ApiErrorNotice message={error} onRetry={() => void refresh()} />}
@@ -105,7 +120,7 @@ export default function UploadPage() {
       <p className="font-ui text-base font-semibold text-primary">Recently added</p>
 
       {recent.length === 0 ? (
-        <p className="font-ui text-sm text-muted">Nothing uploaded yet.</p>
+        <p className="font-ui text-sm text-muted">No sources added yet.</p>
       ) : (
         <div className="flex w-full shrink-0 flex-col items-start gap-px bg-base">
           {recent.map((paper) => (
@@ -140,6 +155,14 @@ export default function UploadPage() {
                   Retry
                 </button>
               )}
+              <button
+                type="button"
+                onClick={() => void remove(paper)}
+                disabled={busy}
+                className="shrink-0 font-ui text-[11px] font-semibold whitespace-nowrap text-error hover:text-primary disabled:text-muted"
+              >
+                Delete
+              </button>
             </div>
           ))}
         </div>
