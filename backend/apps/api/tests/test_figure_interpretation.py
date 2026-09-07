@@ -12,7 +12,7 @@ from app.services.figure_interpretation import (
     MAX_FIGURE_BYTES,
     interpret_figure,
 )
-from app.services.llm import LLMError
+from app.services.llm import LLMError, configured_llm_model
 from tests.fixtures import build_multimodal_pdf
 
 
@@ -76,7 +76,7 @@ def test_interprets_once_then_returns_cached_without_model_call(
     created_body = created.json()
     assert created_body["asset_id"] == figure["id"]
     assert created_body["ai_generated"] is True
-    assert created_body["model"] == get_settings().openrouter_model
+    assert created_body["model"] == configured_llm_model()
     assert created_body["cached"] is False
     assert created_body["created_at"]
     assert len(llm.calls) == 1
@@ -180,5 +180,16 @@ def test_figure_service_rejects_oversized_images_before_model_call():
             page_number=1,
             page_text=None,
             llm=llm,
+        )
+    assert llm.calls == []
+
+
+def test_figure_service_rejects_a_text_only_provider_before_model_call():
+    llm = VisionLLM()
+    llm.supports_images = False
+    with pytest.raises(FigureInterpretationError, match="does not support image"):
+        interpret_figure(
+            image=b"image", media_type="image/png", caption=None,
+            page_number=1, page_text=None, llm=llm,
         )
     assert llm.calls == []

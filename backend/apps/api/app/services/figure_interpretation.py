@@ -40,6 +40,11 @@ def interpret_figure(
     page_text: str | None,
     llm: LLMProvider,
 ) -> FigureInterpretation:
+    if not getattr(llm, "supports_images", True):
+        raise FigureInterpretationError(
+            f"{getattr(llm, 'name', type(llm).__name__)} does not support image "
+            "interpretation. Select Gemini or another vision-capable provider."
+        )
     if media_type not in SUPPORTED_IMAGE_TYPES:
         raise FigureInterpretationError(f"Unsupported figure media type: {media_type}")
     if not image:

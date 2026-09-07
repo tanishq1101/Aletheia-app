@@ -25,13 +25,27 @@ backend/     FastAPI service — ingestion, chunking, embeddings, retrieval,
 | Ask | Live — `POST /projects/{id}/answer`: retrieve → rerank → evidence → LLM → resolved citations |
 | Figures / tables / equations | Live — raster figures + captions, structured tables, heuristic equation candidates, plus cached one-at-a-time AI figure interpretation; vector-chart extraction and math OCR remain future work |
 | Research Agent | Live API/UI — bounded planner → grounded subquestions → verified evidence trace; requires OpenRouter |
-| Cross-Paper, Claim Verification, Reproducibility | **Preview** — still fixtures from `lib/preview-data.ts`, each page carries a banner saying so |
-| Sign-in | **Not wired** — the API has no auth; every project belongs to a seeded dev user |
+| Cross-Paper, Claim Verification, Reproducibility | Live — backed by `/projects/{id}/cross-paper`, `/claims` and `/reproducibility`. The fixture module and its preview banner are gone |
+| Sign-in | Live with Clerk — Google, email and username. Without keys the app runs open, as before, and the sign-in page says so; the API then refuses to start unless `ALLOW_UNAUTHENTICATED=true` states that openness is intended |
+| Rate limiting | Live — sliding windows per signed-in user (IP when anonymous): 120 req/min, 12/min on LLM routes, 60 uploads/hour. In-memory, so per process |
 
-Answering, research-agent generation, and explicitly requested figure interpretation use the
-hosted OpenRouter model. Embedding and reranking run locally through fastembed — no key, no spend.
-Without a key those three generation paths return 503 with an explanation; extraction, reading,
-search, and local training still work.
+Answering, research-agent generation, and explicitly requested figure interpretation use a hosted
+model. Embedding and reranking run locally through fastembed — no key, no spend. Without a key
+those three generation paths return 503 with an explanation; extraction, reading, search, and
+local training still work.
+
+The hosted model is any OpenAI-compatible endpoint, chosen with `LLM_PROVIDER`: `openrouter`,
+`gemini`, `groq`, `ollama` or `custom`. **If OpenRouter runs out of credits, switch to Google
+Gemini** — its free tier needs no card and supports vision, which figure interpretation requires:
+
+```
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=<key from https://aistudio.google.com/apikey>
+LLM_MODEL=gemini-2.5-flash
+```
+
+Groq is also free and faster, but text-only, so figure interpretation would fail rather than
+guess. See `backend/.env.example` for every option.
 
 ## AI keys and local models
 
@@ -41,13 +55,13 @@ search, and local training still work.
 | Embeddings | fastembed / Jina ONNX, local | No |
 | Cross-encoder reranking | fastembed / Jina ONNX, local | No |
 | Neural relevance-model training | NumPy, local | No |
-| Grounded answers | OpenRouter | `OPENROUTER_API_KEY` |
-| Research-agent planning and step answers | OpenRouter | `OPENROUTER_API_KEY` |
-| On-demand single-figure interpretation | OpenRouter vision; successful results cached by figure/model/prompt | `OPENROUTER_API_KEY` only on cache miss |
+| Grounded answers | Google Gemini | `GEMINI_API_KEY` |
+| Research-agent planning and step answers | Google Gemini | `GEMINI_API_KEY` |
+| On-demand single-figure interpretation | Google Gemini vision; successful results cached by figure/model/prompt | `GEMINI_API_KEY` only on cache miss |
 | Supabase | Not wired | No key is currently used |
 
-There is exactly one active hosted-AI secret. Set it from `backend/` with
-`.venv/bin/python scripts/set_openrouter_key.py`; do not put it in frontend variables or commit it.
+The active hosted-AI secret is `GEMINI_API_KEY`. Set it only in `backend/.env`; do not put it
+in frontend variables or commit it.
 
 ## Stack
 
@@ -132,8 +146,8 @@ the sidebar and topbar around every page, `(auth)` just centers its content.
 
 ## Multi-source training and research reports
 
-The project now includes **two additional trained neural classifiers**, three public training datasets, and two standalone Colab notebooks. The research agent searches Europe PMC and Crossref and combines library passages with clearly labeled public abstracts into a cited report. Answers support bold/italic Markdown, comparison tables, source coverage graphs, conservative citation-backed numeric charts, and experimental model diagnostics.
+The project now includes **two additional trained neural classifiers** and a **neural relevance reranker**, three public training datasets plus the in-house benchmark, and three standalone Colab notebooks. The research agent searches Europe PMC and Crossref and combines library passages with clearly labeled public abstracts into a cited report. Answers support bold/italic Markdown, comparison tables, source coverage graphs, conservative citation-backed numeric charts, and experimental model diagnostics.
 
 See [training results, notebooks, setup and limitations](backend/docs/research-models.md). Relevance reached **89.87% held-out accuracy** versus a **84.96% lexical baseline**. Scientific stance remains experimental (**54% accuracy**, below the majority baseline); neither model is a replacement for the hosted language model or a verified claim checker.
 
-Open **Training Lab** in the sidebar to inspect the measured results and download both notebooks. [Validation record](backend/docs/validation-summary.json).
+Open **Training Lab** in the sidebar to inspect the measured results and download all three notebooks — the two classifiers plus the neural relevance reranker (5 → 16 → 8 → 1, MRR 0.717 vs a 0.544 cosine baseline on 500 held-out candidates, offline experiment only). [Validation record](backend/docs/validation-summary.json).

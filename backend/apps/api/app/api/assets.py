@@ -11,7 +11,7 @@ from app.services.figure_interpretation import (
     FigureInterpretationError,
     interpret_figure,
 )
-from app.services.llm import LLMError
+from app.services.llm import LLMConfigurationError, LLMError, configured_llm_model
 from app.services.storage import StorageError, build_storage
 
 router = APIRouter(tags=["assets"])
@@ -73,7 +73,10 @@ def interpret_asset_figure(
 ) -> FigureInterpretationResponse:
     """Interpret one figure, caching the first successful bounded result."""
     settings = get_settings()
-    cache_model = settings.openrouter_model
+    try:
+        cache_model = configured_llm_model()
+    except LLMConfigurationError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
     cache_key = f"{asset_id}:{cache_model}:{FIGURE_PROMPT_VERSION}"
 
     with get_connection() as conn:
@@ -146,13 +149,14 @@ def interpret_asset_figure(
             "content_type", "application/octet-stream"
         )
         try:
+            llm = get_llm_provider()
             result = interpret_figure(
                 image=content,
                 media_type=media_type,
                 caption=row["caption"],
                 page_number=row["page_number"],
                 page_text=row["cleaned_text"],
-                llm=get_llm_provider(),
+                llm=llm,
             )
         except FigureInterpretationError as exc:
             raise HTTPException(

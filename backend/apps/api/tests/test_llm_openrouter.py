@@ -1,14 +1,16 @@
-"""OpenRouter provider tests.
+"""OpenAI-compatible provider tests.
 
 The provider's own logic (headers, error surfacing, malformed responses) is
 tested offline against a stubbed transport — those paths must be reliable
 precisely when the network is not.
 
-The one test that calls the real API is skipped unless OPENROUTER_API_KEY is
+The real-provider tests are skipped unless GEMINI_API_KEY is
 configured, so the suite stays runnable offline and free. It is *not* deleted:
 PRD Section 9 forbids claiming a provider works without running it, and this is
 the only test that proves the configured model actually exists and answers.
 """
+
+import json
 
 import httpx
 import pytest
@@ -18,6 +20,8 @@ from app.services.llm import (
     LLMConfigurationError,
     LLMError,
     OpenRouterProvider,
+    build_llm_provider,
+    configured_llm_model,
 )
 
 
@@ -182,13 +186,13 @@ def test_empty_completion_is_rejected(monkeypatch):
 # === The live call ==========================================================
 
 live = pytest.mark.skipif(
-    not get_settings().openrouter_api_key,
-    reason="OPENROUTER_API_KEY not configured — live provider check skipped.",
+    not get_settings().gemini_api_key,
+    reason="GEMINI_API_KEY not configured — live provider checks skipped.",
 )
 
 
 @live
-def test_live_openrouter_model_answers_and_obeys_evidence_ids():
+def test_live_gemini_model_answers_and_obeys_evidence_ids():
     """Proves the configured model exists, responds, and can follow the rules.
 
     Asserts only what a correct model must do — it cites the block it was given
@@ -219,7 +223,7 @@ def test_live_openrouter_model_answers_and_obeys_evidence_ids():
 
 
 @live
-def test_live_openrouter_declines_when_evidence_is_missing():
+def test_live_gemini_declines_when_evidence_is_missing():
     """PRD 5.4: the model must say so rather than answer from its own knowledge.
 
     The evidence below is deliberately about something else entirely, and the
@@ -248,3 +252,180 @@ def test_live_openrouter_declines_when_evidence_is_missing():
 
     assert answer.strip().upper().startswith(INSUFFICIENT_MARKER), answer
     assert "Paris" not in answer
+
+
+# --- Budget-aware retry ------------------------------------------------------
+# `max_tokens` is a reservation, not a spend. OpenRouter refuses the whole
+# request with 402 when the balance cannot cover the ceiling, even though the
+# answer would cost a fraction of it — which took out every AI feature at once.
+
+
+def _payment_required(affordable: int):
+    def handler(request):
+        return httpx.Response(
+            402,
+            json={
+                "error": {
+                    "message": (
+                        "This request requires more credits, or fewer "
+                        f"max_tokens. You requested up to 2048 tokens, but "
+                        f"can only afford {affordable}."
+                    )
+                }
+            },
+            request=request,
+        )
+
+    return handler
+
+
+def test_over_budget_request_retries_at_the_affordable_ceiling(monkeypatch):
+    seen: list[int] = []
+
+    def handler(request):
+        requested = json.loads(request.content)["max_tokens"]
+        seen.append(requested)
+        if requested > 853:
+            return _payment_required(853)(request)
+        return ok_response(request)
+
+    respond(monkeypatch, handler)
+    answer = build(max_output_tokens=2048).complete(system="s", prompt="p")
+
+    assert answer == "Depth helps [E1]."
+    # The first attempt asks for the configured ceiling; the retry asks for
+    # exactly what the balance affords. Never more than two calls.
+    assert seen == [2048, 853]
+
+
+def test_retry_happens_once_and_a_second_402_is_surfaced(monkeypatch):
+    calls: list[int] = []
+
+    def handler(request):
+        calls.append(json.loads(request.content)["max_tokens"])
+        return _payment_required(853)(request)
+
+    respond(monkeypatch, handler)
+    with pytest.raises(LLMError) as excinfo:
+        build(max_output_tokens=2048).complete(system="s", prompt="p")
+
+    assert "402" in str(excinfo.value)
+    assert len(calls) == 2
+
+
+def test_budget_too_small_for_a_usable_answer_fails_loudly(monkeypatch):
+    calls: list[int] = []
+
+    def handler(request):
+        calls.append(json.loads(request.content)["max_tokens"])
+        return _payment_required(12)(request)
+
+    respond(monkeypatch, handler)
+    with pytest.raises(LLMError) as excinfo:
+        build(max_output_tokens=2048).complete(system="s", prompt="p")
+
+    # A 12-token completion is not an answer. Better a clear error than a
+    # truncated one that looks grounded.
+    assert "Top up" in str(excinfo.value)
+    assert calls == [2048], "must not retry into a uselessly short answer"
+
+
+def test_other_payment_errors_are_not_retried(monkeypatch):
+    calls: list[int] = []
+
+    def handler(request):
+        calls.append(json.loads(request.content)["max_tokens"])
+        return httpx.Response(
+            402, json={"error": {"message": "Account suspended."}}, request=request
+        )
+
+    respond(monkeypatch, handler)
+    with pytest.raises(LLMError, match="Account suspended"):
+        build(max_output_tokens=2048).complete(system="s", prompt="p")
+
+    assert calls == [2048], "no affordable ceiling to retry against"
+
+
+# --- Provider selection ------------------------------------------------------
+# OpenRouter running out of credits took down every AI feature, so the provider
+# is now configurable. These tests prove the *selection* is right — that each
+# endpoint gets its own base URL, key and headers — without calling any of them.
+
+
+def test_gemini_uses_googles_openai_compatible_endpoint(monkeypatch):
+    from app.core.config import get_settings
+    from app.services.llm import build_llm_provider
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "llm_provider", "gemini", raising=False)
+    monkeypatch.setattr(settings, "gemini_api_key", "gemini-test-key", raising=False)
+    monkeypatch.setattr(settings, "llm_base_url", "", raising=False)
+    monkeypatch.setattr(settings, "llm_model", "", raising=False)
+    build_llm_provider.cache_clear()
+
+    provider = build_llm_provider()
+    assert provider._base_url.endswith("/v1beta/openai")
+    assert provider.name == "gemini-2.5-flash"
+    assert provider.supports_images is True
+    assert provider._headers()["Authorization"] == "Bearer gemini-test-key"
+    # OpenRouter's attribution headers mean nothing to Google and are not sent.
+    assert "HTTP-Referer" not in provider._headers()
+    assert configured_llm_model() == "gemini-2.5-flash"
+    build_llm_provider.cache_clear()
+
+
+def test_ollama_needs_no_api_key(monkeypatch):
+    from app.core.config import get_settings
+    from app.services.llm import build_llm_provider
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "llm_provider", "ollama", raising=False)
+    monkeypatch.setattr(settings, "llm_api_key", "", raising=False)
+    monkeypatch.setattr(settings, "llm_base_url", "", raising=False)
+    monkeypatch.setattr(settings, "llm_model", "", raising=False)
+    build_llm_provider.cache_clear()
+
+    assert build_llm_provider().name == "llama3.1:8b"
+    build_llm_provider.cache_clear()
+
+
+def test_an_unknown_provider_names_the_valid_ones(monkeypatch):
+    from app.core.config import get_settings
+    from app.services.llm import build_llm_provider
+
+    monkeypatch.setattr(get_settings(), "llm_provider", "hal9000", raising=False)
+    build_llm_provider.cache_clear()
+    with pytest.raises(LLMConfigurationError) as excinfo:
+        build_llm_provider()
+    assert "gemini" in str(excinfo.value) and "openrouter" in str(excinfo.value)
+    build_llm_provider.cache_clear()
+
+
+def test_a_free_tier_quota_is_not_reported_as_an_empty_wallet(monkeypatch):
+    """429 and 402 are different problems: one waits, the other needs money."""
+    respond(
+        monkeypatch,
+        lambda request: httpx.Response(
+            429,
+            json={"error": {"message": "Quota exceeded for this model."}},
+            headers={"retry-after": "37"},
+            request=request,
+        ),
+    )
+    with pytest.raises(LLMError) as excinfo:
+        build().complete(system="s", prompt="p")
+    message = str(excinfo.value)
+    assert "quota is exhausted, not the account balance" in message
+    assert "Retry after 37s" in message
+
+
+def test_a_rejected_key_names_the_variable_to_fix(monkeypatch):
+    respond(
+        monkeypatch,
+        lambda request: httpx.Response(
+            401, json={"error": {"message": "Invalid API key"}}, request=request
+        ),
+    )
+    with pytest.raises(LLMError) as excinfo:
+        build().complete(system="s", prompt="p")
+    assert "OPENROUTER_API_KEY" in str(excinfo.value)
