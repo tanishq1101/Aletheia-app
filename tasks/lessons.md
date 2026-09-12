@@ -106,3 +106,25 @@
 - A redirect is not a landing page. `/` sent signed-out visitors straight to a sign-in form having
   never told them what the product was or why its answers should be trusted — and for a system
   whose entire claim is that it does not fabricate citations, the explanation is the product.
+- Code behind a feature flag that is off has not been tested, however many tests cover it. Clerk
+  was "built and tested" for a sprint, but without a publishable key the provider never mounts, so
+  none of it ran: the day real keys arrived, the build failed on a removed component, protected
+  pages answered 404 instead of redirecting, and a correctly signed-in user saw "requires a
+  signed-in session". Three defects in code that had been green the whole time. Get the credential
+  early; a disabled integration is unverified by definition.
+- A test suite that reads deployment config is a suite that passes for the wrong reason. These
+  tests only passed while nobody had configured an identity provider, so configuring one correctly
+  turned 119 of them red on a machine where nothing was broken. Pin the environment your tests
+  need in the fixture, including the settings you want *off*.
+- Registration from an effect races the first fetch. The token provider was published in
+  useEffect, the workspace fetched on mount, and whichever requests lost went out unauthenticated
+  and came back 401 — so the signed-in user saw an error and an "API offline" badge. Fix it at the
+  single choke point every call passes through, not at the call sites: the next endpoint someone
+  adds inherits the fix instead of rediscovering the bug.
+- Match UI controls exactly, not by substring, when automating. "continue" also matches "Continue
+  with Google", so a sign-in script quietly drove the browser into Google's OAuth flow and then
+  reported that the session was missing. The failure looked like a broken login; it was a bad
+  selector.
+- Bot protection is a fact about your test strategy. Clerk's Turnstile on sign-up cannot be solved
+  headlessly, so end-to-end tests have to create accounts through the Backend API and exercise
+  sign-in. Better to know that than to conclude sign-up is broken.

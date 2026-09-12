@@ -484,3 +484,76 @@ f-strings, so those reached the reader as literal braces.
 - The reranker notebook still does not reproduce the shipped numbers, and still
   says so in its own final cell. TF-IDF retrieval against a semantic pipeline
   is a different experiment, not a worse run of the same one.
+
+---
+
+## Clerk, verified against a live tenant (12 Sept 2026)
+
+Keys were supplied for the `fast-humpback-4260` development instance, so the
+last open item from every previous sprint — "Clerk is built but unverified
+against a live tenant" — is now closed. Four defects, all of which were
+invisible without real keys, because without a publishable key the provider is
+never mounted and none of this code runs.
+
+### What broke the moment keys existed
+
+- [x] **`next build` failed.** `UserMenu` used `<SignedIn>` / `<SignedOut>`.
+      Clerk Core 3 still *exports* them for Next.js but they throw when
+      rendered, so prerendering `/cross-paper` died. Rewritten around
+      `useAuth()`, which is what Core 3 expects, rendering nothing until the
+      session has resolved so prerender cannot bake in a guess.
+- [x] **Protected pages answered 404 to signed-out visitors.**
+      `auth.protect()` is shaped for API routes; someone opening `/library`
+      while signed out was told the page did not exist, with no way to sign in
+      from there. Now a redirect to `/sign-in` carrying `redirect_url`, so they
+      land on the page they asked for. Verified: `/library` → 307 →
+      `/sign-in?redirect_url=...%2Flibrary`, and after signing in the browser
+      arrived at `/library`.
+- [x] **A signed-in user saw "This endpoint requires a signed-in session".**
+      `<AuthBridge />` registers the token provider from an effect, after Clerk
+      loads the session, while the workspace starts fetching as soon as it
+      mounts. Whichever requests won that race went out bare and came back 401,
+      so a correctly authenticated user landed on an error banner and an "API
+      offline" badge until they pressed Retry. `lib/api.ts` now waits for the
+      provider — bounded, and only when a key is configured, so a keyless build
+      pays nothing. Fixed once at the choke point rather than per call site.
+- [x] **The test suite was not hermetic.** It read `CLERK_ISSUER` from
+      `backend/.env`, so it passed only while nobody had configured an identity
+      provider. Adding real keys turned 119 tests red on a machine where
+      nothing was wrong. `conftest.py` now blanks the Clerk and Redis settings
+      explicitly, alongside the storage and Chroma overrides it already made.
+      342 tests pass with Clerk fully configured.
+
+### Verified in a real browser, against real Clerk
+
+- [x] Sign-in and sign-up render Clerk's hosted form, themed to the app's
+      palette, offering Google, email and username — the configuration the
+      dashboard was set up with.
+- [x] Google SSO reaches Google's real consent screen with the right client id
+      and the Clerk callback. Completing a Google login needs Google
+      credentials, so that last hop is still unexercised.
+- [x] Sign-up is protected by Cloudflare Turnstile, which a headless browser
+      cannot solve. The account was created through Clerk's Backend API
+      instead, and the browser drove the **sign-in**. Worth knowing: automated
+      end-to-end tests cannot sign up through the UI while bot protection is on.
+- [x] Clerk's new-device email verification step appeared and was satisfied
+      with the `+clerk_test` code, so that path works too.
+- [x] The token the browser mints is accepted by FastAPI: `iss` the real Clerk
+      issuer, `azp` `http://localhost:3000`, `GET /projects` 200 with the token
+      and 401 without it, in the same page, seconds apart.
+- [x] First request provisioned the user — one row, keyed by the Clerk subject.
+- [x] The advisory lock held under a real mount: exactly one "My Library",
+      not the two that started this whole thread.
+- [x] Sign-out clears the session, lands on `/sign-in`, and re-opening
+      `/library` redirects again.
+
+### Still open
+
+- **The default session token carries no email or username.** `_resolve_user`
+  reads `email` / `username` claims that Clerk does not include by default, so
+  those columns stay null and anything showing them will be blank. Fix is a
+  JWT template in the Clerk dashboard adding the two claims; the code already
+  handles their absence rather than failing.
+- **Google sign-in's final hop is unexercised** (see above).
+- **Bot protection blocks automated sign-up**, so any future end-to-end suite
+  must create users through the Backend API.

@@ -35,10 +35,40 @@ export const API_BASE_URL =
  * module-level hook rather than a parameter so no call site can forget it. */
 let authTokenProvider: (() => Promise<string | null>) | null = null;
 
+/** Whether a token is ever expected. Same condition as the provider mount. */
+const authConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+
+/** Resolves once `<AuthBridge />` has registered a provider.
+ *
+ * `<AuthBridge />` registers from an effect, after Clerk has loaded the
+ * session, while the workspace starts fetching as soon as it mounts. Whichever
+ * requests win that race used to go out bare and come back 401, so a correctly
+ * signed-in user landed on a library reading "This endpoint requires a
+ * signed-in session" until they hit Retry. Waiting here fixes every call site
+ * at once; fixing it per caller would leave the next new one to rediscover it. */
+let signalProviderReady: () => void = () => {};
+let providerReady: Promise<void> = new Promise((resolve) => {
+  signalProviderReady = resolve;
+});
+
+/** How long to wait for it before giving up and sending the request bare.
+ *  Bounded so a build where the bridge never mounts degrades to the old
+ *  behaviour instead of hanging every request forever. */
+const PROVIDER_WAIT_MS = 5000;
+
 export function setAuthTokenProvider(
   provider: (() => Promise<string | null>) | null,
 ) {
   authTokenProvider = provider;
+  if (provider) {
+    signalProviderReady();
+  } else {
+    // Unmounted, or signed out. Re-arm so a remount is waited for again
+    // rather than resolving instantly against a stale signal.
+    providerReady = new Promise((resolve) => {
+      signalProviderReady = resolve;
+    });
+  }
 }
 
 /** Merges the bearer token into a request's headers.
@@ -47,6 +77,14 @@ export function setAuthTokenProvider(
  * caching: the SDK returns a cached token until it is close to expiry, and
  * holding our own copy is how a long-lived tab starts sending expired ones. */
 async function withAuth(init?: RequestInit): Promise<RequestInit | undefined> {
+  if (!authTokenProvider && authConfigured) {
+    // Only ever waited for when a token is actually expected: a build with no
+    // Clerk key has no bridge to wait for and must not pay this delay.
+    await Promise.race([
+      providerReady,
+      new Promise((resolve) => setTimeout(resolve, PROVIDER_WAIT_MS)),
+    ]);
+  }
   if (!authTokenProvider) return init;
   let token: string | null = null;
   try {

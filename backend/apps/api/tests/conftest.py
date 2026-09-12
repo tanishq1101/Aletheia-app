@@ -33,6 +33,20 @@ os.environ["CHROMA_ENABLED"] = "false"
 # and ownership paths have their own tests, which configure an issuer and mint
 # tokens against a throwaway key (see test_auth.py).
 os.environ["ALLOW_UNAUTHENTICATED"] = "true"
+# And Clerk is explicitly switched *off* here rather than assumed absent. These
+# read from backend/.env otherwise, so the whole suite passed only while nobody
+# had configured an identity provider — the moment real keys were added, 119
+# tests failed with 401 on a machine where nothing was wrong. A test run must
+# not depend on the developer's deployment config. test_auth.py sets an issuer
+# for itself, per test, and tears it down again.
+os.environ["CLERK_ISSUER"] = ""
+os.environ["CLERK_JWKS_URL"] = ""
+os.environ["CLERK_SECRET_KEY"] = ""
+os.environ["CLERK_AUDIENCE"] = ""
+os.environ["CLERK_AUTHORIZED_PARTIES_CSV"] = ""
+# Same reasoning: the limiter tests build their own backends, and a configured
+# REDIS_URL would otherwise point the suite at a live server.
+os.environ["REDIS_URL"] = ""
 # Per-test HTTP calls come from one client and would otherwise trip the
 # limiter partway through a suite. Its own behaviour is tested directly.
 os.environ["RATE_LIMIT_ENABLED"] = "false"
