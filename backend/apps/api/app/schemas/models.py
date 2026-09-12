@@ -368,3 +368,8 @@ class HealthResponse(BaseModel):
     # without it. A degraded vector store has to be visible without making the
     # whole service look down.
     vector_store: str = "unknown"
+    # Which store the request budgets are counted in, and whether it is
+    # currently degraded. Like vector_store this never gates `status`: a
+    # limiter that has fallen back to a per-process window is still
+    # limiting, and the service is still serving.
+    rate_limiter: str = "unknown"

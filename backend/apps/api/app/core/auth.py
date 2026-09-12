@@ -139,6 +139,15 @@ def verify_token(token: str) -> dict[str, Any]:
     except jwt.exceptions.PyJWKClientError as exc:
         # An unknown `kid` is the normal shape of a forged or stale token.
         raise AuthError(f"Session token is not signed by a known key: {exc}") from exc
+    except jwt.InvalidTokenError as exc:
+        # Finding the signing key means reading the token's header, so a value
+        # that is not a JWT at all fails *here*, before the decode below ever
+        # runs. DecodeError is a sibling of PyJWKClientError rather than a
+        # subclass, so without this clause `Authorization: Bearer nonsense`
+        # left an unhandled exception and answered 500 — an unauthenticated
+        # caller could fill the error log at will, and a 500 on the auth path
+        # reads like a broken server rather than a rejected credential.
+        raise AuthError(f"Session token is not valid: {exc}") from exc
 
     try:
         claims = jwt.decode(

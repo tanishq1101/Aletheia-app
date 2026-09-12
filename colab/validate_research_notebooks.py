@@ -31,6 +31,8 @@ import os
 from pathlib import Path
 import re
 import shutil
+import subprocess
+import sys
 import tempfile
 import time
 
@@ -176,7 +178,31 @@ def run(spec: dict) -> dict:
     }
 
 
+def assert_generated_notebooks_match_their_generators() -> None:
+    """A generated notebook must still be what its generator produces.
+
+    Executing a notebook writes outputs back into it, and fixes get made in the
+    notebook because that is where the failure is seen. Both leave the
+    generator behind, and the next person to run it reverts the fix. Checking
+    here means the drift is reported by the same command that asserts every
+    notebook has been run.
+    """
+    for generator in sorted(NOTEBOOK_DIR.glob("build_*_notebook.py")):
+        result = subprocess.run(
+            [sys.executable, str(generator), "--check"],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            raise SystemExit(
+                f"{generator.name} and the notebook it generates have "
+                f"diverged:\n{result.stdout}{result.stderr}"
+            )
+
+
 def main() -> None:
+    assert_generated_notebooks_match_their_generators()
+
     known = {spec["file"] for spec in NOTEBOOKS}
     found = {path.name for path in NOTEBOOK_DIR.glob("*.ipynb")}
     if missing := sorted(found - known):

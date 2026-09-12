@@ -146,6 +146,12 @@ class Settings(BaseSettings):
     rate_limit_llm_requests_per_minute: int = 12
     rate_limit_uploads_per_hour: int = 60
 
+    # Where the request counters live. Blank keeps them in this process, which
+    # is exact for one worker and roughly N times the configured rate for N.
+    # Set it and the limits become cluster-wide. Redis is used only for this,
+    # so an outage degrades the limiter rather than the API.
+    redis_url: str = ""
+
     @property
     def auth_enabled(self) -> bool:
         """True when a real identity provider is configured.

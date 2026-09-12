@@ -6,6 +6,8 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
  * purpose: with a deny-list, a page added next month is public by accident,
  * and the mistake is invisible until someone finds the URL. */
 const isPublic = createRouteMatcher([
+  // The landing page, and only the landing page: "/" exactly, not "/(.*)".
+  "/",
   "/sign-in(.*)",
   "/sign-up(.*)",
   // Clerk's own callbacks (OAuth return, verification links).

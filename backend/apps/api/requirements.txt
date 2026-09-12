@@ -38,3 +38,8 @@ pytest==8.4.2
 # without it PyJWT accepts the token shape and rejects every signature.
 # Only imported by app/core/auth.py.
 pyjwt[crypto]==2.10.1
+
+# Shared rate-limit counters. Optional: without REDIS_URL the limiter keeps its
+# windows in process and this package is never imported. Only imported by
+# app/core/rate_limit.py, and only when configured.
+redis==6.4.0

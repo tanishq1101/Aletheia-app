@@ -18,6 +18,7 @@ services:
       # the Dockerfile, not the host-relative paths .env uses for bare-metal dev.
       CHROMA_HOST: chroma
       CHROMA_PORT: "8000"
+      REDIS_URL: redis://redis:6379/0
       LOCAL_STORAGE_DIR: /data/storage
       RESEARCH_MODELS_DIR: /app/models/research
     ports:
@@ -26,6 +27,8 @@ services:
       - source_data:/data/storage
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   db:
@@ -64,6 +67,29 @@ services:
       - chroma_data:/data
     healthcheck:
       test: ["CMD", "/bin/bash", "-c", "cat < /dev/null > /dev/tcp/localhost/8000"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Shared rate-limit counters. The API treats this as a limiter, not a
+  # dependency: if it is down, request budgets fall back to a per-process
+  # window and the service keeps answering. Nothing here needs to survive a
+  # restart — a lost window costs one caller one extra minute of allowance —
+  # so there is no volume and no persistence configured.
+  redis:
+    image: redis:8.2-alpine
+    container_name: research-intelligence-redis
+    command: >-
+      redis-server
+      --save ""
+      --appendonly no
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+    ports:
+      # 6380 on the host to avoid colliding with an existing local Redis.
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 20

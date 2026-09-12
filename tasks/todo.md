@@ -342,3 +342,145 @@ and only one of them is fixed with a credit card.
 - **`build_neural_reranker_notebook.py` is still behind the notebook.** It no
   longer overwrites silently, but reconciling the two is unfinished work.
 - The rate limiter is per process. Correct for one worker, a floor for many.
+
+---
+
+## Sprint: carried-over debt, landing page, production audit (12 Sept 2026)
+
+Four items left open by the previous sprint, then a pass over whether this is
+actually deployable.
+
+### 1. The notebook generator was behind its own notebook
+
+`build_neural_reranker_notebook.py` refused to overwrite, which stopped the
+damage but left the two disagreeing. The notebook was ahead in four ways: it
+used pypdf where the generator still emitted PyMuPDF, it carried the arXiv
+download retry loop, it had the `make_chunks` fix for the `NameError` that hit
+anyone who chose Run all, and it had two markdown sections the generator did
+not. The generator also emitted 12 `{{...}}` sites in cells that are not
+f-strings, so those reached the reader as literal braces.
+
+- [x] Every cell body is now a module-level **raw, non-f-string** constant at
+      column zero, taken verbatim from the notebook. The one cell needing a
+      substitution names a placeholder and replaces it. The whole class of
+      escaping bug is gone rather than fixed site by site — which matters,
+      because the previous attempt at fixing it by blanket-replacing braces
+      broke the cells that really were f-strings.
+- [x] Regenerating now **preserves** the execution outputs and the validator's
+      record when the code is unchanged, and drops them when `--force` changes
+      the code, because an output that no longer matches its cell is worse than
+      no output.
+- [x] The comparison decodes the embedded benchmark instead of comparing its
+      base64. gzip output differs between zlib builds, so the old check
+      reported drift on a byte no reader of the notebook can see.
+- [x] `--check` added, wired into `validate_research_notebooks.py` and into the
+      test suite (`test_notebook_generator.py`), so drift fails on its own
+      rather than when someone remembers to look.
+- [x] Negative control: injected a comment into the notebook and confirmed
+      `--check`, the bare generator, and pytest all go red.
+
+### 2. The rate limiter now has somewhere shared to count
+
+- [x] `REDIS_URL` selects a sorted-set sliding window in Redis; blank keeps the
+      in-process deque. The trim, count and append happen inside one Lua
+      script, so the check and the write cannot interleave across workers.
+- [x] Redis is treated as a limiter, not a dependency: if it is unreachable the
+      request is counted against the in-process window and the API keeps
+      serving. Refusing instead would hand anyone who can disrupt Redis a way
+      to take the service down.
+- [x] `/health` reports which backend is counting and whether it has degraded.
+- [x] A `redis` service in docker-compose with no persistence — a lost window
+      costs one caller one extra minute of allowance.
+- [x] **Found while writing it:** the caller's identity was `hash(token)`, and
+      `hash()` is salted per process. Every worker would have bucketed the same
+      user differently and each granted a full budget, so the shared counter
+      would have been shared in name only. Now blake2b.
+- [x] Verified against the real stack, not just unit tests: exactly 120 of 130
+      requests allowed with `Retry-After` correct, `/health` answering 200
+      throughout, then Redis stopped mid-flight — the API kept answering,
+      `/health` said `redis (degraded: falling back to in-process)`, and it
+      recovered on its own when Redis came back.
+- [x] Negative control: two in-process limiters each granted a full budget
+      where two Redis limiters shared one, so the test distinguishes them.
+
+### 3. The duplicate "My Library"
+
+- [x] `backend/scripts/remove_duplicate_default_projects.py`, dry-run by
+      default. It only takes a project that is not its user's oldest, holds no
+      papers, has no description and is named exactly the default — two
+      projects a user deliberately gave the same name is a legitimate thing to
+      want. The emptiness check is repeated inside the deleting transaction,
+      so a paper uploaded mid-run saves its project.
+- [x] Eight tests covering each refusal, including the mid-run upload.
+- [x] Exercised against a reconstructed copy of the original race (two projects
+      171 ms apart) plus a described one, a renamed one and an occupied one:
+      it took exactly the one row and left the other four.
+- [ ] **Still to run against the live Neon database.** This local database no
+      longer holds the duplicate; the row is in Neon, and the connection string
+      is not in this checkout. `npm run projects:dedupe` reports before it
+      deletes.
+
+### 4. A landing page
+
+- [x] `/` was a redirect into `/library`, so a signed-out visitor was bounced
+      to a sign-in form having never been told what this is. It is now a real
+      page: the problem, the four guarantees, the six-step path a question
+      takes, the eight workspace entry points, and the three trained models.
+- [x] Added to the middleware allow-list as `"/"` exactly, not `"/(.*)"`.
+- [x] The stance classifier is shown at 54% and labelled as below its own
+      baseline. A page about not fabricating citations is a bad place to start
+      quietly dropping the result that did not work.
+- [x] Verified rendered at 1440px and 390px through a real browser.
+
+### 5. Production audit
+
+- [x] **Critical: unauthenticated RCE in Next.js** (GHSA-p293-qw3h-jr36, plus
+      an AVIF path in the image optimiser). 16.3.2 was inside the affected
+      range and this is a Windows host, which is exactly what the first
+      advisory targets. Upgraded to 16.3.5 — a patch bump — along with sharp
+      and js-yaml. Build, typecheck, lint and 342 tests clean afterwards.
+- [x] **`npm run db:verify` was passing vacuously on Windows.** The npm scripts
+      named `backend/.venv/bin/python`, which does not exist here; cmd.exe
+      printed "'backend' is not recognized" and npm still exited 0. The schema
+      guard — the one asserting the HNSW index and 18 CHECK constraints Prisma
+      cannot express are still present — had been reporting success without
+      running. `scripts/run-python.mjs` resolves the interpreter per platform
+      and propagates the real exit code. It now runs: 3 raw indexes, 18 CHECKs.
+- [x] **A malformed token answered 500, not 401.** Found by pointing the API at
+      a real JWKS server instead of the suite's stub: finding the signing key
+      parses the token header, so `Authorization: Bearer nonsense` raised
+      `DecodeError` — a *sibling* of the JWKS errors, not a subclass — and
+      escaped both handlers. An unauthenticated caller could write a traceback
+      into the log on demand. The suite could not have caught it: its stub
+      returned a key for any string, which is more forgiving than PyJWKClient.
+      The stub now parses the header like the real one does, and five
+      parametrised cases fail without the fix.
+- [x] Auth verified end to end over HTTP against a live JWKS: 15 checks
+      covering anonymous, garbage, expired, wrong issuer, wrong key, `alg:none`
+      and unknown `kid`, plus first-request provisioning, the same subject
+      returning to the same library, and four cross-user isolation checks.
+- [x] Whole stack from a cold `docker compose up`: API, Postgres, Chroma and
+      Redis all healthy, `/health` green on every dependency.
+- [x] No secrets committed — only `.env.example` files are tracked, and a scan
+      for key-shaped strings across the tree is clean.
+
+### Still open
+
+- **Clerk has still never run against a live tenant.** Everything below the
+  token is now verified against a real JWKS over real HTTP, so what remains
+  untested is Clerk's hosted sign-in UI and the Google redirect — their
+  product, not this code. It needs keys from a Clerk dashboard; nothing else
+  is blocking it.
+- **The dedupe script has not been run against Neon** (see 3).
+- **4 high-severity advisories remain, all in the `prisma` CLI**
+  (`deepmerge-ts`, and `mysql2` via `@prisma/config`). There is no fixed 7.x —
+  npm's proposed "fix" is a downgrade to 6.19.3, which would break the schema
+  baseline. It is a devDependency: it never runs in production, nothing imports
+  `@prisma/client` at runtime, and `mysql2` is a MySQL driver a Postgres
+  project never loads. Worth revisiting when Prisma ships a patched 7.x.
+- **~1 MB of scratch artifacts are committed** under `tmp/pdfs/` and
+  `output/pdf/` — intermediate page renders from building SUMMARY.pdf. Not a
+  blocker, but `tmp/` is not a directory that belongs in a repository.
+- The reranker notebook still does not reproduce the shipped numbers, and still
+  says so in its own final cell. TF-IDF retrieval against a semantic pipeline
+  is a different experiment, not a worse run of the same one.

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Response, status
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
+from app.core.rate_limit import describe_backend
 from app.db.session import get_connection
 from app.schemas.models import HealthResponse
 from app.services.vector_store import VectorStoreError
@@ -59,4 +60,5 @@ def health(response: Response) -> HealthResponse:
         database=database,
         storage=storage,
         vector_store=vector_store,
+        rate_limiter=describe_backend(),
     )

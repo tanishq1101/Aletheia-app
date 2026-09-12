@@ -12,14 +12,15 @@
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "db:pull": "prisma db pull",
-    "db:verify": "backend/.venv/bin/python backend/scripts/verify_schema.py",
-    "db:to-neon": "backend/.venv/bin/python backend/scripts/migrate_to_neon.py",
-    "vectors:sync": "backend/.venv/bin/python backend/scripts/backfill_chroma.py",
-    "vectors:status": "backend/.venv/bin/python backend/scripts/backfill_chroma.py --status"
+    "db:verify": "node scripts/run-python.mjs backend/scripts/verify_schema.py",
+    "db:to-neon": "node scripts/run-python.mjs backend/scripts/migrate_to_neon.py",
+    "vectors:sync": "node scripts/run-python.mjs backend/scripts/backfill_chroma.py",
+    "vectors:status": "node scripts/run-python.mjs backend/scripts/backfill_chroma.py --status",
+    "projects:dedupe": "node scripts/run-python.mjs backend/scripts/remove_duplicate_default_projects.py"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.1",
-    "next": "16.3.2",
+    "next": "16.3.5",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-markdown": "^10.1.0",
@@ -32,7 +33,7 @@
     "@types/react-dom": "^19",
     "dotenv": "^17.4.2",
     "eslint": "^9",
-    "eslint-config-next": "16.3.2",
+    "eslint-config-next": "16.3.5",
     "prisma": "^7.10.0",
     "tailwindcss": "^4",
     "typescript": "^5"

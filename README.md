@@ -27,7 +27,8 @@ backend/     FastAPI service — ingestion, chunking, embeddings, retrieval,
 | Research Agent | Live API/UI — bounded planner → grounded subquestions → verified evidence trace; OpenAI primary with Gemini backup |
 | Cross-Paper, Claim Verification, Reproducibility | Live — backed by `/projects/{id}/cross-paper`, `/claims` and `/reproducibility`. The fixture module and its preview banner are gone |
 | Sign-in | Live with Clerk — Google, email and username. Without keys the app runs open, as before, and the sign-in page says so; the API then refuses to start unless `ALLOW_UNAUTHENTICATED=true` states that openness is intended |
-| Rate limiting | Live — sliding windows per signed-in user (IP when anonymous): 120 req/min, 12/min on LLM routes, 60 uploads/hour. In-memory, so per process |
+| Rate limiting | Live — sliding windows per signed-in user (IP when anonymous): 120 req/min, 12/min on LLM routes, 60 uploads/hour. Counters live in Redis when `REDIS_URL` is set, so the numbers are cluster-wide; without it they are per process. Losing Redis degrades the limiter to the in-process window and is reported by `/health`, rather than taking the API down |
+| Landing page | Live — a public `/` explaining what the system does and what it refuses to do. It is the only route outside the middleware's sign-in allow-list |
 
 Answering, research-agent generation, and explicitly requested figure interpretation use a hosted
 model. Embedding and reranking run locally through fastembed — no key, no spend. Without a key

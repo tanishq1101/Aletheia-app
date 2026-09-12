@@ -58,7 +58,14 @@ def authenticated(monkeypatch, keypair):
         key = public
 
     class StubClient:
-        def get_signing_key_from_jwt(self, token):  # noqa: ARG002
+        def get_signing_key_from_jwt(self, token):
+            # The real PyJWKClient reads the token's header to find the `kid`
+            # before it can return anything, so a value that is not a JWT
+            # fails *here*, not in the later decode. A stub that hands back a
+            # key for any string is more forgiving than the thing it stands in
+            # for, and it hid a real 500: this one line is the difference
+            # between this fixture testing the code and flattering it.
+            jwt.get_unverified_header(token)
             return StubKey()
 
     monkeypatch.setattr(auth_module._jwks, "client", lambda url: StubClient())
@@ -133,12 +140,36 @@ def test_endpoints_refuse_an_anonymous_caller_when_auth_is_on(authenticated):
     assert response.headers["www-authenticate"] == "Bearer"
 
 
-def test_endpoints_refuse_a_garbage_token(authenticated):
+@pytest.mark.parametrize(
+    "value",
+    [
+        "not-a-jwt",
+        "",
+        "a.b",
+        "...",
+        "eyJhbGciOiJSUzI1NiJ9",  # a header and nothing else
+    ],
+)
+def test_endpoints_refuse_a_garbage_token(authenticated, value):
+    """A malformed credential is a 401, never a 500.
+
+    Finding the signing key parses the token header, so anything that is not a
+    JWT raises before verification begins. That exception is a sibling of the
+    JWKS errors rather than a subclass, so it escaped both handlers and
+    answered 500 — which let an unauthenticated caller write a traceback into
+    the log on demand, and made a rejected credential look like a broken
+    server. Only found by running a real JWKS; the stub used to be more
+    forgiving than PyJWKClient.
+    """
     with TestClient(app) as client:
-        response = client.get(
-            "/projects", headers={"Authorization": "Bearer not-a-jwt"}
-        )
-    assert response.status_code == 401
+        response = client.get("/projects", headers={"Authorization": f"Bearer {value}"})
+    assert response.status_code == 401, f"{value!r} produced {response.status_code}"
+    assert response.headers["www-authenticate"] == "Bearer"
+
+
+def test_a_malformed_token_raises_auth_error_not_an_unhandled_one(authenticated):
+    with pytest.raises(auth_module.AuthError):
+        auth_module.verify_token("not-a-jwt")
 
 
 def test_health_stays_open(authenticated):

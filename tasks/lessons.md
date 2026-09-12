@@ -61,3 +61,48 @@
 - A learning curve without a validation line cannot show the one thing curves are for. Recording
   only training loss costs nothing to fix — one forward pass per sampled epoch — and its absence
   is not noticeable until someone asks whether a model overfit.
+- A stub that is more forgiving than the thing it replaces will hide the bug it was written to
+  cover. `test_endpoints_refuse_a_garbage_token` passed for weeks while the real endpoint answered
+  500, because the fake JWKS client returned a key for any string whereas PyJWKClient parses the
+  token header first and raises. The test was not wrong about what it asserted; it was wrong about
+  what it was talking to. When a stub stands in for a library, make it fail where the library
+  fails, and run the real one at least once against something you control.
+- Catch by behaviour, not by inheritance, when a library's exception tree is not a hierarchy.
+  `DecodeError` and `PyJWKClientError` are siblings under `PyJWTError`, so two carefully chosen
+  `except` clauses still let a malformed token through to a 500. An unauthenticated caller could
+  then write a traceback into the log at will. Read the tree before trusting that a base class
+  covers the case.
+- A script that cannot run must not exit 0. The npm scripts named a POSIX venv path, so on Windows
+  cmd.exe printed "'backend' is not recognized" and npm reported success — which meant
+  `db:verify`, the guard asserting the indexes and constraints Prisma cannot express, had been
+  passing without executing. A green check that never ran is worse than a red one, because nobody
+  investigates it.
+- gzip output is not a stable identity for its input. Comparing the base64 of a compressed blob
+  reported drift between two machines whose zlib differed, on bytes that decode identically. When
+  comparing generated artifacts, compare what they mean — decode first — or the check cries wolf
+  until someone adds `--force` to their muscle memory.
+- Decide which artifact is ahead *before* reconciling, then delete the question. The generator was
+  behind its notebook in four separate ways, and the escaping bug in it had already survived one
+  blanket fix that broke the cells it did not apply to. Rewriting every cell body as a raw,
+  non-f-string constant removed the class of bug rather than its instances: there is no longer a
+  site where a brace could need escaping.
+- A regeneration that discards recorded outputs silently undoes a validation run. Preserve them
+  when the code is unchanged and drop them loudly when `--force` changes it — an output that no
+  longer describes its cell is a false claim, not a stale one.
+- `hash()` is salted per process, so it cannot key anything shared. Using it for the rate-limit
+  identity would have given every worker a different bucket for the same caller and handed each of
+  them a full budget — a shared counter that was shared in name only, and the bug would have
+  appeared only under the multi-worker deployment it was built for. Any hash that crosses a
+  process boundary has to be a stable one.
+- Decide what a dependency is *for* before deciding what its outage means. Redis here counts
+  requests; it does not serve them. Failing a request because the limiter is unreachable would let
+  anyone who can disrupt Redis take the API down, so the limiter degrades to a per-process window,
+  says so in `/health`, and the service keeps answering. "Fail closed" is right for authorisation
+  and wrong for throttling.
+- A cleanup script that deletes rows needs its refusals tested more than its successes. Finding the
+  duplicate is visible immediately; taking a project someone deliberately named the same thing, or
+  one that acquired a paper between the survey and the delete, is not. The survey is not a lock, so
+  the delete re-checks its own preconditions in the transaction that performs it.
+- A redirect is not a landing page. `/` sent signed-out visitors straight to a sign-in form having
+  never told them what the product was or why its answers should be trusted — and for a system
+  whose entire claim is that it does not fabricate citations, the explanation is the product.

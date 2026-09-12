@@ -12,12 +12,19 @@ Three budgets, because the resources are not alike:
     money per request and take seconds, not milliseconds;
   * an hourly one for uploads, which are the only requests that consume disk.
 
-The counter is a sliding window held in memory. That is a deliberate limit and
-worth stating plainly: it is per process, so N workers permit roughly N times
-the configured rate, and it resets on restart. For a single-process deployment
-it is exactly right; for a horizontally scaled one it is a floor, not a
-ceiling, and the counter belongs in Redis. It is *not* a stand-in for an
-upstream WAF and does not pretend to stop a distributed flood.
+The counter lives behind one small interface with two implementations. With
+``REDIS_URL`` set, the window is a sorted set in Redis and the count is shared
+by every worker, which is what makes the configured number the *actual* limit
+for a scaled deployment. Without it, the window is a deque in this process:
+exact for a single worker, and for N workers a floor of roughly N times the
+rate. That was the honest caveat this module used to carry and could not fix;
+it is now a deployment choice rather than a property of the code.
+
+Redis is a limiter, not a dependency of the API. If it is unreachable the
+request is checked against the in-process window instead and the service keeps
+answering — a degraded limit beats an outage, and the alternative (failing the
+request) hands anyone who can disrupt Redis a way to take the API down. The
+degradation is logged and reported by ``/health`` rather than being silent.
 
 Identity comes from the verified session where there is one, and falls back to
 the peer address otherwise, so one signed-in user cannot buy themselves more
@@ -27,8 +34,10 @@ budget by rotating IPs, and an unauthenticated instance still gets protection.
 from __future__ import annotations
 
 from collections import defaultdict, deque
+import hashlib
 import threading
 import time
+import uuid
 
 from fastapi import status
 from fastapi.responses import JSONResponse
@@ -54,6 +63,16 @@ LLM_PATH_MARKERS = (
 # Health must answer during an incident, which is exactly when a limiter would
 # otherwise be refusing things. Never rate limited.
 EXEMPT_PATHS = frozenset({"/health", "/docs", "/openapi.json", "/redoc"})
+
+#: The middleware instance Starlette built, so /health can report which
+#: limiter is actually running and whether it is currently degraded. There
+#: is exactly one per application.
+_active: RateLimitMiddleware | None = None
+
+
+def describe_backend() -> str:
+    """How requests are being counted right now, for /health."""
+    return _active.backend if _active is not None else "not installed"
 
 
 class SlidingWindow:
@@ -89,13 +108,144 @@ class SlidingWindow:
                 del self._hits[key]
 
 
+class InMemoryLimiter:
+    """Sliding windows held in this process.
+
+    One store per window length, so pruning an hourly budget does not use a
+    one-minute cutoff and discard live counters.
+    """
+
+    #: Reported by /health. Names the limitation rather than implying a shared one.
+    name = "in-memory (per process)"
+    shared = False
+
+    def __init__(self) -> None:
+        self._windows: dict[float, SlidingWindow] = defaultdict(SlidingWindow)
+        self._last_prune = time.monotonic()
+
+    async def allow(self, key: str, limit: int, window_seconds: float) -> tuple[bool, float]:
+        return self._windows[window_seconds].allow(key, limit, window_seconds)
+
+    def prune(self) -> None:
+        now = time.monotonic()
+        if now - self._last_prune < 300:
+            return
+        self._last_prune = now
+        for window_seconds, window in list(self._windows.items()):
+            window.prune(window_seconds)
+
+    async def close(self) -> None:  # pragma: no cover - nothing to release
+        return None
+
+
+# One round trip, and atomic, which a read-then-write pair is not: two workers
+# that both read 119 against a limit of 120 would both be allowed. Returns
+# {allowed, milliseconds until a slot frees}.
+_SLIDING_WINDOW_LUA = """
+local key = KEYS[1]
+local now = tonumber(ARGV[1])
+local window = tonumber(ARGV[2])
+local limit = tonumber(ARGV[3])
+local member = ARGV[4]
+
+redis.call('ZREMRANGEBYSCORE', key, '-inf', now - window)
+local used = redis.call('ZCARD', key)
+if used >= limit then
+  local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
+  local retry = window
+  if oldest[2] then
+    retry = (tonumber(oldest[2]) + window) - now
+  end
+  if retry < 0 then retry = 0 end
+  return {0, retry}
+end
+redis.call('ZADD', key, now, member)
+-- Expire the whole window rather than trimming it later: an idle caller's key
+-- disappears on its own, so Redis does not accumulate one key per visitor.
+redis.call('PEXPIRE', key, window)
+return {1, 0}
+"""
+
+
+class RedisLimiter:
+    """Sliding windows in Redis, shared by every worker.
+
+    The window is a sorted set scored by arrival time in milliseconds. It is
+    trimmed, counted and appended inside one Lua script so the check and the
+    write cannot interleave across workers.
+    """
+
+    name = "redis"
+    shared = True
+
+    def __init__(self, url: str) -> None:
+        # Imported here so the package is only required by deployments that
+        # configure it — the API still starts and limits without Redis.
+        import redis.asyncio as redis_asyncio
+
+        self._error = redis_asyncio.RedisError
+        self._client = redis_asyncio.from_url(
+            url,
+            encoding="utf-8",
+            decode_responses=True,
+            # A limiter must never be the slowest thing in a request. If Redis
+            # cannot answer in this long, the in-process window answers instead.
+            socket_timeout=0.25,
+            socket_connect_timeout=0.25,
+            health_check_interval=30,
+        )
+        self._script = self._client.register_script(_SLIDING_WINDOW_LUA)
+
+    async def allow(self, key: str, limit: int, window_seconds: float) -> tuple[bool, float]:
+        """Raises redis.RedisError; the caller decides what a failure means."""
+        now_ms = int(time.time() * 1000)
+        window_ms = int(window_seconds * 1000)
+        allowed, retry_ms = await self._script(
+            keys=[f"ratelimit:{key}"],
+            args=[now_ms, window_ms, limit, f"{now_ms}:{uuid.uuid4().hex}"],
+        )
+        return bool(int(allowed)), max(0.0, float(retry_ms) / 1000.0)
+
+    async def ping(self) -> None:
+        await self._client.ping()
+
+    async def close(self) -> None:
+        await self._client.aclose()
+
+
+def build_limiter() -> InMemoryLimiter | RedisLimiter:
+    """The configured limiter, falling back to in-memory with a reason logged."""
+    settings = get_settings()
+    if not settings.redis_url:
+        return InMemoryLimiter()
+    try:
+        limiter = RedisLimiter(settings.redis_url)
+    except ImportError:
+        log.warning(
+            "REDIS_URL is set but the redis package is not installed; rate "
+            "limiting is per process. Install redis or unset REDIS_URL."
+        )
+        return InMemoryLimiter()
+    log.info("Rate limiting through Redis; the configured limits are cluster-wide.")
+    return limiter
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(self, app) -> None:
         super().__init__(app)
-        self._general = SlidingWindow()
-        self._llm = SlidingWindow()
-        self._uploads = SlidingWindow()
-        self._last_prune = time.monotonic()
+        global _active
+        self._limiter = build_limiter()
+        # Kept regardless of backend: it is what answers when Redis does not.
+        self._fallback = InMemoryLimiter()
+        self._degraded_since: float | None = None
+        _active = self
+
+    @property
+    def backend(self) -> str:
+        """What /health reports. Names a live degradation, not just the config."""
+        if self._degraded_since is not None:
+            return f"{self._limiter.name} (degraded: falling back to in-process)"
+        return self._limiter.name
 
     async def dispatch(self, request: Request, call_next):
         settings = get_settings()
@@ -108,9 +258,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         identity = self._identity(request)
         path = request.url.path
 
-        budgets: list[tuple[SlidingWindow, str, int, float, str]] = [
+        budgets: list[tuple[str, int, float, str]] = [
             (
-                self._general,
                 f"general:{identity}",
                 settings.rate_limit_requests_per_minute,
                 60.0,
@@ -120,7 +269,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if any(marker in path for marker in LLM_PATH_MARKERS):
             budgets.append(
                 (
-                    self._llm,
                     f"llm:{identity}",
                     settings.rate_limit_llm_requests_per_minute,
                     60.0,
@@ -130,7 +278,6 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if request.method == "POST" and path.endswith("/papers"):
             budgets.append(
                 (
-                    self._uploads,
                     f"upload:{identity}",
                     settings.rate_limit_uploads_per_hour,
                     3600.0,
@@ -138,8 +285,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 )
             )
 
-        for window, key, limit, seconds, noun in budgets:
-            allowed, retry_after = window.allow(key, limit, seconds)
+        for key, limit, seconds, noun in budgets:
+            allowed, retry_after = await self._allow(key, limit, seconds)
             if not allowed:
                 log.warning(
                     "Rate limited %s %s for %s — over %d %s per %ds",
@@ -166,8 +313,28 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     },
                 )
 
-        self._maybe_prune()
+        self._fallback.prune()
         return await call_next(request)
+
+    async def _allow(self, key: str, limit: int, seconds: float) -> tuple[bool, float]:
+        """Ask the configured limiter, and the local one if it cannot answer."""
+        if isinstance(self._limiter, InMemoryLimiter):
+            return await self._limiter.allow(key, limit, seconds)
+        try:
+            result = await self._limiter.allow(key, limit, seconds)
+        except Exception as exc:  # redis.RedisError and anything it wraps
+            if self._degraded_since is None:
+                self._degraded_since = time.monotonic()
+                log.error(
+                    "Redis rate limiter unavailable (%s); falling back to the "
+                    "in-process window. The configured limit is now per worker.",
+                    exc,
+                )
+            return await self._fallback.allow(key, limit, seconds)
+        if self._degraded_since is not None:
+            log.info("Redis rate limiter recovered; limits are cluster-wide again.")
+            self._degraded_since = None
+        return result
 
     @staticmethod
     def _identity(request: Request) -> str:
@@ -183,18 +350,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         scheme, _, token = header.partition(" ")
         if scheme.lower() == "bearer" and token.strip():
             # The signature is not checked here; a stable string is all that is
-            # needed, and hashing the token gives one without decoding it.
-            return f"token:{hash(token.strip()) & 0xFFFFFFFF:08x}"
+            # needed. Hashed with blake2b rather than hash() because the latter
+            # is salted per process, so two workers would disagree about which
+            # Redis bucket a caller belongs to and each would grant a full budget.
+            digest = hashlib.blake2b(token.strip().encode(), digest_size=8)
+            return f"token:{digest.hexdigest()}"
         client = request.client
         return f"ip:{client.host}" if client else "ip:unknown"
-
-    def _maybe_prune(self) -> None:
-        # Housekeeping, not on the hot path: an API with many distinct callers
-        # would otherwise accumulate a deque per caller forever.
-        now = time.monotonic()
-        if now - self._last_prune < 300:
-            return
-        self._last_prune = now
-        self._general.prune(60.0)
-        self._llm.prune(60.0)
-        self._uploads.prune(3600.0)
