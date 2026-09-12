@@ -128,3 +128,8 @@
 - Bot protection is a fact about your test strategy. Clerk's Turnstile on sign-up cannot be solved
   headlessly, so end-to-end tests have to create accounts through the Backend API and exercise
   sign-in. Better to know that than to conclude sign-up is broken.
+- "Could not reproduce under automation" is a statement about the harness until you have tried a
+  second harness. Enter-to-submit was carried as a suspected bug across two sprints because a
+  JavaScript-dispatched KeyboardEvent does not run Chromium's default actions, so the form looked
+  broken. The same key sent through CDP's Input domain submitted it immediately. Before filing the
+  product as faulty, change the instrument.

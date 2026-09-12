@@ -557,3 +557,28 @@ never mounted and none of this code runs.
 - **Google sign-in's final hop is unexercised** (see above).
 - **Bot protection blocks automated sign-up**, so any future end-to-end suite
   must create users through the Backend API.
+
+### Also closed while answering "what is left" (12 Sept 2026)
+
+- [x] **Enter-to-submit on /search works.** Carried as open since the pre-ship
+      audit, which could only say it "could not be reproduced under browser
+      automation". It was the automation: a `KeyboardEvent` dispatched from
+      JavaScript arrives with `isTrusted` true and bubbles, but Chromium does
+      not run default actions for it, so implicit form submission never fired.
+      Sending the key through CDP's Input domain instead — a real browser-level
+      press — submits: `/search` became `/search?q=embeddings`. The form was
+      always correct.
+- [x] **The LLM path works against the live Gemini key.** Several older "still
+      open" entries said every AI feature returned 503 because OpenRouter was
+      out of credits. Answering now returns a grounded, correctly cited answer,
+      and figure interpretation returns 254 words of accurate description where
+      the bug being fixed produced a truncated one-liner — the vision budget
+      and `reasoning_effort` change, confirmed against the real API rather than
+      inferred from a unit test.
+- [x] Signing in a second time skipped the device-verification step, as
+      expected, and the API returned the user's own single project.
+
+Superseded, for anyone reading the older sections: "No authentication", "No
+rate limiting", "the rate limiter is per process", "Clerk is built but
+unverified", "build_neural_reranker_notebook.py is still behind the notebook",
+and the OpenRouter-credit entries are all resolved above.
