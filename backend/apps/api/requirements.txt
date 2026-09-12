@@ -21,5 +21,20 @@ numpy==2.5.2
 # no provider SDK. Only imported by app/services/llm.py.
 httpx==0.28.1
 
+# Vector store. `chromadb-client` is the thin HTTP-only client, not the full
+# `chromadb` server package: the server runs as a container (docker-compose),
+# so pulling in its embedded engine would add kubernetes, pypika and a second
+# uvicorn for nothing. Version tracks the server image in docker-compose.yml --
+# bump both together. Only imported by app/services/vector_store.py, and only
+# lazily, so the API still starts if it is absent.
+chromadb-client==1.5.9
+
 # Tests
 pytest==8.4.2
+
+# Clerk session verification. Tokens are RS256, checked locally against the
+# published JWKS, so no Clerk SDK and no per-request call to Clerk. The
+# [crypto] extra pulls `cryptography`, which is what actually verifies RS256 —
+# without it PyJWT accepts the token shape and rejects every signature.
+# Only imported by app/core/auth.py.
+pyjwt[crypto]==2.10.1

@@ -3,7 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import ProjectSwitcher from "@/components/ProjectSwitcher";
+import UserMenu from "@/components/UserMenu";
 import { isInFlight, useWorkspace } from "@/lib/workspace";
+
+/** Clerk's components require its provider, which is only mounted when a
+ *  publishable key exists. Same condition, one source. */
+const authConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
 export default function Topbar() {
   const router = useRouter();
@@ -53,6 +58,8 @@ export default function Topbar() {
       ) : null}
 
       <ProjectSwitcher />
+
+      {authConfigured ? <UserMenu /> : null}
     </header>
   );
 }

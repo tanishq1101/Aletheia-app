@@ -18,11 +18,16 @@ import {
   useRef,
   useState,
 } from "react";
-import { ApiError, createProject, listPapers, listProjects } from "@/lib/api";
+import {
+  ApiError,
+  createProject,
+  ensureDefaultProject,
+  listPapers,
+  listProjects,
+} from "@/lib/api";
 import type { Paper, Project } from "@/types/api";
 
 const STORAGE_KEY = "aletheia.projectId";
-const DEFAULT_PROJECT_NAME = "My Library";
 /** Ingestion runs in-process on the API and takes seconds, not minutes. */
 const POLL_INTERVAL_MS = 2500;
 
@@ -89,7 +94,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         if (found.length === 0) {
           // First run against an empty database: give the user somewhere for
           // their papers to land rather than an error they can't act on.
-          found = [await createProject(DEFAULT_PROJECT_NAME)];
+          // The server decides this, not us — "list, then create if empty" has
+          // a gap between the two calls that a double mount or a second tab
+          // falls straight into, and the second library it creates is the one
+          // the UI then selects, hiding every paper in the first.
+          found = [await ensureDefaultProject()];
         }
         if (cancelled) return;
 
@@ -99,11 +108,23 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         } catch {
           /* ignore */
         }
-        const chosen =
-          found.find((p) => p.id === stored)?.id ?? found[0].id;
+        // Fall back to the oldest project, not the newest: it is the one the
+        // server treats as the default, so an unrecognised stored id resolves
+        // to the same library the API would have picked.
+        const oldest = found[found.length - 1];
+        const chosen = found.find((p) => p.id === stored)?.id ?? oldest.id;
 
         setProjects(found);
         setProjectId(chosen);
+        // Persist the resolved choice. Without this the selection is only
+        // remembered once the user switches projects by hand, so a workspace
+        // that gained a project would silently rebind to a different library
+        // on the next load.
+        try {
+          window.localStorage.setItem(STORAGE_KEY, chosen);
+        } catch {
+          /* private mode or blocked storage — the selection just won't persist */
+        }
       } catch (err) {
         if (cancelled) return;
         setError(

@@ -1,24 +1,90 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import ApiErrorNotice from "@/components/ApiErrorNotice";
 import AnswerView from "@/components/AnswerView";
 import EmptyState from "@/components/EmptyState";
 import ProjectSources from "@/components/ProjectSources";
-import { ApiError, answerQuestion } from "@/lib/api";
+import {
+  ApiError,
+  createConversation,
+  listConversations,
+  listMessages,
+  sendMessage,
+} from "@/lib/api";
 import { useWorkspace } from "@/lib/workspace";
-import type { AnswerResponse } from "@/types/api";
+import type { AnswerResponse, Message } from "@/types/api";
+
+/** A stored `Message` only carries citations, not full evidence blocks or
+ *  diagnostics — those are not persisted. `AnswerView` renders fine from a
+ *  partial `AnswerResponse`; the sections it has no data for just stay empty. */
+function answerFromMessage(message: Message): AnswerResponse {
+  const metadata = message.metadata;
+  return {
+    answer: message.content,
+    sufficient_evidence: metadata?.sufficient_evidence ?? true,
+    citations: message.citations,
+    evidence: [],
+    fabricated_citations_removed: metadata?.fabricated_citations_removed ?? 0,
+    candidates_considered: metadata?.candidates_considered ?? 0,
+    evidence_dropped_for_budget: metadata?.evidence_dropped_for_budget ?? 0,
+    model: metadata?.model ?? "",
+  };
+}
 
 export default function AskPage() {
   const { projectId, project, papers } = useWorkspace();
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState("");
-  const [asked, setAsked] = useState<string | null>(null);
-  const [result, setResult] = useState<AnswerResponse | null>(null);
   const [pending, setPending] = useState(false);
+  const [loadingThread, setLoadingThread] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [needsKey, setNeedsKey] = useState(false);
 
   const indexed = papers.filter((p) => p.status === "ready").length;
+
+  // Resume the most recent thread in this project, if there is one.
+  useEffect(() => {
+    if (!projectId) return;
+    let cancelled = false;
+
+    listConversations(projectId)
+      .then((threads) => {
+        if (cancelled) return;
+        const latest = threads[0];
+        if (!latest) {
+          setConversationId(null);
+          setMessages([]);
+          return Promise.resolve();
+        }
+        setConversationId(latest.id);
+        return listMessages(latest.id).then((loaded) => {
+          if (!cancelled) setMessages(loaded);
+        });
+      })
+      .catch((cause: unknown) => {
+        if (!cancelled) {
+          setError(
+            cause instanceof Error ? cause.message : "Could not load conversations.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingThread(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  const startNewThread = () => {
+    setConversationId(null);
+    setMessages([]);
+    setError(null);
+    setNeedsKey(false);
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -28,10 +94,17 @@ export default function AskPage() {
     setPending(true);
     setError(null);
     setNeedsKey(false);
-    setAsked(trimmed);
-    setResult(null);
+    setQuestion("");
     try {
-      setResult(await answerQuestion(projectId, trimmed));
+      const activeConversationId =
+        conversationId ?? (await createConversation(projectId)).id;
+      setConversationId(activeConversationId);
+      const exchange = await sendMessage(activeConversationId, trimmed);
+      setMessages((current) => [
+        ...current,
+        exchange.user_message,
+        exchange.assistant_message,
+      ]);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -48,14 +121,25 @@ export default function AskPage() {
 
   return (
     <div className="flex w-full flex-col items-start gap-8">
-      <div className="flex w-full flex-col items-start gap-2">
-        <h1 className="font-display text-3xl font-semibold text-primary">
-          Ask your library
-        </h1>
-        <p className="font-ui text-[13px] text-secondary">
-          Retrieve, rerank, then answer — every claim cited back to a passage the
-          backend resolved itself.
-        </p>
+      <div className="flex w-full items-center gap-4">
+        <div className="flex min-w-px flex-1 flex-col items-start gap-2">
+          <h1 className="font-display text-3xl font-semibold text-primary">
+            Ask your library
+          </h1>
+          <p className="font-ui text-[13px] text-secondary">
+            Retrieve, rerank, then answer — every claim cited back to a passage the
+            backend resolved itself.
+          </p>
+        </div>
+        {messages.length > 0 && (
+          <button
+            type="button"
+            onClick={startNewThread}
+            className="shrink-0 rounded-md border border-hairline px-[14px] py-[9px] font-ui text-xs font-medium text-secondary hover:text-primary"
+          >
+            New thread
+          </button>
+        )}
       </div>
 
       <form
@@ -117,23 +201,34 @@ export default function AskPage() {
 
       <ProjectSources />
 
-      {asked && result && (
-        <div className="flex w-full flex-col items-start gap-4">
-          <p className="font-ui text-[15px] font-semibold text-primary">
-            {asked}
-          </p>
-          <AnswerView result={result} />
+      {messages.length > 0 && (
+        <div className="flex w-full flex-col items-start gap-8">
+          {messages.map((message) =>
+            message.role === "user" ? (
+              <p
+                key={message.id}
+                className="font-ui text-[15px] font-semibold text-primary"
+              >
+                {message.content}
+              </p>
+            ) : (
+              <AnswerView key={message.id} result={answerFromMessage(message)} />
+            ),
+          )}
         </div>
       )}
 
-      {!asked && !pending && indexed === 0 && (
-        <EmptyState
-          title="Nothing indexed yet"
-          description="Answers are built only from passages retrieved out of your own papers. Upload a PDF and let it finish processing first."
-          actionLabel="Upload a paper"
-          actionHref="/upload"
-        />
-      )}
+      {!loadingThread &&
+        messages.length === 0 &&
+        !pending &&
+        indexed === 0 && (
+          <EmptyState
+            title="Nothing indexed yet"
+            description="Answers are built only from passages retrieved from your project sources. Add a file and let its text finish processing first."
+            actionLabel="Add a source"
+            actionHref="/upload"
+          />
+        )}
     </div>
   );
 }

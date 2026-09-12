@@ -95,6 +95,9 @@ class PaperWithJob(Paper):
 class SearchRequest(BaseModel):
     query: str = Field(min_length=1, max_length=2000)
     top_k: int | None = Field(default=None, ge=1, le=100)
+    # Optional source scope. It narrows the semantic index without weakening
+    # the project boundary enforced by retrieval.
+    paper_ids: list[UUID] | None = Field(default=None, max_length=100)
 
 
 class SearchResult(BaseModel):
@@ -175,6 +178,161 @@ class AnswerResponse(BaseModel):
     truncated: bool = False
 
 
+class ConversationCreate(BaseModel):
+    title: str | None = Field(default=None, max_length=200)
+    # A conversation may be scoped to one paper, or to the whole project.
+    paper_id: UUID | None = None
+
+
+class Conversation(BaseModel):
+    id: UUID
+    project_id: UUID
+    paper_id: UUID | None
+    created_at: datetime
+    message_count: int = 0
+    # First question asked, used as a list label. Not stored separately.
+    preview: str | None = None
+
+
+class MessageCreate(BaseModel):
+    query: str = Field(min_length=1, max_length=2000)
+    top_k: int | None = Field(default=None, ge=1, le=100)
+    rerank_top_k: int | None = Field(default=None, ge=1, le=20)
+
+
+class Message(BaseModel):
+    id: UUID
+    conversation_id: UUID
+    role: str
+    content: str
+    created_at: datetime
+    citations: list[CitationOut] = []
+    # Assistant turns carry what made the answer auditable: sufficiency, model,
+    # and how much evidence was considered. User turns carry nothing.
+    metadata: dict | None = None
+
+
+class MessageExchange(BaseModel):
+    """One question and the answer it produced."""
+
+    user_message: Message
+    assistant_message: Message
+
+
+class ExtractClaimsRequest(BaseModel):
+    limit: int = Field(default=8, ge=1, le=20)
+
+
+class ClaimCreate(BaseModel):
+    text: str = Field(min_length=10, max_length=400)
+    paper_id: UUID | None = None
+
+
+class Claim(BaseModel):
+    id: UUID
+    project_id: UUID
+    paper_id: UUID | None
+    text: str
+    source: str
+    claim_index: int
+    created_at: datetime
+
+
+class ClaimVerification(BaseModel):
+    id: UUID
+    claim_id: UUID
+    # Which paper's evidence produced this verdict; None means the project's.
+    paper_id: UUID | None
+    verdict: str
+    # Model-reported, 0-1, NOT calibrated. Every surface showing it says so.
+    confidence: float | None
+    rationale: str
+    citations: list[CitationOut]
+    evidence_count: int
+    model: str | None
+    created_at: datetime
+
+
+class ClaimWithVerification(Claim):
+    verification: ClaimVerification | None = None
+
+
+class CrossPaperRequest(BaseModel):
+    claim_ids: list[UUID] = Field(min_length=1, max_length=5)
+    paper_ids: list[UUID] = Field(min_length=1, max_length=5)
+    # Re-check cells that already have a verdict instead of reusing them.
+    refresh: bool = False
+
+
+class CrossPaperCell(BaseModel):
+    claim_id: UUID
+    paper_id: UUID
+    verification: ClaimVerification
+
+
+class CrossPaperMatrix(BaseModel):
+    claim_ids: list[UUID]
+    paper_ids: list[UUID]
+    cells: list[CrossPaperCell]
+    # How many cells cost a model call on this request.
+    cells_computed: int
+
+
+class ReproducibilityRequest(BaseModel):
+    # Off for offline runs; a missing GitHub lookup never blocks the audit.
+    check_github: bool = True
+
+
+class ReproducibilityCheck(BaseModel):
+    dimension: str
+    status: str
+    rationale: str
+    citations: list[CitationOut]
+    check_index: int
+
+
+class ReproducibilityReport(BaseModel):
+    id: UUID
+    paper_id: UUID
+    # Weighted disclosure across the checks below. This measures what the paper
+    # discloses — nothing here runs the paper's code.
+    score: float
+    repo_metadata: dict | None
+    links: list[dict]
+    model: str | None
+    created_at: datetime
+    checks: list[ReproducibilityCheck] = []
+
+
+class SettingsUpdate(BaseModel):
+    """Only the tunables. Keys, URLs and backends stay in the environment."""
+
+    search_top_k: int | None = Field(default=None, ge=1, le=100)
+    rerank_top_k: int | None = Field(default=None, ge=1, le=20)
+    context_max_tokens: int | None = Field(default=None, ge=500, le=32000)
+    llm_model: str | None = Field(default=None, max_length=200)
+
+
+class SettingsResponse(BaseModel):
+    search_top_k: int
+    rerank_top_k: int
+    context_max_tokens: int
+    llm_model: str
+    llm_provider: str
+    # Whether a key is present — never the key.
+    llm_key_configured: bool
+    embedding_model: str
+    rerank_model: str
+    chunk_max_tokens: int
+    chunk_overlap_tokens: int
+    storage_backend: str
+    max_upload_bytes: int
+    github_token_configured: bool
+    dev_user_id: UUID
+    # Which values are overridden in the database rather than the environment.
+    overridden: list[str]
+
+
 class AgentResearchRequest(BaseModel):
     goal: str = Field(min_length=1, max_length=4000)
     max_steps: int = Field(default=3, ge=1, le=4)
@@ -205,3 +363,8 @@ class HealthResponse(BaseModel):
     status: str
     database: str
     storage: str
+    # Chroma is reported but never gates `status`: it is the primary vector
+    # index, not a hard dependency, and retrieval still answers from pgvector
+    # without it. A degraded vector store has to be visible without making the
+    # whole service look down.
+    vector_store: str = "unknown"

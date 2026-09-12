@@ -1,10 +1,10 @@
 import type { BadgeTone } from "@/components/Badge";
-import type { CheckStatus } from "@/lib/preview-data";
+import type { DisclosureStatus } from "@/types/api";
 
-const statusConfig: Record<CheckStatus, { glyph: string; tone: BadgeTone }> = {
-  pass: { glyph: "✓", tone: "success" },
-  warning: { glyph: "!", tone: "warning" },
-  pending: { glyph: "…", tone: "muted" },
+const statusConfig: Record<DisclosureStatus, { glyph: string; tone: BadgeTone }> = {
+  disclosed: { glyph: "✓", tone: "success" },
+  partial: { glyph: "!", tone: "warning" },
+  missing: { glyph: "✕", tone: "error" },
 };
 
 const toneClasses: Record<BadgeTone, { border: string; text: string }> = {
@@ -14,7 +14,7 @@ const toneClasses: Record<BadgeTone, { border: string; text: string }> = {
   muted: { border: "border-muted", text: "text-muted" },
 };
 
-export default function CheckStatusIcon({ status }: { status: CheckStatus }) {
+export default function CheckStatusIcon({ status }: { status: DisclosureStatus }) {
   const { glyph, tone } = statusConfig[status];
   const classes = toneClasses[tone];
 

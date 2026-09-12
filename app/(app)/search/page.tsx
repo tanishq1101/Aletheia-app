@@ -17,6 +17,7 @@ function SearchPageBody() {
 
   const [query, setQuery] = useState(initialQuery);
   const [topK, setTopK] = useState(20);
+  const [paperIds, setPaperIds] = useState<string[]>([]);
   const [results, setResults] = useState<SearchResult[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +30,7 @@ function SearchPageBody() {
       setSearching(true);
       setError(null);
       try {
-        setResults(await searchProject(projectId, trimmed, k));
+        setResults(await searchProject(projectId, trimmed, k, paperIds));
       } catch (err) {
         setResults(null);
         setError(err instanceof ApiError ? err.message : "Search failed.");
@@ -37,7 +38,7 @@ function SearchPageBody() {
         setSearching(false);
       }
     },
-    [projectId],
+    [paperIds, projectId],
   );
 
   // Run a query handed over from the topbar, once, when a project is ready.
@@ -112,18 +113,38 @@ function SearchPageBody() {
         ))}
       </div>
 
+      {papers.length > 0 && (
+        <fieldset className="flex w-full flex-col gap-2 rounded-md border border-hairline-subtle bg-surface p-4">
+          <legend className="px-1 font-ui text-xs font-semibold text-secondary">Search sources</legend>
+          <p className="font-ui text-xs text-muted">Leave all unchecked to search every indexed source. Select files to focus the semantic results.</p>
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            {papers.map((paper) => (
+              <label key={paper.id} className="flex max-w-full items-center gap-2 font-ui text-xs text-secondary">
+                <input
+                  type="checkbox"
+                  checked={paperIds.includes(paper.id)}
+                  onChange={() => setPaperIds((current) => current.includes(paper.id) ? current.filter((id) => id !== paper.id) : [...current, paper.id])}
+                  className="accent-[var(--color-brass)]"
+                />
+                <span className="max-w-56 truncate">{paper.filename}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
+
       {error && <ApiErrorNotice message={error} onRetry={() => void run(query, topK)} />}
 
       {results === null ? (
         <p className="shrink-0 font-ui text-xs text-muted">
           {indexed === 0
             ? `No indexed papers in ${project?.name ?? "this project"} yet — upload one first.`
-            : `Searching across ${indexed} indexed paper${indexed === 1 ? "" : "s"}. Results are passages, ranked by cosine similarity.`}
+          : `Searching across ${paperIds.length || indexed} selected indexed source${(paperIds.length || indexed) === 1 ? "" : "s"}. Results are passages ranked by semantic similarity.`}
         </p>
       ) : (
         <p className="shrink-0 font-ui text-xs text-muted">
           {results.length} passage{results.length === 1 ? "" : "s"}, ranked by
-          semantic relevance · before reranking
+          semantic relevance · source-aware scope
         </p>
       )}
 

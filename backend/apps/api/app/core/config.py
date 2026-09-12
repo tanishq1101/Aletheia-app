@@ -54,16 +54,19 @@ class Settings(BaseSettings):
     context_max_tokens: int = 6000
 
     # --- LLM (Sprint 4) -----------------------------------------------------
-    # OpenRouter is OpenAI-compatible, so this provider is one HTTP call.
-    # Decision and model comparison are recorded in PROGRESS.md.
-    # openrouter | gemini | groq | ollama | custom. See PROVIDER_PROFILES in
-    # services/llm.py; every one of them speaks the OpenAI chat shape.
-    llm_provider: str = "openrouter"
+    # `openai` is the primary hosted model. Gemini is retained as an automatic
+    # failover when both keys are configured, so a temporary provider outage
+    # does not turn an otherwise grounded research run into an error.
+    # openai | openrouter | gemini | groq | ollama | custom. See
+    # PROVIDER_PROFILES in services/llm.py; every one speaks the OpenAI chat
+    # shape used by this application.
+    llm_provider: str = "openai"
 
-    # Provider credentials. OpenRouter keeps its own settings so existing
-    # deployments are unaffected. Gemini uses Google AI Studio's documented
-    # variable name; base URL and model fall back to profile defaults.
+    # Provider credentials. Keep Gemini configured as a backup for the OpenAI
+    # primary; keys never leave this server process.
+    openai_api_key: str = ""
     gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.5-flash"
     llm_api_key: str = ""
     llm_base_url: str = ""
     llm_model: str = ""

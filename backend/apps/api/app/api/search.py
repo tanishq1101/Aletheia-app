@@ -32,7 +32,10 @@ def search(project_id: UUID, payload: SearchRequest) -> list[SearchResult]:
 
     try:
         candidates = retrieve_candidates(
-            project_id=project_id, query=payload.query, top_k=top_k
+            project_id=project_id,
+            query=payload.query,
+            top_k=top_k,
+            paper_ids=payload.paper_ids,
         )
     except EmbeddingError as exc:
         log.error("Could not embed query for project %s: %s", project_id, exc)

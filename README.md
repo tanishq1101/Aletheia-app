@@ -24,7 +24,7 @@ backend/     FastAPI service — ingestion, chunking, embeddings, retrieval,
 | Semantic search | Live — `POST /projects/{id}/search`, raw candidates before reranking |
 | Ask | Live — `POST /projects/{id}/answer`: retrieve → rerank → evidence → LLM → resolved citations |
 | Figures / tables / equations | Live — raster figures + captions, structured tables, heuristic equation candidates, plus cached one-at-a-time AI figure interpretation; vector-chart extraction and math OCR remain future work |
-| Research Agent | Live API/UI — bounded planner → grounded subquestions → verified evidence trace; requires OpenRouter |
+| Research Agent | Live API/UI — bounded planner → grounded subquestions → verified evidence trace; OpenAI primary with Gemini backup |
 | Cross-Paper, Claim Verification, Reproducibility | Live — backed by `/projects/{id}/cross-paper`, `/claims` and `/reproducibility`. The fixture module and its preview banner are gone |
 | Sign-in | Live with Clerk — Google, email and username. Without keys the app runs open, as before, and the sign-in page says so; the API then refuses to start unless `ALLOW_UNAUTHENTICATED=true` states that openness is intended |
 | Rate limiting | Live — sliding windows per signed-in user (IP when anonymous): 120 req/min, 12/min on LLM routes, 60 uploads/hour. In-memory, so per process |
@@ -34,14 +34,17 @@ model. Embedding and reranking run locally through fastembed — no key, no spen
 those three generation paths return 503 with an explanation; extraction, reading, search, and
 local training still work.
 
-The hosted model is any OpenAI-compatible endpoint, chosen with `LLM_PROVIDER`: `openrouter`,
-`gemini`, `groq`, `ollama` or `custom`. **If OpenRouter runs out of credits, switch to Google
-Gemini** — its free tier needs no card and supports vision, which figure interpretation requires:
+The hosted model is any OpenAI-compatible endpoint, chosen with `LLM_PROVIDER`: `openai`,
+`openrouter`, `gemini`, `groq`, `ollama` or `custom`. **OpenAI is the default primary**;
+when `GEMINI_API_KEY` is also configured, Gemini automatically retries a failed OpenAI request
+with the same grounded evidence. This preserves availability without relaxing citation checks:
 
 ```
-LLM_PROVIDER=gemini
-GEMINI_API_KEY=<key from https://aistudio.google.com/apikey>
-LLM_MODEL=gemini-2.5-flash
+LLM_PROVIDER=openai
+OPENAI_API_KEY=<your OpenAI API key>
+LLM_MODEL=gpt-5.6-luna
+GEMINI_API_KEY=<optional backup key>
+GEMINI_MODEL=gemini-2.5-flash
 ```
 
 Groq is also free and faster, but text-only, so figure interpretation would fail rather than
@@ -55,13 +58,13 @@ guess. See `backend/.env.example` for every option.
 | Embeddings | fastembed / Jina ONNX, local | No |
 | Cross-encoder reranking | fastembed / Jina ONNX, local | No |
 | Neural relevance-model training | NumPy, local | No |
-| Grounded answers | Google Gemini | `GEMINI_API_KEY` |
-| Research-agent planning and step answers | Google Gemini | `GEMINI_API_KEY` |
-| On-demand single-figure interpretation | Google Gemini vision; successful results cached by figure/model/prompt | `GEMINI_API_KEY` only on cache miss |
+| Grounded answers | OpenAI; Gemini fallback when configured | `OPENAI_API_KEY` |
+| Research-agent planning and step answers | OpenAI; Gemini fallback when configured | `OPENAI_API_KEY` |
+| On-demand single-figure interpretation | OpenAI; Gemini fallback when configured, cached by figure/model/prompt | `OPENAI_API_KEY` only on cache miss |
 | Supabase | Not wired | No key is currently used |
 
-The active hosted-AI secret is `GEMINI_API_KEY`. Set it only in `backend/.env`; do not put it
-in frontend variables or commit it.
+The active hosted-AI secret is `OPENAI_API_KEY`; `GEMINI_API_KEY` is an optional fallback. Set
+them only in `backend/.env`; do not put them in frontend variables or commit them.
 
 ## Stack
 

@@ -8,7 +8,7 @@ an experiment alongside the production cross-encoder, not an unmeasured swap.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 import math
 from pathlib import Path
@@ -107,6 +107,11 @@ class TrainingHistory:
     initial_loss: float
     final_loss: float
     losses: list[float]
+    # One entry per sampled epoch: {"epoch", "train_loss"} and, when a held-out
+    # set was supplied, "validation_loss". A curve without the validation line
+    # cannot show overfitting, which is the one thing worth watching on a set
+    # this small and this imbalanced.
+    snapshots: list[dict[str, float]] = field(default_factory=list)
 
 
 def train_neural_relevance_model(
@@ -116,7 +121,14 @@ def train_neural_relevance_model(
     epochs: int = 500,
     learning_rate: float = 0.02,
     seed: int = 42,
+    validation: tuple[np.ndarray, np.ndarray] | None = None,
 ) -> tuple[NeuralRelevanceModel, TrainingHistory]:
+    """Train the 5 -> 16 -> 8 -> 1 relevance MLP.
+
+    `validation` is an optional held-out ``(features, labels)`` pair. It never
+    touches a gradient; it is scored with the same weighted loss purely so the
+    recorded history has a second line to plot against.
+    """
     x = np.asarray(features, dtype=np.float64)
     y = np.asarray(labels, dtype=np.float64).reshape(-1, 1)
     if x.ndim != 2 or x.shape[0] != y.shape[0] or x.shape[0] < 2:
@@ -141,6 +153,32 @@ def train_neural_relevance_model(
     negatives = max(1.0, float(len(y) - y.sum()))
     positive_weight = negatives / positives
     losses: list[float] = []
+    snapshots: list[dict[str, float]] = []
+
+    validation_x: np.ndarray | None = None
+    validation_y: np.ndarray | None = None
+    if validation is not None:
+        raw_x, raw_y = validation
+        validation_x = (np.asarray(raw_x, dtype=np.float64) - mean) / scale
+        validation_y = np.asarray(raw_y, dtype=np.float64).reshape(-1, 1)
+        if validation_x.shape[1] != x.shape[1]:
+            raise ValueError("validation features must have the same width as training")
+        if validation_x.shape[0] != validation_y.shape[0]:
+            raise ValueError("validation features and labels must be aligned")
+
+    def weighted_loss(targets: np.ndarray, probabilities: np.ndarray) -> float:
+        weights = np.where(targets == 1.0, positive_weight, 1.0)
+        clipped = np.clip(probabilities, 1e-7, 1 - 1e-7)
+        return float(
+            -np.mean(
+                weights
+                * (targets * np.log(clipped) + (1 - targets) * np.log(1 - clipped))
+            )
+        )
+
+    def forward(inputs: np.ndarray) -> np.ndarray:
+        hidden = np.maximum(0.0, np.maximum(0.0, inputs @ w1 + b1) @ w2 + b2)
+        return 1.0 / (1.0 + np.exp(-np.clip(hidden @ w3 + b3, -30, 30)))
 
     for epoch in range(epochs):
         z1 = x @ w1 + b1
@@ -152,11 +190,15 @@ def train_neural_relevance_model(
 
         weights = np.where(y == 1.0, positive_weight, 1.0)
         clipped = np.clip(probabilities, 1e-7, 1 - 1e-7)
-        loss = float(
-            -np.mean(weights * (y * np.log(clipped) + (1 - y) * np.log(1 - clipped)))
-        )
+        loss = weighted_loss(y, probabilities)
         if epoch == 0 or epoch == epochs - 1 or (epoch + 1) % 25 == 0:
             losses.append(loss)
+            snapshot = {"epoch": epoch + 1, "train_loss": loss}
+            if validation_x is not None and validation_y is not None:
+                snapshot["validation_loss"] = weighted_loss(
+                    validation_y, forward(validation_x)
+                )
+            snapshots.append(snapshot)
 
         dlogits = weights * (probabilities - y) / len(y)
         dw3 = h2.T @ dlogits
@@ -185,6 +227,7 @@ def train_neural_relevance_model(
         initial_loss=losses[0],
         final_loss=losses[-1],
         losses=losses,
+        snapshots=snapshots,
     )
 
 

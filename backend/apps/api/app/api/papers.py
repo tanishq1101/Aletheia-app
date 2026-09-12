@@ -16,6 +16,8 @@ from app.schemas.models import (
 from app.services.ingestion import process_paper
 from app.services.pdf_validation import UploadValidationError, validate_upload
 from app.services.storage import StorageError, build_storage
+from app.services.vector_store import VectorStoreError
+from app.services.vector_store import delete_paper as delete_vectors_for_paper
 
 router = APIRouter(tags=["papers"])
 log = get_logger(__name__)
@@ -29,6 +31,22 @@ JOB_COLUMNS = """
     id, paper_id, status, stage, progress, error,
     attempts, created_at, updated_at
 """
+
+
+# Streamed in fixed blocks so peak memory is bounded by the limit, not by
+# whatever the client chose to send.
+_UPLOAD_CHUNK_BYTES = 1024 * 1024
+
+
+async def _read_capped(file: UploadFile, max_bytes: int) -> bytes:
+    """Read at most `max_bytes` + 1 bytes, so the caller can detect overflow."""
+    buffer = bytearray()
+    while len(buffer) <= max_bytes:
+        block = await file.read(_UPLOAD_CHUNK_BYTES)
+        if not block:
+            break
+        buffer.extend(block)
+    return bytes(buffer)
 
 
 def _project_exists(conn, project_id: UUID) -> bool:
@@ -56,7 +74,12 @@ async def upload_paper(
     settings = get_settings()
     filename = file.filename or "upload"
 
-    data = await file.read()
+    # Read with a hard ceiling rather than `await file.read()`. The size limit
+    # was previously enforced only after the whole upload was already in
+    # memory, so an oversized body cost the full allocation before being
+    # rejected — the one request shape that could take the process down.
+    # Reading one chunk past the limit is enough to know it is over.
+    data = await _read_capped(file, settings.max_upload_bytes)
     try:
         validate_upload(
             filename=filename,
@@ -244,6 +267,23 @@ def delete_source(paper_id: UUID) -> None:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM papers WHERE id = %s", (str(paper_id),))
         conn.commit()
+
+    # Postgres cascades to chunks; Chroma has no foreign keys, so its vectors
+    # have to be removed explicitly. Retrieval skips a vector whose chunk is
+    # gone, so leaving them never produces a wrong citation — but they still
+    # occupy candidate slots in every future search, quietly returning fewer
+    # real results than the caller asked for. Best-effort: the record is
+    # already gone, and `scripts/backfill_chroma.py --rebuild` is the
+    # documented repair if this fails.
+    try:
+        delete_vectors_for_paper(paper_id)
+    except VectorStoreError as exc:
+        log.warning(
+            "Deleted source %s but could not remove its vectors: %s. "
+            "Run scripts/backfill_chroma.py --rebuild to reconcile.",
+            paper_id,
+            exc,
+        )
 
     try:
         build_storage(get_settings()).delete(key=paper["storage_path"])

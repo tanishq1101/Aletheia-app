@@ -259,8 +259,8 @@ def answer_question(
 
 def answer_from_context(*, question, context, llm, candidates_considered, analysis_query=None):
     """Common citation validation for both individual answers and synthesis."""
-    model_name = getattr(llm, "name", type(llm).__name__)
     if not context.evidence:
+        model_name = getattr(llm, "name", type(llm).__name__)
         return AnswerResult("There is not enough evidence within the context budget to answer.",
                             False, [], [], 0, candidates_considered,
                             context.dropped_for_budget, model_name)
@@ -268,6 +268,11 @@ def answer_from_context(*, question, context, llm, candidates_considered, analys
         system=SYSTEM_PROMPT,
         prompt=USER_PROMPT.format(question=question, evidence=context.text),
     )
+
+    # A fallback provider can take over after a primary outage. Read the name
+    # after completion so the result truthfully identifies the model that
+    # produced the visible answer.
+    model_name = getattr(llm, "name", type(llm).__name__)
 
     truncated = bool(getattr(raw, "truncated", False))
     answer, sufficient = _parse_answer(raw)

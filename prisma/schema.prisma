@@ -1,0 +1,416 @@
+// Aletheia — schema source of truth.
+//
+// This file describes the Neon database. It is authored for `prisma migrate`
+// and `prisma studio`; no Prisma Client is generated for the API, because the
+// API is Python. FastAPI talks to the same database through psycopg with
+// hand-written SQL, and prisma-client-py is unmaintained and cannot express a
+// pgvector column at all. Splitting the two responsibilities keeps a real,
+// diffable schema without putting a dead ORM on the request path.
+//
+// Consequences worth knowing before editing:
+//
+//   * `paper_chunks.embedding` is `Unsupported("vector(512)")`. Prisma can
+//     create, alter and index the column but cannot read or write it. Only
+//     psycopg touches that column, which is exactly the arrangement we want.
+//   * Postgres CHECK constraints (paper.status, message.role, claim verdicts…)
+//     are not expressible in Prisma schema syntax. They live in
+//     `prisma/migrations/*/migration.sql` and are enforced by the database.
+//     Do not assume the enums below are the only guard — the CHECKs are.
+//   * `@@map` / `@map` keep the snake_case table and column names the Python
+//     side already queries. Renaming a model here without its `@@map` silently
+//     breaks every SQL statement in backend/apps/api.
+//
+// ---------------------------------------------------------------------------
+// Objects Prisma cannot express
+// ---------------------------------------------------------------------------
+// Three database objects have no Prisma schema syntax. They are created by
+// `prisma/migrations/0_init/migration.sql` and must survive every later
+// migration:
+//
+//   1. idx_paper_chunks_embedding — HNSW, vector_cosine_ops. Prisma knows only
+//      btree/hash/gist/gin/spgist/brin, so it sees this as an unrecognised
+//      index and PROPOSES TO DROP IT. Dropping it does not break search, which
+//      is why it is dangerous: pgvector silently falls back to a sequential
+//      scan over every chunk and retrieval just gets slower and slower.
+//   2. idx_papers_project_sha256 — PARTIAL: WHERE sha256 IS NOT NULL.
+//   3. claim_verifications_unique_scope_idx — an EXPRESSION index over
+//      COALESCE(paper_id, '000…0'), which is what makes "one verification per
+//      claim per paper, plus one project-wide" a uniqueness constraint.
+//
+// So: after `prisma migrate dev` generates a migration, read the SQL before
+// applying it. If it contains DROP INDEX for any of the three, delete that
+// line and re-add the object at the end of the file.
+//
+// `npm run db:verify` checks all three exist and exits non-zero if one is
+// missing. Run it after any migration.
+//
+// Workflow:
+//   npx prisma migrate dev --name <change>    # author a migration locally
+//   npm run db:verify                         # confirm the 3 raw objects live
+//   npx prisma migrate deploy                 # apply to Neon
+//   npx prisma studio                         # browse Neon
+//   npx prisma db pull                        # re-sync this file from the DB
+
+generator client {
+  provider        = "prisma-client-js"
+  // Needed for the vector column and the pgvector extension declaration.
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+// Prisma 7 moved connection URLs out of the schema: they live in
+// `prisma.config.ts`, which reads DATABASE_URL (pooled, what the app uses) and
+// DIRECT_DATABASE_URL (unpooled — migrations need a real session, which
+// PgBouncer in transaction mode cannot give them).
+datasource db {
+  provider   = "postgresql"
+  extensions = [pgcrypto, plpgsql, vector]
+}
+
+// No auth yet: migration 0002 seeds one dev user and every project hangs off
+// it. The table exists so adding real auth is a join, not a schema rewrite.
+model User {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  projects  Project[]
+
+  @@map("users")
+}
+
+model Project {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  // CHECK (length(trim(name)) > 0) — enforced in SQL, not here.
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  papers        Paper[]
+  conversations Conversation[]
+  claims        Claim[]
+
+  @@index([userId], map: "idx_projects_user_id")
+  @@map("projects")
+}
+
+model Paper {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId   String    @map("project_id") @db.Uuid
+  title       String?
+  filename    String
+  storagePath String    @map("storage_path")
+  sha256      String?
+  pageCount   Int?      @map("page_count")
+  authors     String[]
+  abstract    String?
+  // CHECK: uploaded | processing | ready | failed
+  status      String    @default("uploaded")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  processedAt DateTime? @map("processed_at") @db.Timestamptz(6)
+
+  project                Project                 @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  pages                  PaperPage[]
+  sections               PaperSection[]
+  chunks                 PaperChunk[]
+  assets                 PaperAsset[]
+  jobs                   ProcessingJob[]
+  conversations          Conversation[]
+  citations              Citation[]
+  claims                 Claim[]
+  claimVerifications     ClaimVerification[]
+  reproducibilityReport  ReproducibilityReport?
+
+  @@index([projectId], map: "idx_papers_project_id")
+  @@index([projectId, status], map: "idx_papers_project_status")
+  // Duplicate detection is scoped to a project and only ever looks at rows
+  // that have a hash, so the real index is PARTIAL:
+  //   idx_papers_project_sha256 ON papers (project_id, sha256)
+  //     WHERE sha256 IS NOT NULL
+  // Prisma has no syntax for a WHERE clause on an index, so it lives in
+  // migration SQL. See "Objects Prisma cannot express" in the file header.
+  @@map("papers")
+}
+
+model ProcessingJob {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  paperId    String    @map("paper_id") @db.Uuid
+  // CHECK: pending | running | succeeded | failed
+  status     String    @default("pending")
+  stage      String?
+  // CHECK (progress BETWEEN 0 AND 1)
+  progress   Float     @default(0) @db.Real
+  error      String?
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  startedAt  DateTime? @map("started_at") @db.Timestamptz(6)
+  finishedAt DateTime? @map("finished_at") @db.Timestamptz(6)
+
+  paper Paper @relation(fields: [paperId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([paperId], map: "idx_processing_jobs_paper_id")
+  @@index([status], map: "idx_processing_jobs_status")
+  @@index([paperId, createdAt(sort: Desc)], map: "idx_processing_jobs_paper_created")
+  @@map("processing_jobs")
+}
+
+model PaperPage {
+  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  paperId        String @map("paper_id") @db.Uuid
+  // CHECK (page_number >= 1)
+  pageNumber     Int    @map("page_number")
+  rawText        String? @map("raw_text")
+  cleanedText    String? @map("cleaned_text")
+  characterCount Int?    @map("character_count")
+  tokenCount     Int?    @map("token_count")
+
+  paper     Paper        @relation(fields: [paperId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  chunks    PaperChunk[]
+  assets    PaperAsset[]
+  citations Citation[]
+
+  @@unique([paperId, pageNumber])
+  @@map("paper_pages")
+}
+
+model PaperSection {
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  paperId      String @map("paper_id") @db.Uuid
+  title        String
+  // CHECK (level >= 1)
+  level        Int    @default(1)
+  sectionIndex Int    @map("section_index")
+  // CHECK (start_page >= 1)
+  startPage    Int    @map("start_page")
+  startOffset  Int?   @map("start_offset")
+
+  paper Paper @relation(fields: [paperId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([paperId, sectionIndex])
+  @@index([paperId], map: "idx_paper_sections_paper_id")
+  @@map("paper_sections")
+}
+
+model PaperChunk {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  paperId     String    @map("paper_id") @db.Uuid
+  pageId      String?   @map("page_id") @db.Uuid
+  section     String?
+  chunkIndex  Int       @map("chunk_index")
+  content     String
+  tokenCount  Int?      @map("token_count")
+  startOffset Int?      @map("start_offset")
+  endOffset   Int?      @map("end_offset")
+  metadata    Json?
+
+  // 512 dimensions: jinaai/jina-embeddings-v2-small-en. Changing this number
+  // invalidates every stored vector and the Chroma collection with it — see
+  // scripts/backfill_chroma.py --rebuild.
+  //
+  // Unsupported: Prisma manages the column and its index, and never reads it.
+  // The mirror of these vectors in Chroma is the primary read path; this
+  // column is the fallback that keeps search working when Chroma is down.
+  embedding      Unsupported("vector(512)")?
+  embeddingModel String?                     @map("embedding_model")
+  embeddedAt     DateTime?                   @map("embedded_at") @db.Timestamptz(6)
+
+  paper     Paper      @relation(fields: [paperId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  page      PaperPage? @relation(fields: [pageId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  citations Citation[]
+
+  @@unique([paperId, chunkIndex])
+  @@index([paperId], map: "idx_paper_chunks_paper_id")
+  @@map("paper_chunks")
+}
+
+model PaperAsset {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  paperId     String   @map("paper_id") @db.Uuid
+  pageId      String   @map("page_id") @db.Uuid
+  // CHECK: figure | table | equation | reference
+  kind        String
+  // CHECK (asset_index >= 0)
+  assetIndex  Int      @map("asset_index")
+  label       String?
+  caption     String?
+  contentText String?  @map("content_text")
+  storagePath String?  @map("storage_path")
+  pageNumber  Int?     @map("page_number")
+  bbox        Json
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  paper           Paper                 @relation(fields: [paperId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  page            PaperPage             @relation(fields: [pageId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  interpretations AssetInterpretation[]
+
+  @@unique([paperId, kind, assetIndex])
+  @@index([paperId, kind], map: "idx_paper_assets_kind")
+  @@index([paperId, pageId], map: "idx_paper_assets_paper_page")
+  @@index([paperId, kind, assetIndex], map: "paper_assets_paper_kind_idx")
+  @@map("paper_assets")
+}
+
+model AssetInterpretation {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  assetId        String   @map("asset_id") @db.Uuid
+  model          String
+  promptVersion  String   @map("prompt_version")
+  interpretation String
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  asset PaperAsset @relation(fields: [assetId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  // Model and prompt version are part of the key: re-running a newer prompt
+  // adds a row rather than overwriting the interpretation it should be
+  // compared against.
+  @@unique([assetId, model, promptVersion])
+  @@index([assetId], map: "idx_asset_interpretations_asset")
+  @@map("asset_interpretations")
+}
+
+model Conversation {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  paperId   String?  @map("paper_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  paper    Paper?    @relation(fields: [paperId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  messages Message[]
+
+  @@index([projectId, createdAt(sort: Desc)], map: "conversations_project_created_idx")
+  @@map("conversations")
+}
+
+model Message {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId String   @map("conversation_id") @db.Uuid
+  // CHECK: user | assistant | system
+  role           String
+  content        String
+  metadata       Json?
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  citations    Citation[]
+
+  @@index([conversationId, createdAt], map: "messages_conversation_created_idx")
+  @@map("messages")
+}
+
+// What an answer actually rested on. Page and chunk are SET NULL rather than
+// CASCADE: a reprocessed paper must not silently delete the record that a
+// claim was once cited, only the pointer to the exact passage.
+model Citation {
+  id              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  messageId       String  @map("message_id") @db.Uuid
+  paperId         String  @map("paper_id") @db.Uuid
+  pageId          String? @map("page_id") @db.Uuid
+  chunkId         String? @map("chunk_id") @db.Uuid
+  citationLabel   String? @map("citation_label")
+  supportMetadata Json?   @map("support_metadata")
+
+  message Message     @relation(fields: [messageId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  paper   Paper       @relation(fields: [paperId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  page    PaperPage?  @relation(fields: [pageId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  chunk   PaperChunk? @relation(fields: [chunkId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([messageId], map: "citations_message_idx")
+  @@map("citations")
+}
+
+model Claim {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId  String   @map("project_id") @db.Uuid
+  paperId    String?  @map("paper_id") @db.Uuid
+  text       String
+  // CHECK: extracted | manual
+  source     String   @default("extracted")
+  claimIndex Int      @default(0) @map("claim_index")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  project       Project             @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  paper         Paper?              @relation(fields: [paperId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  verifications ClaimVerification[]
+
+  @@index([paperId, claimIndex], map: "claims_paper_idx")
+  @@index([projectId, createdAt(sort: Desc)], map: "claims_project_idx")
+  @@map("claims")
+}
+
+model ClaimVerification {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  claimId       String   @map("claim_id") @db.Uuid
+  // Null means "verified against the whole project", not "unknown paper".
+  paperId       String?  @map("paper_id") @db.Uuid
+  // CHECK: supported | contradicted | insufficient
+  verdict       String
+  confidence    Float?   @db.Real
+  rationale     String
+  citations     Json     @default("[]")
+  evidenceCount Int      @default(0) @map("evidence_count")
+  model         String?
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  claim Claim  @relation(fields: [claimId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  paper Paper? @relation(fields: [paperId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("claim_verifications")
+}
+
+model ReproducibilityReport {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  paperId      String   @unique @map("paper_id") @db.Uuid
+  score        Float    @db.Real
+  repoMetadata Json?    @map("repo_metadata")
+  links        Json     @default("[]")
+  model        String?
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  paper  Paper                   @relation(fields: [paperId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  checks ReproducibilityCheck[]
+
+  @@map("reproducibility_reports")
+}
+
+model ReproducibilityCheck {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reportId   String @map("report_id") @db.Uuid
+  dimension  String
+  // CHECK: disclosed | partial | missing
+  status     String
+  rationale  String
+  citations  Json   @default("[]")
+  checkIndex Int    @default(0) @map("check_index")
+
+  report ReproducibilityReport @relation(fields: [reportId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([reportId, checkIndex], map: "reproducibility_checks_report_idx")
+  @@map("reproducibility_checks")
+}
+
+// Single-row table: `id` is a boolean pinned true by CHECK, so a second row is
+// impossible. Runtime overrides for retrieval settings, editable from /settings
+// without a redeploy.
+model AppSettings {
+  id               Boolean  @id @default(true)
+  searchTopK       Int?     @map("search_top_k")
+  rerankTopK       Int?     @map("rerank_top_k")
+  contextMaxTokens Int?     @map("context_max_tokens")
+  llmModel         String?  @map("llm_model")
+  updatedAt        DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("app_settings")
+}
+
+// Written by backend/scripts/migrate.py, the plain-SQL migrator the Python
+// side has always used. Prisma is now the authority for schema changes, but
+// this table is kept and mapped so both tools see one coherent database
+// instead of Prisma proposing to drop a table it did not create.
+model SchemaMigration {
+  version   String   @id
+  appliedAt DateTime @default(now()) @map("applied_at") @db.Timestamptz(6)
+
+  @@map("schema_migrations")
+}

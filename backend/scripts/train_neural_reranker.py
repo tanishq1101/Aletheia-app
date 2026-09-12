@@ -26,6 +26,10 @@ sys.path.insert(0, str(REPO_ROOT / "apps" / "api"))
 PROJECT_NAME = "Sprint 6 Benchmark Corpus"
 MODEL_PATH = REPO_ROOT / "models" / "neural_relevance_model.json"
 RESULTS_DIR = REPO_ROOT / "datasets" / "training" / "results"
+# The Training Lab reads every experiment from models/research/<task>/. The
+# reranker's weights stay in MODEL_PATH — this directory holds only what the
+# page renders, so a UI import never drags a weight matrix into the bundle.
+REPORT_DIR = REPO_ROOT / "models" / "research" / "reranker"
 
 
 def _validation_question(question_id: str) -> bool:
@@ -138,6 +142,7 @@ def main() -> int:
         epochs=args.epochs,
         learning_rate=args.learning_rate,
         seed=args.seed,
+        validation=(x[validation], y[validation]),
     )
     probabilities = model.predict_proba(x[validation]).reshape(-1)
     val_labels = y[validation]
@@ -188,6 +193,7 @@ def main() -> int:
         ),
     }
     model.save(MODEL_PATH, metadata=metadata)
+    _write_report(metadata, history.snapshots)
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     json_path = RESULTS_DIR / f"{timestamp}-neural-relevance.json"
@@ -200,6 +206,69 @@ def main() -> int:
     print(f"Report: {md_path.relative_to(REPO_ROOT)}")
     close_pool()
     return 0
+
+
+def _write_report(metadata: dict, snapshots: list[dict]) -> None:
+    """Persist what the Training Lab renders, in the shape the other two use.
+
+    Without this the learning curve simply does not exist: the per-epoch losses
+    were computed and discarded, so the page had nothing to draw and the model
+    was left off it entirely.
+    """
+    from app.services.training import FEATURE_NAMES
+
+    REPORT_DIR.mkdir(parents=True, exist_ok=True)
+    metrics = metadata["metrics"]
+    (REPORT_DIR / "model.json").write_text(
+        json.dumps(
+            {
+                "task": "reranker",
+                "kind": "ranking",
+                "architecture": [len(FEATURE_NAMES), 16, 8, 1],
+                "seed": metadata["seed"],
+                "epochs": metadata["epochs"],
+                "learning_rate": metadata["learning_rate"],
+                "trained_at": metadata["trained_at"],
+                "dataset": metadata["dataset"],
+                "split": metadata["split"],
+                "feature_names": list(FEATURE_NAMES),
+                "candidate_top_k": metadata["candidate_top_k"],
+                "counts": {
+                    "train": metrics["train_examples"],
+                    "train_positive": metrics["train_positive"],
+                    "validation": metrics["validation_examples"],
+                    "validation_positive": metrics["validation_positive"],
+                },
+                "ranking": {
+                    "mrr": metrics["neural_mrr"],
+                    "recall_at_6": metrics["neural_recall_at_6"],
+                    "log_loss": metrics["validation_log_loss"],
+                    "accuracy": metrics["validation_accuracy"],
+                },
+                "baseline_ranking": {
+                    "mrr": metrics["cosine_mrr"],
+                    "recall_at_6": metrics["cosine_recall_at_6"],
+                },
+                "lift": {
+                    "mrr": metrics["mrr_lift"],
+                    "recall_at_6": metrics["recall_at_6_lift"],
+                },
+                "status": "experimental_advisory",
+                "limitations": (
+                    "Five hand-built features over retrieval candidates, not an "
+                    "end-to-end fine-tune. The held-out set is 500 candidates from "
+                    f"{metrics['validation_positive']} positives, so the ranking "
+                    "gains carry wide error bars. Positives require both the "
+                    "expected paper and the labelled physical page, so a correct "
+                    "passage on an unlabelled page counts as a negative. Not "
+                    "promoted over the production cross-encoder."
+                ),
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+    (REPORT_DIR / "history.json").write_text(json.dumps(snapshots, indent=2) + "\n")
 
 
 def _report(metadata: dict) -> str:

@@ -1,0 +1,46 @@
+{
+  "task": "reranker",
+  "kind": "ranking",
+  "architecture": [
+    5,
+    16,
+    8,
+    1
+  ],
+  "seed": 42,
+  "epochs": 500,
+  "learning_rate": 0.02,
+  "trained_at": "20260907T144022Z",
+  "dataset": "datasets/benchmark/questions.json",
+  "split": "sha256(question_id) modulo 5",
+  "feature_names": [
+    "cosine_similarity",
+    "query_content_jaccard",
+    "numeric_token_coverage",
+    "section_query_overlap",
+    "content_length_log"
+  ],
+  "candidate_top_k": 20,
+  "counts": {
+    "train": 1920,
+    "train_positive": 169,
+    "validation": 500,
+    "validation_positive": 41
+  },
+  "ranking": {
+    "mrr": 0.717047619047619,
+    "recall_at_6": 0.798611111111111,
+    "log_loss": 0.6247796618757145,
+    "accuracy": 0.7
+  },
+  "baseline_ranking": {
+    "mrr": 0.5443030303030303,
+    "recall_at_6": 0.6458333333333334
+  },
+  "lift": {
+    "mrr": 0.17274458874458876,
+    "recall_at_6": 0.15277777777777768
+  },
+  "status": "experimental_advisory",
+  "limitations": "Five hand-built features over retrieval candidates, not an end-to-end fine-tune. The held-out set is 500 candidates from 41 positives, so the ranking gains carry wide error bars. Positives require both the expected paper and the labelled physical page, so a correct passage on an unlabelled page counts as a negative. Not promoted over the production cross-encoder."
+}

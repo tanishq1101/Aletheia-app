@@ -4,6 +4,8 @@ from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.db.session import get_connection
 from app.schemas.models import HealthResponse
+from app.services.vector_store import VectorStoreError
+from app.services.vector_store import count as vector_count
 
 router = APIRouter(tags=["health"])
 log = get_logger(__name__)
@@ -39,6 +41,16 @@ def health(response: Response) -> HealthResponse:
         storage = f"backend={settings.storage_backend} (not implemented)"
         healthy = False
 
+    if not settings.chroma_enabled:
+        vector_store = "disabled (pgvector only)"
+    else:
+        try:
+            vector_store = f"ok ({vector_count()} vectors)"
+        except VectorStoreError as exc:
+            # Not a health failure — see HealthResponse.vector_store.
+            log.warning("Health check: Chroma degraded: %s", exc)
+            vector_store = "degraded: falling back to pgvector"
+
     if not healthy:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 
@@ -46,4 +58,5 @@ def health(response: Response) -> HealthResponse:
         status="ok" if healthy else "degraded",
         database=database,
         storage=storage,
+        vector_store=vector_store,
     )

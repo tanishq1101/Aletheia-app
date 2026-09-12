@@ -29,3 +29,31 @@ body {
   background: var(--bg-base);
   color: var(--text-primary);
 }
+
+@keyframes agent-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(0.78); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes agent-orbit {
+  to { transform: rotate(360deg); }
+}
+
+.agent-pulse { animation: agent-pulse 1.2s ease-in-out infinite; }
+.agent-orbit::after {
+  position: absolute;
+  top: -3px;
+  left: calc(50% - 2px);
+  width: 4px;
+  height: 4px;
+  border-radius: 9999px;
+  background: var(--accent-brass-bright);
+  content: "";
+  animation: agent-orbit 1.6s linear infinite;
+  transform-origin: 2px 19px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-pulse,
+  .agent-orbit::after { animation: none; }
+}

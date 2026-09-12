@@ -18,6 +18,25 @@ TEST_DB_NAME = "research_intelligence_test"
 # Throwaway storage directory. Env vars beat .env in pydantic-settings.
 os.environ["LOCAL_STORAGE_DIR"] = tempfile.mkdtemp(prefix="ri-test-storage-")
 
+# The suite runs against pgvector, not Chroma. Two reasons, both deliberate:
+# the tests must pass with no container running, and mirroring test papers into
+# the real collection would leave junk vectors behind in a store that has no
+# cascade to clean them up. Because retrieval falls back to pgvector rather
+# than failing, this exercises a real code path — the same one that serves
+# production whenever Chroma is down. Tests that need Chroma turn it on
+# themselves against a throwaway collection (see test_vector_store.py).
+os.environ["CHROMA_ENABLED"] = "false"
+
+# The suite exercises the routes, not Clerk. Stating the intent explicitly is
+# what the startup guard asks for, and it keeps the tests honest: they run as
+# the seeded development user and prove nothing about authentication. The auth
+# and ownership paths have their own tests, which configure an issuer and mint
+# tokens against a throwaway key (see test_auth.py).
+os.environ["ALLOW_UNAUTHENTICATED"] = "true"
+# Per-test HTTP calls come from one client and would otherwise trip the
+# limiter partway through a suite. Its own behaviour is tested directly.
+os.environ["RATE_LIMIT_ENABLED"] = "false"
+
 # Tests get their own database. They used to share the app's, and because
 # recover_stranded_jobs() is global, running the suite mutated real rows.
 os.environ.setdefault(
