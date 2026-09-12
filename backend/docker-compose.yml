@@ -5,9 +5,21 @@ services:
     build:
       context: .
     container_name: aletheia-api
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgresql://research:research@db:5432/research_intelligence
       CORS_ORIGINS: http://localhost:3000
+      # These three are container-network/filesystem facts, not deployment
+      # config, so they always override whatever host-oriented value .env
+      # carries: chroma is reached over the compose network at its internal
+      # port (8001 in .env is only the host-mapped port), and the storage /
+      # research-model paths must stay the absolute in-image paths baked into
+      # the Dockerfile, not the host-relative paths .env uses for bare-metal dev.
+      CHROMA_HOST: chroma
+      CHROMA_PORT: "8000"
+      LOCAL_STORAGE_DIR: /data/storage
+      RESEARCH_MODELS_DIR: /app/models/research
     ports:
       - "8000:8000"
     volumes:

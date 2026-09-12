@@ -54,6 +54,8 @@ def test_openai_failure_retries_the_same_prompt_with_gemini_backup():
     assert provider.complete(system="rules", prompt="evidence") == "Grounded answer [E1]."
     assert primary.calls == 1
     assert backup.calls == 1
+    # The stub's own name, so the caller can see which provider actually
+    # answered — unrelated to the configured gemini profile.
     assert provider.name == "gemini-2.5-flash"
 
 
@@ -386,23 +388,32 @@ def test_other_payment_errors_are_not_retried(monkeypatch):
 
 def test_gemini_uses_googles_openai_compatible_endpoint(monkeypatch):
     from app.core.config import get_settings
-    from app.services.llm import build_llm_provider
+    from app.services.llm import PROVIDER_PROFILES, build_llm_provider
 
     settings = get_settings()
     monkeypatch.setattr(settings, "llm_provider", "gemini", raising=False)
     monkeypatch.setattr(settings, "gemini_api_key", "gemini-test-key", raising=False)
     monkeypatch.setattr(settings, "llm_base_url", "", raising=False)
     monkeypatch.setattr(settings, "llm_model", "", raising=False)
+    # Blanked so this asserts the profile default rather than whatever the
+    # developer happens to have pinned in their own backend/.env.
+    monkeypatch.setattr(settings, "gemini_model", "", raising=False)
     build_llm_provider.cache_clear()
 
     provider = build_llm_provider()
     assert provider._base_url.endswith("/v1beta/openai")
-    assert provider.name == "gemini-2.5-flash"
+    # The model name is asserted through the profile, not repeated here: it
+    # has already moved once (2.5-flash stopped being served to new keys)
+    # and this test is about the endpoint and headers.
+    assert provider.name == PROVIDER_PROFILES["gemini"].default_model
+    # Gemini 3 spends hidden thinking tokens out of the same max_tokens
+    # budget as the answer, so the profile bounds it.
+    assert provider._reasoning_effort == "low"
     assert provider.supports_images is True
     assert provider._headers()["Authorization"] == "Bearer gemini-test-key"
     # OpenRouter's attribution headers mean nothing to Google and are not sent.
     assert "HTTP-Referer" not in provider._headers()
-    assert configured_llm_model() == "gemini-2.5-flash"
+    assert configured_llm_model() == PROVIDER_PROFILES["gemini"].default_model
     build_llm_provider.cache_clear()
 
 

@@ -77,6 +77,7 @@ class OpenAICompatibleProvider:
         send_attribution_headers: bool = True,
         requires_api_key: bool = True,
         supports_images: bool = True,
+        reasoning_effort: str | None = None,
     ) -> None:
         if not api_key and requires_api_key:
             raise LLMConfigurationError(
@@ -88,6 +89,7 @@ class OpenAICompatibleProvider:
         self._credits_url = credits_url
         self._send_attribution_headers = send_attribution_headers
         self._supports_images = supports_images
+        self._reasoning_effort = reasoning_effort
         self._api_key = api_key
         self._model = model
         self._base_url = base_url.rstrip("/")
@@ -166,6 +168,8 @@ class OpenAICompatibleProvider:
             "temperature": self._temperature,
             "max_tokens": max_output_tokens,
         }
+        if self._reasoning_effort:
+            payload["reasoning_effort"] = self._reasoning_effort
         try:
             return httpx.post(
                 f"{self._base_url}/chat/completions",
@@ -366,6 +370,12 @@ def _error_detail(response: httpx.Response) -> str:
         body = response.json()
     except ValueError:
         return response.text[:300]
+    # Most providers return a dict with an "error" key; Google's OpenAI-compat
+    # surface wraps that same shape in a list instead.
+    if isinstance(body, list):
+        body = body[0] if body else {}
+    if not isinstance(body, dict):
+        return str(body)[:300]
     error = body.get("error")
     if isinstance(error, dict):
         return str(error.get("message") or error)[:300]
@@ -393,6 +403,13 @@ class ProviderProfile:
     #: a confident guess without it. Recorded so callers can check rather than
     #: discover it from a bad answer.
     supports_images: bool = True
+    #: Gemini 3 models spend hidden "thinking" tokens out of the same
+    #: max_tokens budget as the visible answer. On a small, bounded budget
+    #: (figure interpretation) that thinking can consume nearly all of it,
+    #: leaving a truncated one-line completion. "low" leaves enough thinking
+    #: to stay accurate while giving the visible answer room to breathe.
+    #: None omits the field entirely for providers that reject unknown ones.
+    reasoning_effort: str | None = None
 
 
 PROVIDER_PROFILES: dict[str, ProviderProfile] = {
@@ -418,8 +435,12 @@ PROVIDER_PROFILES: dict[str, ProviderProfile] = {
         label="Google Gemini",
         key_env="GEMINI_API_KEY",
         default_base_url="https://generativelanguage.googleapis.com/v1beta/openai",
-        default_model="gemini-2.5-flash",
+        # gemini-2.5-flash is no longer available to new API keys as of this
+        # writing (Google's API returns a 404 telling callers to switch to
+        # gemini-3.6-flash) — verified directly against the API.
+        default_model="gemini-3.6-flash",
         credits_url="https://aistudio.google.com/apikey",
+        reasoning_effort="low",
     ),
     # Fast and free, but text-only here: figure interpretation will fail
     # loudly rather than answer from the caption alone.
@@ -502,6 +523,7 @@ def _build_provider(settings, provider_name: str) -> OpenAICompatibleProvider:
         send_attribution_headers=profile.attribution_headers,
         requires_api_key=profile.requires_api_key,
         supports_images=profile.supports_images,
+        reasoning_effort=profile.reasoning_effort,
     )
 
 

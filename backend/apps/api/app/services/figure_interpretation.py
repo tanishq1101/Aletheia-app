@@ -11,7 +11,7 @@ from app.services.providers import LLMProvider
 
 MAX_FIGURE_BYTES = 5 * 1024 * 1024
 MAX_PAGE_CONTEXT_CHARS = 2500
-MAX_VISION_OUTPUT_TOKENS = 500
+MAX_VISION_OUTPUT_TOKENS = 1200
 FIGURE_PROMPT_VERSION = "figure-v1"
 SUPPORTED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
 

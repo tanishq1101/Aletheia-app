@@ -66,7 +66,10 @@ class Settings(BaseSettings):
     # primary; keys never leave this server process.
     openai_api_key: str = ""
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.5-flash"
+    # Blank so the model name lives in exactly one place — the gemini
+    # entry in PROVIDER_PROFILES. A hardcoded default here silently wins
+    # over that profile and pins a model Google no longer serves.
+    gemini_model: str = ""
     llm_api_key: str = ""
     llm_base_url: str = ""
     llm_model: str = ""

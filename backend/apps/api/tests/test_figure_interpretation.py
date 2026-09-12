@@ -10,6 +10,7 @@ from app.db.session import get_connection
 from app.services.figure_interpretation import (
     FigureInterpretationError,
     MAX_FIGURE_BYTES,
+    MAX_VISION_OUTPUT_TOKENS,
     interpret_figure,
 )
 from app.services.llm import LLMError, configured_llm_model
@@ -82,7 +83,10 @@ def test_interprets_once_then_returns_cached_without_model_call(
     assert len(llm.calls) == 1
     assert llm.calls[0]["media_type"] == "image/png"
     assert llm.calls[0]["image"].startswith(b"\x89PNG")
-    assert llm.calls[0]["max_output_tokens"] == 500
+    # Assert the configured ceiling reaches the provider, not a literal copy
+    # of it — the budget is tuned per vision model and a second copy here
+    # only breaks the test when it is tuned.
+    assert llm.calls[0]["max_output_tokens"] == MAX_VISION_OUTPUT_TOKENS
 
     def forbidden_provider():
         raise AssertionError("a cache hit must not resolve an AI provider")
