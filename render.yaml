@@ -1,0 +1,161 @@
+# Render blueprint for the Aletheia API.
+#
+# Deploys the FastAPI backend that the Vercel front end talks to. Postgres is
+# *not* declared here: the database is Neon, which already holds the data and
+# the pgvector index, so DATABASE_URL is supplied as a secret instead.
+#
+# Apply with: Render dashboard -> Blueprints -> New Blueprint Instance, pointed
+# at this repository. Everything marked `sync: false` must be filled in there;
+# nothing secret is committed to this file.
+#
+# Three things about this deployment are deliberate and worth reading before
+# changing them:
+#
+#   * **A persistent disk is required.** `storage_backend` has exactly one
+#     implementation, `local`; /health reports any other value as
+#     "not implemented" and marks the service degraded. Uploaded PDFs live on
+#     the disk mounted at /data/storage. A disk also pins the service to one
+#     instance, so scaling out means implementing the Supabase storage backend
+#     first, not just raising the instance count.
+#
+#   * **Chroma is off.** Retrieval reads Chroma and falls back to pgvector, and
+#     that fallback was verified to return the same chunk ids in the same order
+#     with the same similarity scores to four decimal places. Running Chroma
+#     would mean a second private service and a second disk to hold a copy of
+#     vectors Neon already stores. Turn it on when there is a measured reason
+#     to; see the commented service at the bottom.
+#
+#   * **Redis is optional.** Without it the rate limiter keeps its counters in
+#     process, which is exact for this single instance. It is declared because
+#     the moment there is more than one instance, the configured limits stop
+#     being the real limits.
+
+services:
+  - type: web
+    name: aletheia-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    region: singapore
+    # Starter is 512 MB, and this image loads two local ONNX models — the
+    # embedding model and the cross-encoder reranker — plus PyMuPDF. It will be
+    # killed on the first ingest. Standard (2 GB) is the smallest that works.
+    plan: standard
+    healthCheckPath: /health
+    # The container runs migrations on boot before uvicorn binds, so a deploy
+    # that cannot migrate fails the health check instead of serving a half-
+    # migrated schema.
+    autoDeploy: false
+
+    disk:
+      name: aletheia-storage
+      mountPath: /data/storage
+      sizeGB: 10
+
+    envVars:
+      # --- Database ---------------------------------------------------------
+      # Neon, including ?sslmode=require. Set in the dashboard.
+      - key: DATABASE_URL
+        sync: false
+
+      # --- Who may call this API -------------------------------------------
+      # The Vercel origin, exactly, no trailing slash. Add preview domains as a
+      # comma-separated list if you want them to reach this API.
+      - key: CORS_ORIGINS
+        value: https://aletheia-rag.vercel.app
+
+      # --- Authentication ---------------------------------------------------
+      # CLERK_ISSUER is what switches auth on, and the API refuses to start
+      # without it unless ALLOW_UNAUTHENTICATED says openness is deliberate.
+      # Both are set here so the dangerous state cannot be reached by omission.
+      - key: CLERK_ISSUER
+        sync: false
+      - key: ALLOW_UNAUTHENTICATED
+        value: "false"
+      # Only the Vercel origin may present a token here (the azp claim), so a
+      # token minted for another site cannot be replayed against this API.
+      - key: CLERK_AUTHORIZED_PARTIES_CSV
+        value: https://aletheia-rag.vercel.app
+
+      # --- The answering model ---------------------------------------------
+      # Set LLM_PROVIDER to openai and supply OPENAI_API_KEY, or leave it as
+      # gemini with GEMINI_API_KEY. With both keys present the OpenAI primary
+      # falls back to Gemini on failure, using the same grounded prompt.
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      # Blank so the model name comes from the gemini provider profile, which
+      # is the single place it is written down.
+      - key: GEMINI_MODEL
+        value: ""
+      - key: LLM_MODEL
+        value: ""
+
+      # --- Vector store -----------------------------------------------------
+      - key: CHROMA_ENABLED
+        value: "false"
+
+      # --- Rate limiting ----------------------------------------------------
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: aletheia-redis
+          property: connectionString
+      - key: RATE_LIMIT_ENABLED
+        value: "true"
+      - key: RATE_LIMIT_REQUESTS_PER_MINUTE
+        value: "120"
+      - key: RATE_LIMIT_LLM_REQUESTS_PER_MINUTE
+        value: "12"
+      - key: RATE_LIMIT_UPLOADS_PER_HOUR
+        value: "60"
+
+      # --- Storage ----------------------------------------------------------
+      # Must match the disk mountPath above.
+      - key: LOCAL_STORAGE_DIR
+        value: /data/storage
+      - key: STORAGE_BACKEND
+        value: local
+
+      - key: LOG_LEVEL
+        value: INFO
+
+  # Shared rate-limit counters. Nothing here needs to survive a restart — a
+  # lost window costs one caller one extra minute of allowance — so the
+  # eviction policy is set for a cache rather than a store.
+  #
+  # If your Render account shows this product as "Key Value" rather than
+  # "Redis", change `type: redis` to `type: keyvalue` in both places; the
+  # connectionString property is the same.
+  - type: redis
+    name: aletheia-redis
+    region: singapore
+    plan: starter
+    maxmemoryPolicy: allkeys-lru
+    # Empty list = reachable only from inside this Render account's network.
+    ipAllowList: []
+
+# --- Optional: Chroma as the primary vector index ----------------------------
+# Uncomment, set CHROMA_ENABLED=true, CHROMA_HOST=aletheia-chroma and
+# CHROMA_PORT=8000 on the API, then run `npm run vectors:sync` once to backfill
+# from Postgres. Retrieval keeps the pgvector fallback either way.
+#
+#  - type: pserv
+#    name: aletheia-chroma
+#    runtime: image
+#    image:
+#      url: docker.io/chromadb/chroma:1.5.9
+#    region: singapore
+#    plan: starter
+#    disk:
+#      name: chroma-data
+#      mountPath: /data
+#      sizeGB: 5
+#    envVars:
+#      - key: IS_PERSISTENT
+#        value: "TRUE"
+#      - key: ANONYMIZED_TELEMETRY
+#        value: "FALSE"

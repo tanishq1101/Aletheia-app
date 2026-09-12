@@ -13,4 +13,8 @@ ENV PYTHONPATH=/app/apps/api \
     RESEARCH_MODELS_DIR=/app/models/research \
     LOCAL_STORAGE_DIR=/data/storage
 EXPOSE 8000
-CMD ["sh", "-c", "python /app/scripts/migrate.py && uvicorn main:app --app-dir /app/apps/api --host 0.0.0.0 --port 8000"]
+# $PORT with a fallback, not a hardcoded 8000: every managed host (Render, Fly,
+# Railway, Cloud Run) assigns the port and expects the process to bind it, and
+# one that ignores it is marked unhealthy and killed with no useful error. The
+# default keeps docker-compose and `docker run -p 8000:8000` unchanged.
+CMD ["sh", "-c", "python /app/scripts/migrate.py && uvicorn main:app --app-dir /app/apps/api --host 0.0.0.0 --port ${PORT:-8000}"]
