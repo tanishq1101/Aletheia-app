@@ -5,7 +5,7 @@ one HTTP call rather than an SDK dependency per vendor. Nothing outside this
 module knows which model answered — swapping provider is an env var, not a
 change to answering logic.
 
-`LLM_PROVIDER` selects the endpoint: `openrouter`, `gemini` (Google's
+`LLM_PROVIDER` selects the endpoint: `openai`, `openrouter`, `gemini` (Google's
 OpenAI-compatible endpoint, which has a genuinely free tier and does vision),
 `groq`, `ollama` for a local model, or `custom` with an explicit base URL.
 Vendor-specific behaviour is kept to two things — the attribution headers
@@ -268,6 +268,84 @@ class OpenAICompatibleProvider:
         return CompletionText(content.strip(), truncated=body["choices"][0].get("finish_reason") == "length")
 
 
+class FallbackLLMProvider:
+    """Use a configured secondary provider only when the primary cannot answer.
+
+    Grounding, evidence selection, and citation validation happen above this
+    seam, so a retry through Gemini receives the exact same constrained prompt.
+    The actual provider used is retained for the UI and server logs.
+    """
+
+    def __init__(
+        self, primary: OpenAICompatibleProvider, fallback: OpenAICompatibleProvider
+    ) -> None:
+        self._primary = primary
+        self._fallback = fallback
+        self._active = primary
+
+    @property
+    def name(self) -> str:
+        return self._active.name
+
+    @property
+    def supports_images(self) -> bool:
+        return self._active.supports_images
+
+    def complete(self, *, system: str, prompt: str) -> str:
+        try:
+            self._active = self._primary
+            return self._primary.complete(system=system, prompt=prompt)
+        except LLMError as primary_error:
+            log.warning(
+                "Primary LLM %s failed; retrying the same grounded request with %s: %s",
+                self._primary.name,
+                self._fallback.name,
+                primary_error,
+            )
+            self._active = self._fallback
+            try:
+                return self._fallback.complete(system=system, prompt=prompt)
+            except LLMError as fallback_error:
+                raise LLMError(
+                    f"The primary provider ({self._primary.name}) and Gemini backup "
+                    f"({self._fallback.name}) could not generate an answer. "
+                    f"Primary: {primary_error}. Backup: {fallback_error}"
+                ) from fallback_error
+
+    def complete_with_image(
+        self,
+        *,
+        system: str,
+        prompt: str,
+        image: bytes,
+        media_type: str,
+        max_output_tokens: int,
+    ) -> str:
+        try:
+            self._active = self._primary
+            return self._primary.complete_with_image(
+                system=system,
+                prompt=prompt,
+                image=image,
+                media_type=media_type,
+                max_output_tokens=max_output_tokens,
+            )
+        except LLMError as primary_error:
+            log.warning(
+                "Primary vision LLM %s failed; retrying with Gemini backup: %s",
+                self._primary.name,
+                primary_error,
+            )
+            self._active = self._fallback
+            return self._fallback.complete_with_image(
+                system=system,
+                prompt=prompt,
+                image=image,
+                media_type=media_type,
+                max_output_tokens=max_output_tokens,
+            )
+
+
 # OpenRouter answers an over-budget request with 402 and states, in prose, the
 # largest `max_tokens` the remaining balance affords. That number is the only
 # machine-actionable part of the message, so it is parsed rather than guessed.
@@ -318,6 +396,13 @@ class ProviderProfile:
 
 
 PROVIDER_PROFILES: dict[str, ProviderProfile] = {
+    "openai": ProviderProfile(
+        label="OpenAI",
+        key_env="OPENAI_API_KEY",
+        default_base_url="https://api.openai.com/v1",
+        default_model="gpt-5.6-luna",
+        credits_url="https://platform.openai.com/settings/organization/billing/overview",
+    ),
     "openrouter": ProviderProfile(
         label="OpenRouter",
         key_env="OPENROUTER_API_KEY",
@@ -367,37 +452,41 @@ PROVIDER_PROFILES: dict[str, ProviderProfile] = {
 }
 
 
-@lru_cache
-def build_llm_provider() -> OpenAICompatibleProvider:
-    """Build the configured provider. Raises LLMConfigurationError if unusable."""
-    settings = get_settings()
-    profile = PROVIDER_PROFILES.get(settings.llm_provider)
-    if profile is None:
-        raise LLMConfigurationError(
-            f"Unknown LLM_PROVIDER {settings.llm_provider!r}. "
-            f"Choose one of: {', '.join(sorted(PROVIDER_PROFILES))}."
+def _provider_settings(settings, provider_name: str, profile: ProviderProfile):
+    """Resolve one provider without duplicating endpoint-specific defaults."""
+    if provider_name == "openrouter":
+        return (
+            settings.openrouter_api_key,
+            settings.openrouter_base_url,
+            settings.openrouter_model,
         )
+    if provider_name == "openai":
+        return (
+            settings.openai_api_key,
+            settings.llm_base_url or profile.default_base_url,
+            settings.llm_model or profile.default_model,
+        )
+    if provider_name == "gemini":
+        return (
+            settings.gemini_api_key,
+            settings.llm_base_url or profile.default_base_url,
+            settings.gemini_model or profile.default_model,
+        )
+    return (
+        settings.llm_api_key,
+        settings.llm_base_url or profile.default_base_url,
+        settings.llm_model or profile.default_model,
+    )
 
-    # OpenRouter keeps its own settings so existing deployments are untouched.
-    if settings.llm_provider == "openrouter":
-        api_key = settings.openrouter_api_key
-        base_url = settings.openrouter_base_url
-        model = settings.openrouter_model
-    elif settings.llm_provider == "gemini":
-        api_key = settings.gemini_api_key
-        base_url = settings.llm_base_url or profile.default_base_url
-        model = settings.llm_model or profile.default_model
-    else:
-        api_key = settings.llm_api_key
-        base_url = settings.llm_base_url or profile.default_base_url
-        model = settings.llm_model or profile.default_model
 
+def _build_provider(settings, provider_name: str) -> OpenAICompatibleProvider:
+    profile = PROVIDER_PROFILES[provider_name]
+    api_key, base_url, model = _provider_settings(settings, provider_name, profile)
     if not base_url or not model:
         raise LLMConfigurationError(
-            f"LLM_PROVIDER={settings.llm_provider!r} needs both LLM_BASE_URL "
-            "and LLM_MODEL set; it has no defaults to fall back on."
+            f"LLM_PROVIDER={provider_name!r} needs both LLM_BASE_URL and "
+            "LLM_MODEL set; it has no defaults to fall back on."
         )
-
     return OpenAICompatibleProvider(
         api_key=api_key,
         model=model,
@@ -416,6 +505,32 @@ def build_llm_provider() -> OpenAICompatibleProvider:
     )
 
 
+@lru_cache
+def build_llm_provider() -> OpenAICompatibleProvider | FallbackLLMProvider:
+    """Build the configured provider. Raises LLMConfigurationError if unusable."""
+    settings = get_settings()
+    profile = PROVIDER_PROFILES.get(settings.llm_provider)
+    if profile is None:
+        raise LLMConfigurationError(
+            f"Unknown LLM_PROVIDER {settings.llm_provider!r}. "
+            f"Choose one of: {', '.join(sorted(PROVIDER_PROFILES))}."
+        )
+
+    # A deployment that has only retained its Gemini key should still be able
+    # to answer after upgrading to the OpenAI-first default. Once an OpenAI
+    # key is present it becomes the primary again without another config edit.
+    if settings.llm_provider == "openai" and not settings.openai_api_key:
+        if settings.gemini_api_key:
+            log.warning("OPENAI_API_KEY is not set; using configured Gemini backup.")
+            return _build_provider(settings, "gemini")
+    primary = _build_provider(settings, settings.llm_provider)
+    # Gemini only becomes a fallback for the new OpenAI default. Explicitly
+    # selecting any other provider retains the operator's requested behavior.
+    if settings.llm_provider == "openai" and settings.gemini_api_key:
+        return FallbackLLMProvider(primary, _build_provider(settings, "gemini"))
+    return primary
+
+
 def configured_llm_model() -> str:
     """Return the selected model name without constructing a network client."""
     settings = get_settings()
@@ -425,6 +540,5 @@ def configured_llm_model() -> str:
             f"Unknown LLM_PROVIDER {settings.llm_provider!r}. "
             f"Choose one of: {', '.join(sorted(PROVIDER_PROFILES))}."
         )
-    if settings.llm_provider == "openrouter":
-        return settings.openrouter_model
-    return settings.llm_model or profile.default_model
+    _, _, model = _provider_settings(settings, settings.llm_provider, profile)
+    return model

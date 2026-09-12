@@ -14,10 +14,29 @@ See [PRD.md](PRD.md) for scope and [PROGRESS.md](PROGRESS.md) for live project s
 
 Docker, Python 3.12+, Node 20+.
 
+The deployable application is one **API container**. It includes ingestion,
+embeddings, reranking, and the research-model diagnostics; do not deploy a
+separate DL service. Postgres and Chroma remain supporting data services.
+
 ## Running it
 
-Sprint 1 runs against local Postgres + pgvector. Supabase is not wired up yet — that decision
-and its rationale are recorded in [PROGRESS.md](PROGRESS.md).
+The primary database is **Neon** (managed Postgres + pgvector) and the primary vector index
+is **ChromaDB**. Both have local equivalents in `docker-compose.yml`, so development and the
+test suite need no cloud account: point `DATABASE_URL` at the local container and everything
+works identically.
+
+Two things about that arrangement are worth reading before changing either:
+
+* **Chroma is an index, not a store.** Every chunk embedding is written twice — to Chroma,
+  which serves reads, and to `paper_chunks.embedding`, which serves them when Chroma cannot.
+  Retrieval falls back automatically and returns *identical* results, so losing Chroma costs
+  latency rather than answers. `CHROMA_ENABLED=false` is a supported mode; it is how the
+  tests run.
+* **Prisma owns the schema, psycopg owns the queries.** `prisma/schema.prisma` is the source
+  of truth for the schema and `prisma migrate` applies it; the API keeps querying through
+  psycopg. prisma-client-py is unmaintained and cannot express a `vector` column, so putting
+  it on the request path would have been a regression. See
+  [Database and migrations](#database-and-migrations).
 
 **1. Configure**
 
@@ -42,33 +61,20 @@ passed as an argument (`argv` is visible to `ps`), and never enters shell histor
 masked fingerprint is shown. `--check` re-verifies the stored key and reports usage and
 limit; `--clear` removes it.
 
-**2. Start the database**
+**2. Start the unified API, database, and vector store**
 
 ```bash
 docker compose up -d
 ```
 
-**3. Install backend dependencies and migrate**
+Brings up the unified API on `8000`, Postgres+pgvector on `5433`, and Chroma on
+`8001`. The API image applies migrations before it starts, so the backend and
+local ML models have one deployable unit. `GET /health` reports both data
+services; `vector_store` degrading there never makes `status` degrade.
 
-```bash
-python3 -m venv .venv && ./.venv/bin/pip install -r apps/api/requirements.txt
-```
+Interactive API docs are at http://localhost:8000/docs.
 
-```bash
-./.venv/bin/python scripts/migrate.py
-```
-
-`scripts/migrate.py --status` shows what has and hasn't been applied. Re-running is safe.
-
-**4. Start the API**
-
-```bash
-cd apps/api && ../../.venv/bin/python -m uvicorn main:app --reload --port 8000
-```
-
-Interactive API docs at http://localhost:8000/docs.
-
-**5. Start the frontend**
+**3. Start the frontend**
 
 The UI lives at the repository root (the Aletheia Next.js app), not in this
 directory — `apps/web` was a scaffold and has been removed now that the real
@@ -79,9 +85,60 @@ cd .. && npm install && npm run dev
 ```
 
 Open http://localhost:3000, pick or create a project from the top-right
-switcher, and upload a PDF. The frontend reads `NEXT_PUBLIC_API_URL` from
+switcher, and add a project source. The frontend reads `NEXT_PUBLIC_API_URL` from
 `../.env.local` (copy `../.env.local.example`); it must match `CORS_ORIGINS`
 here.
+
+## Database and migrations
+
+`prisma/schema.prisma` (at the repo root) is the source of truth for the schema.
+`prisma.config.ts` reads the connection string from **this** `backend/.env` — the same file
+FastAPI loads — so a migration cannot be applied to a different database than the app is
+talking to.
+
+```bash
+npm run db:migrate      # author a migration locally (prisma migrate dev)
+npm run db:verify       # assert the objects Prisma cannot express still exist
+npm run db:deploy       # apply to Neon (prisma migrate deploy)
+npm run db:studio       # browse the data
+```
+
+### `npm run db:verify` is not optional
+
+Prisma's schema language has no syntax for an HNSW index, a partial index, an expression
+index, or a CHECK constraint. This database has all four, so `prisma migrate dev` reads them
+as drift and **proposes dropping them** — and applying that migration breaks nothing
+visibly:
+
+* dropping `idx_paper_chunks_embedding` leaves vector search working, just sequentially
+  scanning every chunk;
+* dropping the 18 CHECK constraints leaves inserts working, just no longer rejecting
+  `status='banana'`.
+
+So: read the SQL Prisma generates before applying it, delete any `DROP INDEX` for those
+objects, and run `npm run db:verify` afterwards. It exits non-zero if any are missing. The
+correct definitions are in `prisma/migrations/0_init/migration.sql`, regenerable with
+`scripts/dump_raw_objects.py`.
+
+### Moving to Neon
+
+```bash
+npx prisma migrate deploy                                  # create the schema
+.venv/bin/python scripts/migrate_to_neon.py --to "$NEON_URL" --dry-run
+.venv/bin/python scripts/migrate_to_neon.py --to "$NEON_URL"
+```
+
+The copy runs in one transaction in foreign-key order, refuses a non-empty target without
+`--truncate`, and verifies row counts per table afterwards. Then point `DATABASE_URL` at
+Neon, run `npm run db:verify`, and re-index the vectors:
+
+```bash
+npm run vectors:sync
+```
+
+Use Neon's **pooled** endpoint for `DATABASE_URL` and its **direct** endpoint for
+`DIRECT_DATABASE_URL`: PgBouncer in transaction mode cannot hold the session-level advisory
+locks a migration takes.
 
 ## Tests
 
@@ -92,6 +149,11 @@ cd apps/api && ../../.venv/bin/python -m pytest
 The suite creates and migrates its own `research_intelligence_test` database on the same
 Postgres instance, so running it does not touch your development data. The container must
 be up. Real embeddings run in the tests — there is no stub.
+
+Tests run with `CHROMA_ENABLED=false`, which means they exercise the pgvector fallback on
+every run rather than leaving it as untested code that only executes during an outage. The
+Chroma-specific tests in `tests/test_vector_store.py` opt back in against a throwaway
+collection, and skip cleanly when no Chroma server is running.
 
 ## Evaluation benchmark
 
@@ -169,11 +231,13 @@ storage/           Uploaded PDFs (git-ignored, created at runtime)
 
 ### Keys and model training
 
-`OPENROUTER_API_KEY` is the **only active AI API key**. It is required for
-`/answer`, agent planning/answers, and LLM-dependent benchmark metrics. PDF
-extraction, figures/tables, embeddings, reranking, semantic search, and the
-neural training script are local and need no secret. `SUPABASE_*` variables are
-reserved but unused while local Postgres/storage remain the configured backend.
+`OPENAI_API_KEY` is the primary AI API key for `/answer`, agent planning/answers,
+and LLM-dependent benchmark metrics. When `GEMINI_API_KEY` is also configured,
+the server retries a failed OpenAI request through Gemini using the same grounded
+prompt and returns the model that actually answered. PDF extraction,
+figures/tables, embeddings, reranking, semantic search, and the neural training
+script are local and need no secret. `SUPABASE_*` variables are reserved but
+unused while local Postgres/storage remain the configured backend.
 
 Train the compact neural relevance experiment against the real benchmark project:
 
@@ -242,10 +306,10 @@ from outside the system.
 question. **That is a successful answer, not an error** (PRD §5.4) — the UI renders it as
 one.
 
-The LLM sits behind `LLMProvider`; only `app/services/llm.py` knows OpenRouter exists.
-`OPENROUTER_MODEL` defaults to `anthropic/claude-haiku-4.5` (~$0.009 per answer); cheaper
-alternatives are listed in `.env.example`. Swapping providers means writing another class
-with a `complete` method.
+The LLM sits behind `LLMProvider`; only `app/services/llm.py` knows provider endpoints.
+`OPENAI_API_KEY` with `LLM_MODEL=gpt-5.6-luna` is the default; Gemini is the retained
+automatic backup when its key is configured. Other OpenAI-compatible providers are listed
+in `.env.example`. Swapping providers means writing another class with a `complete` method.
 
 ## Notes for the next sprint
 

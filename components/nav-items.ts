@@ -13,9 +13,9 @@ export const primaryNavItems: NavItem[] = [
   { label: "Research Agent", href: "/agent" },
   { label: "Training Lab", href: "/training" },
   { label: "Upload", href: "/upload" },
-  { label: "Cross-Paper", href: "/cross-paper", preview: true },
-  { label: "Claim Verification", href: "/claim-verification", preview: true },
-  { label: "Reproducibility", href: "/reproducibility", preview: true },
+  { label: "Cross-Paper", href: "/cross-paper" },
+  { label: "Claim Verification", href: "/claim-verification" },
+  { label: "Reproducibility", href: "/reproducibility" },
 ];
 
 export const secondaryNavItems: NavItem[] = [

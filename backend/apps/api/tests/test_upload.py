@@ -158,3 +158,47 @@ def test_get_single_paper(client, project):
 
 def test_get_unknown_paper_is_404(client):
     assert client.get(f"/papers/{uuid4()}").status_code == 404
+
+
+def test_oversized_upload_is_not_fully_buffered(client, project):
+    """The size limit must bound memory, not just the verdict.
+
+    The rejection above passed even when the whole body was read first, so it
+    could not tell a bounded read from an unbounded one. This asserts the
+    property that actually protects the process: the bytes retained never grow
+    with the size of what the client sent.
+    """
+    import asyncio
+
+    from app.api.papers import _UPLOAD_CHUNK_BYTES, _read_capped
+
+    class _HugeUpload:
+        """Would yield far more than the limit if it were read to the end."""
+
+        def __init__(self) -> None:
+            self.blocks_served = 0
+
+        async def read(self, size: int = -1) -> bytes:
+            self.blocks_served += 1
+            return b"0" * _UPLOAD_CHUNK_BYTES
+
+    limit = 4 * _UPLOAD_CHUNK_BYTES
+    source = _HugeUpload()
+    data = asyncio.run(_read_capped(source, limit))
+
+    # Enough to know it is over the limit, and not one block more.
+    assert limit < len(data) <= limit + _UPLOAD_CHUNK_BYTES
+    assert source.blocks_served == 5, "read past the point the verdict was known"
+
+
+def test_upload_exactly_at_the_limit_is_accepted(client, project):
+    """The cap must reject what is over it without also rejecting the boundary."""
+    from app.core.config import get_settings
+
+    limit = get_settings().max_upload_bytes
+    exact = MINIMAL_PDF + b"0" * (limit - len(MINIMAL_PDF))
+    assert len(exact) == limit
+
+    response = upload(client, project["id"], data=exact)
+
+    assert response.status_code == 201, response.text

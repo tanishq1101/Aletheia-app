@@ -1,5 +1,5 @@
 {
-  "completed_at": "2026-09-06T07:29:12.726162+00:00",
+  "completed_at": "2026-09-07T15:04:45.484805+00:00",
   "datasets": {
     "sources": [
       "SciQ",
@@ -9,7 +9,8 @@
     "relevance_pairs": 23988,
     "stance_pairs": 771,
     "downloads_verified": true,
-    "split_leakage_checks": "passed"
+    "split_leakage_checks": "passed",
+    "reranker_candidates": 2420
   },
   "models": {
     "relevance": {
@@ -49,11 +50,29 @@
         ]
       ],
       "log_loss": 0.9865509867668152
+    },
+    "reranker": {
+      "kind": "ranking",
+      "mrr": 0.717047619047619,
+      "recall_at_6": 0.798611111111111,
+      "baseline_mrr": 0.5443030303030303,
+      "baseline_recall_at_6": 0.6458333333333334,
+      "validation_accuracy": 0.7,
+      "log_loss": 0.6247796618757145,
+      "counts": {
+        "train": 1920,
+        "train_positive": 169,
+        "validation": 500,
+        "validation_positive": 41
+      },
+      "epochs_recorded": 21,
+      "note": "Retrained after re-ingesting the benchmark corpus; reproduced the 1 September run's metrics and losses exactly. Offline experiment: live retrieval still uses the production cross-encoder."
     }
   },
   "backend_full_suite": {
-    "passed": 235,
-    "seconds": 9.73
+    "passed": 319,
+    "failed": 2,
+    "failing": "The two live OpenRouter calls only. The account affords 210 output tokens against a 256-token minimum for a usable grounded answer, so both fail on 402. Not a code defect."
   },
   "final_focused_suite": {
     "passed": 21,
@@ -70,13 +89,19 @@
     {
       "notebook": "Aletheia_Multisource_Relevance_Colab.ipynb",
       "code_cells": 6,
-      "seconds": 5.36,
+      "seconds": 4.76,
       "status": "passed"
     },
     {
       "notebook": "Aletheia_Scientific_Stance_Colab.ipynb",
       "code_cells": 6,
-      "seconds": 3.51,
+      "seconds": 3.12,
+      "status": "passed"
+    },
+    {
+      "notebook": "Aletheia_Neural_Reranker_Colab.ipynb",
+      "code_cells": 9,
+      "seconds": 5.44,
       "status": "passed"
     }
   ],
@@ -92,6 +117,10 @@
       "status": 200
     },
     {
+      "task": "reranker",
+      "status": 200
+    },
+    {
       "task": "unknown",
       "status": 404
     },
@@ -103,9 +132,40 @@
   "browser": "Training Lab metrics and graphs visually inspected; no client console errors",
   "limitations": [
     "Stance model is experimental and below majority baseline accuracy.",
-    "No hosted Google Colab execution.",
+    "No hosted Google Colab execution; all three notebooks were run locally.",
+    "The reranker notebook does not reproduce the shipped reranker's metrics: it retrieves with TF-IDF so it can run anywhere, while the shipped pipeline retrieves with a semantic embedding model. Its MLP comes out slightly below its own baseline. Documented in the notebook itself.",
     "No fine-tuning of the hosted chat language model.",
     "No claim of improvement over production Jina or blinded end-to-end chat-quality evaluation.",
-    "Public search uses metadata/available abstracts, not full-text review."
-  ]
+    "Public search uses metadata/available abstracts, not full-text review.",
+    "Rate limiting is in-memory and therefore per process.",
+    "Clerk sign-in was implemented but never exercised against a live tenant."
+  ],
+  "security": {
+    "authentication": "Clerk session JWTs verified locally against JWKS (RS256).",
+    "tests": 22,
+    "refusals_tested": [
+      "expired token",
+      "token signed by a different key",
+      "token from another issuer",
+      "alg: none",
+      "token minted for another origin (azp)",
+      "anonymous request to a protected route"
+    ],
+    "ownership": "Router-level dependency; 404 (not 403) for another user's resource. Negative control run: with the dependency removed all four cross-user tests fail, including DELETE of another user's project.",
+    "rate_limiting": "Verified live: exactly 120 requests allowed then 429 with Retry-After: 30; /health answered 200 throughout.",
+    "fail_closed": "The API refuses to start with no CLERK_ISSUER unless ALLOW_UNAUTHENTICATED=true is set explicitly.",
+    "clerk_live_flow": "NOT verified \u2014 no Clerk keys were available."
+  },
+  "llm_providers": {
+    "configurable": [
+      "openrouter",
+      "gemini",
+      "groq",
+      "ollama",
+      "custom"
+    ],
+    "recommended_free": "gemini (gemini-2.5-flash) \u2014 free tier, no card, vision capable",
+    "selection_tested_offline": true,
+    "live_call_to_gemini": "NOT performed \u2014 no Gemini key was available."
+  }
 }

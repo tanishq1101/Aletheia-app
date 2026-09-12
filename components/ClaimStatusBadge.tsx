@@ -1,13 +1,24 @@
 import Badge, { type BadgeTone } from "@/components/Badge";
-import type { ClaimVerificationStatus } from "@/lib/preview-data";
+import type { Verdict } from "@/types/api";
 
-const statusConfig: Record<ClaimVerificationStatus, { label: string; tone: BadgeTone }> = {
-  verified: { label: "Verified", tone: "success" },
-  disputed: { label: "Disputed", tone: "error" },
-  unverified: { label: "Unverified", tone: "muted" },
+export const verdictTone: Record<Verdict | "unchecked", BadgeTone> = {
+  supported: "success",
+  contradicted: "error",
+  insufficient: "warning",
+  unchecked: "muted",
 };
 
-export default function ClaimStatusBadge({ status }: { status: ClaimVerificationStatus }) {
-  const config = statusConfig[status];
-  return <Badge tone={config.tone} label={config.label} />;
+const verdictLabel: Record<Verdict | "unchecked", string> = {
+  supported: "Supported",
+  contradicted: "Contradicted",
+  insufficient: "Insufficient evidence",
+  unchecked: "Not checked",
+};
+
+export default function ClaimStatusBadge({
+  verdict,
+}: {
+  verdict: Verdict | "unchecked";
+}) {
+  return <Badge tone={verdictTone[verdict]} label={verdictLabel[verdict]} />;
 }

@@ -7,18 +7,61 @@
 import type {
   AnswerResponse,
   AgentResearchResponse,
+  AppSettings,
+  Claim,
+  ClaimVerification,
+  Conversation,
+  CrossPaperMatrix,
   FigureInterpretationResponse,
   HealthResponse,
+  Message,
+  MessageExchange,
   Paper,
   PaperAsset,
   PaperPage,
   PaperSection,
   Project,
+  ReproducibilityReport,
   SearchResult,
 } from "@/types/api";
 
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+/** Supplies a fresh session token, registered once by `<AuthBridge />`.
+ *
+ * Null when the app is running without authentication, in which case requests
+ * go out bare and the API answers as the seeded development user. Kept as a
+ * module-level hook rather than a parameter so no call site can forget it. */
+let authTokenProvider: (() => Promise<string | null>) | null = null;
+
+export function setAuthTokenProvider(
+  provider: (() => Promise<string | null>) | null,
+) {
+  authTokenProvider = provider;
+}
+
+/** Merges the bearer token into a request's headers.
+ *
+ * Tokens are short-lived, so this asks for one per request rather than
+ * caching: the SDK returns a cached token until it is close to expiry, and
+ * holding our own copy is how a long-lived tab starts sending expired ones. */
+async function withAuth(init?: RequestInit): Promise<RequestInit | undefined> {
+  if (!authTokenProvider) return init;
+  let token: string | null = null;
+  try {
+    token = await authTokenProvider();
+  } catch {
+    // A token that cannot be minted is a signed-out session. Let the request
+    // go out unauthenticated and let the API's 401 say so, rather than
+    // throwing a different error here for the same underlying state.
+  }
+  if (!token) return init;
+  return {
+    ...init,
+    headers: { ...(init?.headers ?? {}), Authorization: `Bearer ${token}` },
+  };
+}
 
 export class ApiError extends Error {
   /** 0 when the request never reached the server. */
@@ -63,7 +106,7 @@ async function readError(response: Response): Promise<ApiError> {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, init);
+    response = await fetch(`${API_BASE_URL}${path}`, await withAuth(init));
   } catch {
     throw new ApiError(
       `Cannot reach the API at ${API_BASE_URL}. Is the backend running?`,
@@ -82,7 +125,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export async function getHealth(): Promise<HealthResponse> {
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}/health`);
+    response = await fetch(`${API_BASE_URL}/health`, await withAuth());
   } catch {
     throw new ApiError(
       `Cannot reach the API at ${API_BASE_URL}. Is the backend running?`,
@@ -95,6 +138,17 @@ export async function getHealth(): Promise<HealthResponse> {
     throw await readError(response);
   }
 }
+
+// --- Settings -----------------------------------------------------------------
+
+export const getSettings = () => request<AppSettings>("/settings");
+
+export const updateSettings = (changes: Partial<AppSettings>) =>
+  request<AppSettings>("/settings", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(changes),
+  });
 
 // --- Projects ---------------------------------------------------------------
 
@@ -109,6 +163,15 @@ export const createProject = (name: string, description?: string) =>
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, description: description || null }),
   });
+
+/** Idempotent: returns the existing default project, or creates one if the
+ *  workspace is empty. Safe to call concurrently — the server serialises the
+ *  decision, so a double mount or a second tab cannot produce two libraries. */
+export const ensureDefaultProject = () =>
+  request<Project>("/projects/default", { method: "POST" });
+
+export const deleteProject = (projectId: string) =>
+  request<void>(`/projects/${projectId}`, { method: "DELETE" });
 
 // --- Papers -----------------------------------------------------------------
 
@@ -156,11 +219,12 @@ export const searchProject = (
   projectId: string,
   query: string,
   topK?: number,
+  paperIds?: string[],
 ) =>
   request<SearchResult[]>(`/projects/${projectId}/search`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query, top_k: topK ?? null }),
+    body: JSON.stringify({ query, top_k: topK ?? null, paper_ids: paperIds?.length ? paperIds : null }),
   });
 
 export const answerQuestion = (projectId: string, query: string) =>
@@ -179,4 +243,99 @@ export const runResearchAgent = (
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ goal, max_steps: maxSteps, synthesize: true, discover_sources: true }),
+  });
+
+// --- Claim verification and cross-paper agreement ---------------------------
+
+export const extractClaims = (paperId: string, limit = 8) =>
+  request<Claim[]>(`/papers/${paperId}/claims/extract`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ limit }),
+  });
+
+export const listPaperClaims = (paperId: string) =>
+  request<Claim[]>(`/papers/${paperId}/claims`);
+
+export const listProjectClaims = (projectId: string) =>
+  request<Claim[]>(`/projects/${projectId}/claims`);
+
+export const createClaim = (
+  projectId: string,
+  text: string,
+  paperId?: string,
+) =>
+  request<Claim>(`/projects/${projectId}/claims`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, paper_id: paperId ?? null }),
+  });
+
+export const verifyClaim = (claimId: string) =>
+  request<ClaimVerification>(`/claims/${claimId}/verify`, { method: "POST" });
+
+export const buildCrossPaperMatrix = (
+  projectId: string,
+  claimIds: string[],
+  paperIds: string[],
+  refresh = false,
+) =>
+  request<CrossPaperMatrix>(`/projects/${projectId}/cross-paper`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      claim_ids: claimIds,
+      paper_ids: paperIds,
+      refresh,
+    }),
+  });
+
+export function getStoredCrossPaperMatrix(
+  projectId: string,
+  claimIds: string[],
+  paperIds: string[],
+) {
+  const params = new URLSearchParams();
+  claimIds.forEach((id) => params.append("claim_ids", id));
+  paperIds.forEach((id) => params.append("paper_ids", id));
+  return request<CrossPaperMatrix>(
+    `/projects/${projectId}/cross-paper?${params.toString()}`,
+  );
+}
+
+// --- Reproducibility ----------------------------------------------------------
+
+export const getReproducibilityReport = (paperId: string) =>
+  request<ReproducibilityReport | null>(`/papers/${paperId}/reproducibility`);
+
+export const runReproducibilityReport = (
+  paperId: string,
+  checkGithub = true,
+) =>
+  request<ReproducibilityReport>(`/papers/${paperId}/reproducibility`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ check_github: checkGithub }),
+  });
+
+// --- Conversations (Ask persistence) ----------------------------------------
+
+export const listConversations = (projectId: string) =>
+  request<Conversation[]>(`/projects/${projectId}/conversations`);
+
+export const createConversation = (projectId: string, paperId?: string) =>
+  request<Conversation>(`/projects/${projectId}/conversations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ paper_id: paperId ?? null }),
+  });
+
+export const listMessages = (conversationId: string) =>
+  request<Message[]>(`/conversations/${conversationId}/messages`);
+
+export const sendMessage = (conversationId: string, query: string) =>
+  request<MessageExchange>(`/conversations/${conversationId}/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query }),
   });

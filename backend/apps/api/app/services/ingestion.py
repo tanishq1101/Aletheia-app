@@ -26,6 +26,7 @@ from app.services.embedding import (
 from app.services.parsing import build_parser
 from app.services.providers import ParsedDocument, ParserError
 from app.services.storage import StorageError, build_storage
+from app.services.vector_store import VectorStoreError, delete_paper, upsert_chunks
 
 log = get_logger(__name__)
 
@@ -172,13 +173,19 @@ def _persist_chunks(
     vectors: list[list[float]],
     page_ids: dict[int, str],
     model_name: str,
-) -> None:
+) -> list[UUID]:
+    """Insert the chunk rows and return their ids, in chunk order.
+
+    The ids come back so the same vectors can be mirrored into Chroma after the
+    transaction commits, keyed by the identity Postgres assigned.
+    """
     if len(chunks) != len(vectors):
         raise EmbeddingError(
             f"{len(vectors)} vectors for {len(chunks)} chunks — refusing to "
             "store misaligned embeddings."
         )
 
+    chunk_ids: list[UUID] = []
     with conn.cursor() as cur:
         for chunk, vector in zip(chunks, vectors, strict=True):
             cur.execute(
@@ -188,6 +195,7 @@ def _persist_chunks(
                      token_count, embedding, start_offset, end_offset,
                      embedding_model, embedded_at)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now())
+                RETURNING id
                 """,
                 (
                     str(paper_id),
@@ -202,6 +210,8 @@ def _persist_chunks(
                     model_name,
                 ),
             )
+            chunk_ids.append(cur.fetchone()["id"])
+    return chunk_ids
 
 
 def _persist_assets(
@@ -262,7 +272,8 @@ def process_paper(paper_id: UUID, job_id: UUID) -> None:
                     (str(paper_id),),
                 )
                 cur.execute(
-                    "SELECT storage_path, filename FROM papers WHERE id = %s", (str(paper_id),)
+                    "SELECT storage_path, project_id, filename FROM papers WHERE id = %s",
+                    (str(paper_id),),
                 )
                 row = cur.fetchone()
             conn.commit()
@@ -272,6 +283,7 @@ def process_paper(paper_id: UUID, job_id: UUID) -> None:
             return
 
         storage_path = row["storage_path"]
+        project_id = row["project_id"]
         filename = row["filename"]
     except Exception as exc:
         _fail(job_id, paper_id, f"Could not start processing: {exc}")
@@ -289,7 +301,7 @@ def process_paper(paper_id: UUID, job_id: UUID) -> None:
         with get_connection() as conn:
             _set_stage(conn, job_id, *STAGE_PARSE)
         parsed = (
-            build_parser().parse(data=data)
+            build_parser().parse(data=data, filename=filename)
             if filename.lower().endswith(".pdf")
             else parse_attachment(data=data, filename=filename)
         )
@@ -368,7 +380,7 @@ def process_paper(paper_id: UUID, job_id: UUID) -> None:
         with get_connection() as conn:
             _set_stage(conn, job_id, *STAGE_PERSIST)
             page_ids = _persist(conn, paper_id, parsed, page_token_counts)
-            _persist_chunks(
+            chunk_ids = _persist_chunks(
                 conn, paper_id, chunks, vectors, page_ids, provider.name
             )
             _persist_assets(
@@ -391,6 +403,41 @@ def process_paper(paper_id: UUID, job_id: UUID) -> None:
         log.exception("Could not persist extraction for paper %s", paper_id)
         _fail(job_id, paper_id, f"Could not save extracted content: {exc}")
         return
+
+    # --- mirror the vectors into Chroma ---
+    # After the commit, and deliberately not inside it. The vectors are already
+    # durable in the `embedding` column, so a Chroma that is down costs this
+    # paper its place in the primary index — retrieval still finds it through
+    # pgvector — and must not fail an otherwise complete ingestion.
+    # `scripts/backfill_chroma.py` re-syncs whatever was missed.
+    try:
+        # A reprocess deleted this paper's rows and reinserted them under new
+        # ids, so an upsert alone would leave the previous generation of
+        # vectors in the collection, occupying top-k slots for chunks that no
+        # longer exist. Clear the paper first, then write the current set.
+        delete_paper(paper_id)
+        upsert_chunks(
+            project_id=project_id,
+            paper_id=paper_id,
+            chunk_ids=chunk_ids,
+            vectors=vectors,
+            contents=[c.content for c in chunks],
+            metadatas=[
+                {
+                    "chunk_index": c.chunk_index,
+                    "section": c.section or "",
+                    "page_number": c.page_number,
+                }
+                for c in chunks
+            ],
+        )
+    except VectorStoreError as exc:
+        log.warning(
+            "Paper %s is ingested but not mirrored into Chroma (%s) — "
+            "retrieval will use pgvector until backfill_chroma.py runs",
+            paper_id,
+            exc,
+        )
 
     log.info(
         "Processed paper %s: %d pages, %d sections, %d assets, %d chunks embedded with %s",

@@ -184,3 +184,149 @@ export interface HealthResponse {
   database: string;
   storage: string;
 }
+
+// --- Conversations (Ask persistence) ----------------------------------------
+
+export interface Conversation {
+  id: string;
+  project_id: string;
+  paper_id: string | null;
+  created_at: string;
+  message_count: number;
+  /** First question asked, used as a list label. Not stored separately. */
+  preview: string | null;
+}
+
+export interface MessageMetadata {
+  sufficient_evidence: boolean;
+  model: string;
+  candidates_considered: number;
+  fabricated_citations_removed: number;
+  evidence_dropped_for_budget: number;
+}
+
+export interface Message {
+  id: string;
+  conversation_id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  created_at: string;
+  citations: Citation[];
+  metadata: MessageMetadata | null;
+}
+
+export interface MessageExchange {
+  user_message: Message;
+  assistant_message: Message;
+}
+
+// --- Claims and cross-paper verification ------------------------------------
+
+export type Verdict = "supported" | "contradicted" | "insufficient";
+
+export interface ClaimVerification {
+  id: string;
+  claim_id: string;
+  paper_id: string | null;
+  verdict: Verdict;
+  /** Model-reported, 0-1. Not calibrated — always labelled as such in the UI. */
+  confidence: number | null;
+  rationale: string;
+  citations: Citation[];
+  evidence_count: number;
+  model: string | null;
+  created_at: string;
+}
+
+export interface Claim {
+  id: string;
+  project_id: string;
+  paper_id: string | null;
+  text: string;
+  source: "extracted" | "manual";
+  claim_index: number;
+  created_at: string;
+  verification: ClaimVerification | null;
+}
+
+export interface CrossPaperCell {
+  claim_id: string;
+  paper_id: string;
+  verification: ClaimVerification;
+}
+
+export interface CrossPaperMatrix {
+  claim_ids: string[];
+  paper_ids: string[];
+  cells: CrossPaperCell[];
+  /** How many cells cost a model call on the last request. */
+  cells_computed: number;
+}
+
+// --- Reproducibility ---------------------------------------------------------
+
+export type DisclosureStatus = "disclosed" | "partial" | "missing";
+
+export interface ReproducibilityCheck {
+  dimension: string;
+  status: DisclosureStatus;
+  rationale: string;
+  citations: Citation[];
+  check_index: number;
+}
+
+export interface RepoMetadata {
+  repository: string;
+  status: "ok" | "not_found" | "rate_limited" | "unavailable";
+  url?: string;
+  description?: string | null;
+  stars?: number;
+  forks?: number;
+  license?: string | null;
+  language?: string | null;
+  last_pushed_at?: string | null;
+  archived?: boolean;
+  open_issues?: number;
+  detail?: string;
+}
+
+export interface PaperLink {
+  kind: "github" | "gitlab" | "doi";
+  url: string;
+  owner?: string;
+  repo?: string;
+  doi?: string;
+}
+
+export interface ReproducibilityReport {
+  id: string;
+  paper_id: string;
+  /** Weighted disclosure, 0-1. Measures disclosure, not replication. */
+  score: number;
+  repo_metadata: RepoMetadata | null;
+  links: PaperLink[];
+  model: string | null;
+  created_at: string;
+  checks: ReproducibilityCheck[];
+}
+
+// --- Settings -----------------------------------------------------------------
+
+export interface AppSettings {
+  search_top_k: number;
+  rerank_top_k: number;
+  context_max_tokens: number;
+  llm_model: string;
+  llm_provider: string;
+  /** Whether a key is present — the key itself is never sent. */
+  llm_key_configured: boolean;
+  embedding_model: string;
+  rerank_model: string;
+  chunk_max_tokens: number;
+  chunk_overlap_tokens: number;
+  storage_backend: string;
+  max_upload_bytes: number;
+  github_token_configured: boolean;
+  dev_user_id: string;
+  overridden: string[];
+}

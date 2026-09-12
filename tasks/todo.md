@@ -1,215 +1,344 @@
-# Aletheia — Multimodal Agentic Research Sprint
+# Aletheia — Neon + Prisma + ChromaDB integration
 
-## Current objective
+## Decisions (confirmed with user)
+- Prisma = schema + migration source of truth only. FastAPI stays on psycopg.
+- ChromaDB = self-hosted Docker server alongside the app.
+- Chroma primary, Neon pgvector mirrored as automatic fallback.
+- Existing data migrated, not re-ingested.
 
-Deliver one verified vertical slice beyond the text-RAG foundation:
-
-1. extract readable text plus first-class figures, tables, and equation candidates from PDFs;
-2. expose those assets through the API and paper reader;
-3. add a bounded, inspectable research-agent workflow over the local paper corpus;
-4. add a reproducible local neural relevance-model training pipeline and evaluation report;
-5. document exactly which features are local and which require an external AI key.
-
-This sprint deliberately crosses the old PRD phase boundaries at the user's direction. It does
-not claim that all of Phases 2–6 are complete.
-
-## Architecture and scope decisions
-
-- **PDF extraction:** keep PyMuPDF as the only PDF dependency. Raster figures are extracted from
-  embedded images, captions are linked by page geometry, tables use PyMuPDF's table detector,
-  and equation candidates use conservative text/layout heuristics. Math OCR and chart semantics
-  remain later work and must not be presented as solved.
-- **Storage:** add `paper_assets`, linked to paper and page. Binary figures use the existing
-  storage backend; table/equation text is stored in Postgres. Reprocessing replaces assets in
-  the same transaction as pages/chunks so stale data cannot survive.
-- **Reader:** add structured extraction cards, previews, captions, page links, and readable page
-  typography. The original cleaned text remains the canonical searchable text.
-- **Agent:** implement a bounded planner → retrieve/rerank → answer → verify workflow. Every step
-  is returned in an audit trace, citations are still validated server-side, and the agent cannot
-  browse or mutate external systems. `max_steps` is capped to control cost and loops.
-- **Keys:** embeddings, reranking, PDF parsing, asset extraction, and training are local and need
-  no key. Planning/answer generation uses only `OPENROUTER_API_KEY` through `LLMProvider`.
-- **Training:** train a small multi-layer neural relevance classifier from benchmark
-  question/candidate pairs using NumPy and deterministic backprop. Split by question ID, publish
-  validation metrics, and do not replace the production cross-encoder unless the trained model
-  demonstrably improves the held-out ranking metric. This is genuine local supervised training,
-  but not an end-to-end transformer fine-tune; that requires a GPU-scale training decision.
-
-## Ordered checklist
-
-### 1. Plan and schema
-
-- [x] Reconcile current PRD, sprint status, and requested expanded scope.
-- [x] Add migration for structured PDF assets and indexes.
-- [x] Add wire schemas for assets and agent traces.
-
-### 2. Multimodal PDF extraction
-
-- [x] Implement figure extraction with size/noise filters and caption linking.
-- [x] Implement table extraction to structured rows plus Markdown text.
-- [x] Implement conservative equation-candidate extraction.
-- [x] Store binaries safely through the existing storage abstraction.
-- [x] Replace assets idempotently during reprocessing.
-- [x] Add asset list/content API endpoints.
-- [x] Add generated-PDF fixtures and extraction tests.
-
-### 3. Reader and data clarity
-
-- [x] Load assets with pages and sections in the paper reader.
-- [x] Replace the placeholder Extraction tab with real figure/table/equation cards.
-- [x] Add clear counts, captions, page locations, and figure previews.
-- [x] Improve text measure, line height, page separation, and navigation readability.
-
-### 4. Bounded research agent
-
-- [x] Add planner output parsing with a deterministic fallback question plan.
-- [x] Execute a capped set of grounded subquestions through the existing RAG pipeline.
-- [x] Return an explicit trace of planned, running, succeeded, and failed steps.
-- [x] Preserve evidence-ID validation on every agent answer.
-- [x] Add endpoint, frontend page, navigation, and mocked-provider tests.
-
-### 5. Local model training
-
-- [x] Implement deterministic feature extraction for benchmark candidate pairs.
-- [x] Implement a NumPy multi-layer neural binary classifier and serialization.
-- [x] Add a training CLI that uses the real benchmark project in Postgres.
-- [x] Split by question, report held-out loss/accuracy/MRR, and compare with cosine baseline.
-- [x] Save model metadata and a Markdown training report.
-- [x] Add unit tests for determinism, loss reduction, and save/load parity.
-
-### 6. Configuration and documentation
-
-- [x] Add provider/key capability matrix to `.env.example`, README, and Settings.
-- [x] Document local models, training dataset, artifact format, and GPU-scale next step.
-- [x] Update project progress without overstating unverified hosted-model behavior.
-
-### 7. Verification
-
-- [x] Apply migrations to the Docker Postgres instance.
-- [x] Run the complete backend suite.
-- [x] Run frontend ESLint, TypeScript, and production build.
-- [x] Reprocess one real corpus paper and inspect extracted assets.
-- [x] Run the neural training CLI and record held-out metrics.
-- [x] Start the local stack and verify health, reader extraction, and agent error/key behavior.
-
-## Acceptance criteria
-
-- Reprocessing a PDF produces queryable structured assets without duplicating old rows.
-- Figure content cannot escape the configured storage root and is served only by resolved asset ID.
-- The reader clearly distinguishes extracted, unavailable, and heuristic data.
-- Agent runs are bounded, auditable, grounded, and reject fabricated evidence IDs.
-- Training is reproducible from checked-in code/dataset metadata and reports held-out metrics.
-- No secret is committed; the only hosted AI secret requested is `OPENROUTER_API_KEY`.
-- All existing behavior and tests remain green.
+## Plan
+- [x] 1. `chroma` service in docker-compose (1.5.9, port 8001), healthy
+- [x] 2. `chromadb-client==1.5.9` installed and pinned (thin HTTP client)
+- [x] 3. CHROMA_* settings in config.py + .env.example
+- [x] 4. `services/vector_store.py` — Chroma behind one interface
+- [x] 5. Retrieval reads Chroma, falls back to pgvector; ingestion dual-writes
+       after commit; reprocess clears stale vectors first
+- [x] 6. `prisma/schema.prisma` — 18 models, matches live schema exactly
+- [x] 7. `scripts/migrate_to_neon.py` — transactional row copy, FK order
+- [x] 8. `scripts/backfill_chroma.py` — 459 vectors synced
+- [x] 9. `scripts/verify_schema.py` + `npm run db:verify` guard
+- [x] 10. `tests/test_vector_store.py` — 10 tests, Chroma + fallback
+- [x] 11. Re-verification: 278 pass, build clean, typecheck clean
 
 ## Review
 
-- Docker Postgres is healthy on host port `5433`; migration `0005_paper_assets.sql` is applied.
-- Complete backend result after configuring OpenRouter: **214 passed**. The live provider tests
-  now run successfully rather than being skipped.
-- Frontend result: ESLint, TypeScript, and the Next.js webpack production build pass. The build
-  includes the new `/agent` route and dynamic paper reader.
-- Real-PDF result (`Attention Is All You Need`, 15 pages): **3 figures, 2 readable tables, and
-  12 explicitly labelled heuristic equation candidates**. A second pass replaced rather than
-  duplicated assets. A quality gate rejected 33–56-column attention-layout grids that the PDF
-  library initially misclassified as tables.
-- Browser/API result: extracted figures render from the protected asset-content endpoint, captions
-  and page numbers are visible, and text uses a narrower measure and larger line height. A live
-  Claude Haiku 4.5 agent run produced two planned, grounded steps without fallback; every returned
-  citation resolved to server-supplied evidence.
-- Neural training result: deterministic `5 → 16 → 8 → 1` NumPy MLP, 1,920 training examples and
-  500 held-out examples. MRR improved **0.544 → 0.717 (+0.173)** and Recall@6 improved
-  **0.646 → 0.799 (+0.153)**. The artifact is eligible for a later blended-reranker experiment;
-  it was not silently promoted over the current production cross-encoder.
-- Only hosted AI secret required: `OPENROUTER_API_KEY`. PDF parsing, asset extraction, embeddings,
-  reranking, and neural training all run locally without an API key.
-- Remaining limitations are explicit: equation extraction is text/layout heuristic rather than
-  math OCR; figure vision is one-at-a-time and cached without regeneration/history; the agent is deliberately
-  bounded to four corpus-only steps; a transformer fine-tune still needs a larger labelled dataset
-  and an approved GPU/compute budget.
+### What was built
+`vector_store.py` is a small module with one job: hand back (chunk_id,
+similarity) pairs from Chroma, or raise. Retrieval catches that and runs the
+pgvector query instead. Content, section and page are always read from
+Postgres afterwards, so Chroma holds vectors and filter metadata only and the
+two stores cannot drift into disagreeing about what a chunk says.
 
-## Focused Multimodal Slice — On-demand Figure Interpretation
+The dual write happens *after* the ingestion transaction commits, not inside
+it. A Chroma outage then costs a paper its place in the primary index and
+nothing else — the vectors are already durable in `paper_chunks.embedding`,
+retrieval still finds them, and `backfill_chroma.py` re-syncs.
 
-### Objective
+### Verified, not assumed
+- Fallback: stopped the container mid-session. Same chunk ids, same order,
+  same similarity scores as Chroma, to 4 dp. `/health` reported
+  `vector_store: degraded` while `status` stayed `ok`.
+- Degradation without the client library installed: import blocked at runtime,
+  retrieval still answered.
+- Baseline fidelity: applied `0_init/migration.sql` to a scratch database and
+  diffed against the source — 132 columns, 45 indexes, 65 constraints, all
+  matching.
+- Cut-over: full 1086-row copy to a scratch target. Vector and JSONB columns
+  compared by md5 over the whole table — byte identical. ANN query works on
+  the target.
+- The guard: dropped an index and a CHECK on a scratch database and confirmed
+  `verify_schema.py` exits 1 and names both.
 
-Interpret exactly one extracted figure per explicit user action. Do not batch, precompute, or
-auto-run vision requests. Keep page context and output bounded so free-tier usage remains
-predictable. Tables and equations stay out of scope for this slice.
+### The trap worth knowing about
+`prisma migrate diff` produced a baseline that was missing all 18 CHECK
+constraints, had rewritten the HNSW index as a btree, and had dropped the
+WHERE clause off the partial sha256 index. None of that fails loudly: a
+dropped HNSW index leaves vector search *working*, just sequentially scanning.
+`scripts/dump_raw_objects.py` regenerates the correct DDL from the catalog and
+`npm run db:verify` asserts it is still there. This is why the README says to
+read generated migration SQL before applying it.
 
-### Checklist
+### Still open
+- **OpenRouter is out of credits (HTTP 402).** Every LLM feature — answering,
+  agent research, claim verification, figure interpretation, cross-paper
+  synthesis — returns 503 until it is topped up. Unrelated to this work; the
+  2 failing tests are exactly these live calls.
+- **Neon not yet cut over** — waiting on the connection string. Everything is
+  built and rehearsed against a scratch database; the cut-over is 4 commands.
+- `schema_migrations` carries 5 stale rows from an old renumbering. Harmless
+  (the schema is correct) and cleared by starting Neon from the Prisma
+  baseline instead of the legacy SQL migrations.
+- Enter-to-submit on /search could not be reproduced under browser automation.
+  Trusted keydown reaches the input, bubbles un-prevented to window, no submit
+  fires — but CDP's synthetic Enter does not run Chromium's default form
+  action, and the form is otherwise textbook (onSubmit, enabled submit button,
+  input inside the form; requestSubmit works). Needs a 5-second manual check.
 
-- [x] Extend the provider boundary with one image-plus-text completion method.
-- [x] Add a single-figure interpretation service with image/type/size validation.
-- [x] Add `POST /assets/{asset_id}/interpret` and a small response schema.
-- [x] Add an on-demand Interpret button and result/error state to figure cards only.
-- [x] Add provider-payload, endpoint, validation, and no-auto-run tests.
-- [x] Run backend tests and frontend lint/typecheck/build.
-- [x] Make at most one live interpretation call against the existing Transformer figure.
+---
 
-### Focused-slice acceptance criteria
+## Final pre-ship audit (7 Sept 2026)
 
-- No vision request occurs while loading the reader or extraction tab.
-- One button/API invocation interprets one resolved figure and cannot target tables/equations.
-- Image bytes stay inside the backend; the frontend sends only an asset ID.
-- The provider request is capped and the interpretation clearly says it is AI-generated.
-- Existing text extraction, grounded agent, and training behavior remain green.
+Full sweep: build, typecheck, lint, 294 backend tests, live browser walk of every
+page, and a security pass over the API. Six real defects found and fixed.
 
-### Focused-slice review
+### Fixed
 
-- Implemented a figure-only `POST /assets/{id}/interpret` endpoint and reader button. Loading the
-  reader performs zero vision calls; a successful result disables repeat calls for that card in
-  the current UI session.
-- The browser sends only the asset UUID. The backend resolves private image bytes, accepts PNG,
-  JPEG, WebP, or GIF up to 5 MB, includes at most 2,500 page-context characters, and caps vision
-  output at 500 tokens.
-- Offline verification (key deliberately disabled): **217 passed, 2 live tests skipped**. Frontend
-  ESLint, TypeScript, and the production webpack build pass.
-- Exactly one live request was made for Transformer Figure 1: HTTP 200, 2,072 prompt tokens and
-  383 completion tokens. It identified the encoder/decoder structure, attention blocks, residual
-  paths, feed-forward layers, and output head, while reporting uncertainty about unlabeled details.
-- No batch interpretation, table interpretation, equation OCR, or result persistence was added in
-  this initial slice; the following cache slice adds persistence without expanding provider usage.
+- [x] **Duplicate default project — papers appeared to vanish.** `listProjects`
+      then "create if empty" is two round trips with a gap; a dev double-mount
+      fell into it and created two "My Library" projects 171 ms apart. The UI
+      then selected the newer, empty one, so the uploaded paper was invisible.
+      Now `POST /projects/default` decides it server-side under a per-user
+      advisory lock. Verified with 5 concurrent calls returning one id.
+- [x] **Every AI feature was down on a 402.** `max_tokens` is a reservation, not
+      a spend, so a 2048 ceiling was refused outright while the balance could
+      cover the actual answer. The provider now retries once at the affordable
+      ceiling, and refuses below 256 tokens rather than serving a stub.
+      This turned the 2 long-standing failing tests green.
+- [x] **467 of 508 Chroma vectors were orphaned (92%).** Left behind by the Neon
+      cut-over. Retrieval skipped them, so no wrong citations — but they
+      occupied candidate slots and silently shrank result sets. Rebuilt from
+      Postgres: now 41/41 in sync.
+- [x] **Paper deletion never removed vectors.** `vector_store.delete_paper` was
+      written and documented for exactly this and never called. Wired in, so
+      the orphan problem above cannot recur.
+- [x] **`DELETE /projects/{id}` did not exist.** The settings screen has always
+      shown a delete-with-confirmation flow; the button returned 405. Route
+      added, cascading to papers, vectors and stored bytes.
+- [x] **Uploads were fully buffered before the size check.** A 2 GB body cost
+      2 GB of memory before being rejected. Now read in 1 MB blocks, stopping
+      one block past the limit.
 
-## Focused Multimodal Slice — Interpretation Cache
+### Hardening
 
-### Objective
+- [x] Security headers on every response (`nosniff`, `DENY`, `no-referrer`,
+      CSP). Matters because `/assets/{id}/content` replays a media type
+      recorded at ingestion.
+- [x] 402 now names the cause ("account is out of credits") instead of leaking
+      `Prompt tokens limit exceeded: 3332 > 2642`, which reads like an app bug.
+- [x] Two pre-existing `react-hooks/set-state-in-effect` lint errors fixed by
+      deriving the default paper during render instead of seeding it in an
+      effect. Lint is now clean at zero warnings.
 
-Persist one successful interpretation per figure/model/prompt version and return it on later
-requests without another provider call. Do not add regeneration, history, batch processing,
-table interpretation, or equation OCR in this slice.
+### Verified, not assumed
 
-### Checklist
+- 294 backend tests pass. `tsc --noEmit`, `eslint` and `next build` all clean.
+- Search end-to-end against the rebuilt index: 0.797 top similarity, relevant.
+- Fresh-user path (cleared localStorage) now lands on the library holding the
+  paper, and persists that choice.
+- CORS refuses a forged origin; all SQL is parameterized; storage resolves and
+  re-checks against the root, so no traversal.
 
-- [x] Add an asset-interpretation migration with cascade cleanup and a unique cache key.
-- [x] Return cached interpretations before reading image bytes or resolving the LLM dependency.
-- [x] Persist only successful provider results and handle concurrent first requests safely.
-- [x] Add `cached` and `created_at` to the API/frontend response contract.
-- [x] Update the figure card to distinguish newly generated and saved interpretations.
-- [x] Test first-call generation, second-call cache hits, failures, and cascade cleanup.
-- [x] Apply the migration and run backend/frontend verification with live calls disabled.
+### Still open
 
-### Cache acceptance criteria
+- **OpenRouter account is out of credits.** Not a code problem: the retry lands
+  on a *prompt*-token ceiling of ~2642 against a 3300-token evidence prompt.
+  One live test fails only when run back-to-back with the other; it passes
+  alone. Everything else — search, reranking, extraction — is local.
+- **No authentication.** Anyone who can reach the API reads and writes
+  everything. The sign-in page says so honestly. This is the one thing that
+  must land before any deployment reachable from a network.
+- **No rate limiting.** An open, unauthenticated LLM-backed endpoint is a
+  billing risk as soon as it is exposed.
+- The duplicate empty "My Library" still exists. It is no longer selected;
+  removing it is now possible from Settings.
 
-- The second request for the same asset/model/prompt version makes zero provider calls.
-- Provider failures never create a cache row.
-- Reprocessing/deleting an asset removes its cached interpretation through the foreign key.
-- The UI tells the user whether the displayed result was generated now or loaded from cache.
-- Verification consumes no OpenRouter quota.
+---
 
-### Cache review
+## Sprint: third training session, Clerk auth, free LLM, rate limiting (7 Sept 2026)
 
-- Added `0006_asset_interpretations.sql`. The cache key is
-  `(asset_id, model, prompt_version)`, and `ON DELETE CASCADE` removes stale results when an
-  asset is replaced during reprocessing.
-- A cache hit is resolved before storage reads and before `get_llm_provider()`. Concurrent first
-  requests serialize on a transaction-scoped advisory lock, recheck the cache, and make one
-  provider call. Only a successful result is inserted.
-- The API now returns `cached` and `created_at`. Figure cards label results as either generated
-  and saved now or loaded from a saved result with no new AI call.
-- Focused cache result: **7 passed**, covering no-auto-run, first generation/second cache hit,
-  concurrent first requests, provider rollback, reprocess cascade, non-figure rejection, and the
-  existing image-size guard.
-- Complete backend result with `OPENROUTER_API_KEY` deliberately blank: **220 passed, 2 live
-  provider tests skipped**. Frontend ESLint, TypeScript, and the Next.js production build pass.
-- Migration `0006` is applied to Docker Postgres; the container reports healthy and the local
-  backend health endpoint reports database/storage `ok`. Verification made zero OpenRouter calls.
+### 1. Third model missing from the Training Lab
+Root cause found, three separate gaps — not one bug:
+- [ ] `app/(app)/training/page.tsx` hardcodes a two-element `experiments` array
+      (relevance, stance). The neural relevance reranker is simply absent.
+- [ ] `app/api/training/[task]/route.ts` maps only two notebooks, so even the
+      download route could not serve the third.
+- [ ] `colab/validate_research_notebooks.py` hardcodes the same two filenames,
+      so `Aletheia_Neural_Reranker_Colab.ipynb` has 9 code cells and **zero**
+      outputs — it has never been executed, hence no "training session".
+- [ ] `backend/models/neural_relevance_model.json` records only
+      `initial_train_loss` / `final_train_loss`. `TrainingHistory.losses` is
+      computed and thrown away, so there is no learning curve to draw.
+- [ ] The `Sprint 6 Benchmark Corpus` project no longer exists in Neon (lost in
+      the cut-over), so the trainer cannot rebuild candidates.
+
+Fix, in order:
+- [ ] Re-ingest the 10-paper corpus (`scripts/ingest_corpus.py`) — local
+      embeddings, no API key.
+- [ ] Persist `history.json` from `train_neural_reranker.py` in the same shape
+      the other two models use, and re-run training.
+- [ ] Make the Training Lab data-driven so a trained model can never again be
+      silently missing from the page.
+- [ ] Execute the reranker notebook offline against the local corpus and record
+      it in `validation-results.json` alongside the other two.
+
+### 2. Clerk authentication
+- [ ] Google OAuth + email/password + username.
+- [ ] Middleware protecting the `(app)` routes.
+- [ ] Backend verifies the Clerk session JWT; `DEV_USER_ID` is replaced by the
+      real subject, so projects scope per user for the first time.
+- [ ] `users` table gains a Clerk subject column; users provisioned on first
+      request.
+
+### 3. Free LLM provider (OpenRouter is out of credits)
+- [ ] Google Gemini free tier via its OpenAI-compatible endpoint — free, high
+      daily limits, and it does vision, which figure interpretation needs.
+- [ ] Keep the provider interface; select with `LLM_PROVIDER`.
+
+### 4. Rate limiting and security
+- [ ] Per-user / per-IP rate limits, strictest on the LLM-backed routes.
+- [ ] Audit and fix whatever else the pass turns up.
+
+---
+
+## Review — third training session, Clerk auth, free LLM, rate limiting
+
+### 1. The third model was missing in four separate places
+
+Not one bug. The neural relevance reranker was trained, evaluated and
+completely invisible, and each layer had its own reason:
+
+- [x] `app/(app)/training/page.tsx` held a two-element literal. The reranker
+      was never added to it.
+- [x] `app/api/training/[task]/route.ts` held a *second* two-element literal,
+      so the download would have 404'd even once the page offered it.
+- [x] `colab/validate_research_notebooks.py` held a *third*, so the notebook
+      had nine code cells and zero outputs — never executed, whatever the
+      prose said.
+- [x] `TrainingHistory.losses` was computed every run and thrown away.
+      `neural_relevance_model.json` kept only the first and last loss, so
+      there was no curve to draw even if the page had wanted one.
+- [x] The `Sprint 6 Benchmark Corpus` project no longer existed in Neon (lost
+      in the cut-over), so the trainer could not rebuild its candidates.
+
+Fixed by making the list exist once. `lib/experiments.ts` is now the single
+registry the page and the download route both read, and the notebook validator
+derives its list from the directory and **fails** if a notebook in `colab/` is
+not in it. A fourth model is one entry; a half-added one cannot ship looking
+complete.
+
+The card is not a copy of the other two. A ranking model has no meaningful
+accuracy and no confusion matrix, so it shows MRR and Recall@6 against the
+cosine baseline it has to beat. Forcing it into the classifier layout would
+have meant inventing numbers.
+
+### 2. Two real bugs found only by running things
+
+- [x] **The reranker notebook crashed on cell 4.** `make_chunks` iterated
+      `lines`, which was never assigned. Anyone who opened it in Colab and
+      chose Run all hit `NameError`. Found because the notebook was executed
+      for the first time, which is the entire argument for executing it.
+- [x] **`build_neural_reranker_notebook.py` would have silently reverted it.**
+      The generator has drifted well behind the checked-in notebook — it still
+      emits the pypdf→PyMuPDF switch, drops the download retry loop, and has
+      12 double-brace sites that print `{key}` instead of the value. Running it
+      overwrote all of that without a word. It now compares the code cells and
+      refuses unless `--force`, naming what to reconcile.
+
+### 3. Retraining reproduced the original run exactly
+
+Re-ingested the corpus (10/10 papers, 198 pages, 389 chunks embedded) and
+retrained. Same 1,920/500 split, same 169/41 positives, same MRR 0.717, same
+Recall@6 0.799, same losses to 4 dp as the run from 1 September. A re-ingest
+that produces byte-identical retrieval candidates is a stronger reproducibility
+result than the notebook was ever going to give.
+
+`history.json` now records 21 sampled epochs with **both** train and validation
+loss. The validation line is new for all future runs: it costs one forward pass
+per sample and it is the only thing on the chart that can show overfitting.
+
+### 4. Authentication (Clerk)
+
+- [x] Google, email and username sign-in. Clerk hosts the form, so no
+      credential ever passes through this codebase.
+- [x] `middleware.ts` protects every route by allow-list. A page added next
+      month is protected by default; with a deny-list it would be public by
+      accident and nobody would notice.
+- [x] The API verifies the session JWT locally against Clerk's JWKS — one
+      fetch per key rotation, not per request, and the secret key is not
+      involved. Users are provisioned on first request rather than by webhook,
+      because a webhook that has not arrived yet is a signed-in user staring at
+      an error.
+- [x] Migration `0011_clerk_users.sql`. The local UUID stays the primary key —
+      every foreign key already points at it — with `clerk_user_id` unique
+      alongside, so one person cannot fork into two half-libraries.
+- [x] **The API refuses to start** with no issuer and no explicit
+      `ALLOW_UNAUTHENTICATED=true`. A deployment that forgets to configure
+      Clerk gets a startup error instead of an open database.
+- [x] Without keys, everything behaves exactly as before and the sign-in page
+      says so. A repository checked out fresh still builds and runs.
+
+### 5. A live IDOR, found while wiring auth in
+
+Only `GET /projects` filtered by user. `GET /projects/{id}`,
+`DELETE /projects/{id}` and every paper, claim, conversation and asset route
+took an id from the URL and trusted it. With one seeded user that was
+invisible; the moment accounts existed, **any signed-in user could have read or
+deleted another's entire library by guessing a UUID.**
+
+`app/core/ownership.py` is attached at the router, not the handler — FastAPI
+resolves dependencies after route matching, so one function sees whichever
+resource id the matched route declares and a new endpoint inherits the check
+the day it is written. Per-handler would have been thirty edits and one that
+got forgotten, which is precisely the failure that produced the bug above.
+
+404, not 403, for someone else's id: a 403 confirms the id exists.
+
+### 6. Rate limiting
+
+Three sliding windows, per signed-in user and falling back to IP: 120
+requests/minute general, **12/minute** for the LLM-backed routes because those
+cost money and take seconds, and 60 uploads/hour because those consume disk.
+`/health` is never limited — a liveness probe that fails during an incident is
+worse than useless.
+
+Stated plainly in the module: the counter is in memory, so it is per process
+and N workers permit roughly N times the rate. For one process it is exact; for
+a scaled deployment it is a floor and the counter belongs in Redis.
+
+### 7. Free LLM provider
+
+OpenRouter is out of credits — the account affords 210 output tokens against a
+256 minimum, which is why two live tests fail. The provider is now any
+OpenAI-compatible endpoint, selected by `LLM_PROVIDER`: `openrouter`, `gemini`,
+`groq`, `ollama` or `custom`. **Google Gemini** is the recommended free option
+and is the one to switch to — free tier, no card, and it does vision, which
+figure interpretation needs. Groq is free and faster but text-only, so figures
+would fail loudly rather than be guessed at.
+
+429 is now distinguished from 402 in the error text, because "your free tier
+quota reset in 37 seconds" and "your wallet is empty" are different problems
+and only one of them is fixed with a credit card.
+
+### Verified, not assumed
+
+- 319 backend tests pass. The 2 failures are the live OpenRouter calls,
+  failing on 402 for lack of credits — the same two that were already failing.
+- 22 new security tests, including `alg: none`, a token signed by the wrong
+  key, a wrong issuer, an expired token and a token minted for another origin.
+- **Negative control run:** the ownership dependency was removed and all four
+  cross-user tests failed, including the delete. The guard is load-bearing and
+  the tests are not passing vacuously.
+- Rate limiting against the live API: exactly 120 requests allowed, then 429
+  with `Retry-After: 30`, while `/health` kept answering 200 throughout.
+- All three notebooks execute end to end. `validation-results.json` lists
+  three, not two.
+- `tsc --noEmit`, `eslint` and `next build` all clean. Training Lab renders
+  three cards with three learning curves; all three notebook downloads return
+  200 and an unknown one returns 404.
+
+### Still open
+
+- **Clerk is built but unverified against a live tenant.** No keys were
+  supplied, so the sign-in flow, the Google redirect and a real signed token
+  end-to-end have not been exercised in a browser. The verification path is in
+  `test_auth.py` and everything below the token is tested; what is untested is
+  Clerk itself.
+- **The reranker notebook does not reproduce the shipped numbers,** and now
+  says so in its own final cell. It retrieves with TF-IDF so it can run
+  anywhere; the shipped pipeline retrieves with a semantic embedding model.
+  Different candidates, different baseline, and the notebook's MLP comes out
+  slightly *below* its baseline. Both numbers are real; they are not the same
+  experiment.
+- **`build_neural_reranker_notebook.py` is still behind the notebook.** It no
+  longer overwrites silently, but reconciling the two is unfinished work.
+- The rate limiter is per process. Correct for one worker, a floor for many.

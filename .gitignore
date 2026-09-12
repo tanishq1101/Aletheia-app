@@ -52,3 +52,6 @@ GEMINI.md
 .aider*
 .windsurfrules
 .github/copilot-instructions.md
+
+# The notebook build/validate scripts run from the repo root.
+__pycache__/

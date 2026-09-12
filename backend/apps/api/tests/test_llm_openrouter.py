@@ -17,12 +17,44 @@ import pytest
 
 from app.core.config import get_settings
 from app.services.llm import (
+    FallbackLLMProvider,
     LLMConfigurationError,
     LLMError,
     OpenRouterProvider,
     build_llm_provider,
     configured_llm_model,
 )
+
+
+class StubProvider:
+    """Small provider double for failover behavior; makes no HTTP request."""
+
+    supports_images = True
+
+    def __init__(self, name: str, reply: str | Exception):
+        self.name = name
+        self.reply = reply
+        self.calls = 0
+
+    def complete(self, *, system: str, prompt: str) -> str:
+        self.calls += 1
+        if isinstance(self.reply, Exception):
+            raise self.reply
+        return self.reply
+
+    def complete_with_image(self, **kwargs) -> str:
+        return self.complete(system=kwargs["system"], prompt=kwargs["prompt"])
+
+
+def test_openai_failure_retries_the_same_prompt_with_gemini_backup():
+    primary = StubProvider("gpt-4.1-mini", LLMError("temporary outage"))
+    backup = StubProvider("gemini-2.5-flash", "Grounded answer [E1].")
+    provider = FallbackLLMProvider(primary, backup)
+
+    assert provider.complete(system="rules", prompt="evidence") == "Grounded answer [E1]."
+    assert primary.calls == 1
+    assert backup.calls == 1
+    assert provider.name == "gemini-2.5-flash"
 
 
 def build(transport: httpx.MockTransport | None = None, **overrides):

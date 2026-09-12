@@ -8,6 +8,7 @@ Run this script from the repository root after changing the benchmark.
 
 from __future__ import annotations
 
+import argparse
 import base64
 import gzip
 import json
@@ -34,7 +35,7 @@ def code(source: str) -> dict:
     }
 
 
-def main() -> None:
+def main(force: bool = False, stdout: bool = False) -> None:
     encoded_questions = base64.b64encode(
         gzip.compress(QUESTIONS.read_bytes(), mtime=0)
     ).decode("ascii")
@@ -453,10 +454,53 @@ def main() -> None:
         "nbformat": 4,
         "nbformat_minor": 5,
     }
+    rendered = json.dumps(notebook, indent=2) + "\n"
+    if stdout:
+        print(rendered, end="")
+        return
+
+    # The notebook on disk carries things this script does not: the execution
+    # outputs written by validate_research_notebooks.py, and fixes applied to
+    # the notebook directly. Overwriting unconditionally is how a regeneration
+    # would silently revert them — it currently *would* drop a bug fix in
+    # make_chunks and the corpus-download retry loop. Compare the code cells
+    # (outputs are expected to differ) and refuse rather than discard.
+    if OUTPUT.exists() and not force:
+        existing = json.loads(OUTPUT.read_text())
+        if _code(existing) != _code(notebook):
+            raise SystemExit(
+                f"{OUTPUT.name} on disk differs from what this script "
+                "generates, so the notebook carries changes this generator "
+                "does not. Port them back into this script, then rerun with "
+                "--force.\n\nSee the difference with:\n  python "
+                "colab/build_neural_reranker_notebook.py --stdout > /tmp/gen.ipynb"
+                f"\n  git diff --no-index /tmp/gen.ipynb {OUTPUT.relative_to(ROOT)}"
+            )
+
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT.write_text(json.dumps(notebook, indent=2) + "\n")
+    OUTPUT.write_text(rendered)
     print(f"Wrote {OUTPUT}")
 
 
+def _code(notebook: dict) -> list[str]:
+    """The code cells' source — the part this script actually owns."""
+    return [
+        "".join(cell["source"])
+        for cell in notebook["cells"]
+        if cell["cell_type"] == "code"
+    ]
+
+
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite even if the notebook has diverged from this script.",
+    )
+    parser.add_argument(
+        "--stdout",
+        action="store_true",
+        help="Print the generated notebook instead of writing it.",
+    )
+    main(**vars(parser.parse_args()))
