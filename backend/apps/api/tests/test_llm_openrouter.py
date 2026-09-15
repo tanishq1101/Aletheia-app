@@ -472,3 +472,57 @@ def test_a_rejected_key_names_the_variable_to_fix(monkeypatch):
     with pytest.raises(LLMError) as excinfo:
         build().complete(system="s", prompt="p")
     assert "OPENROUTER_API_KEY" in str(excinfo.value)
+
+
+# --- max_tokens vs. max_completion_tokens ------------------------------------
+# Newer reasoning-family models (o1/o3, some gpt-5 variants) reject the classic
+# `max_tokens` field and ask for `max_completion_tokens` instead.
+
+
+def test_max_tokens_rejection_retries_with_max_completion_tokens(monkeypatch):
+    seen: list[tuple[str, int]] = []
+
+    def handler(request):
+        body = json.loads(request.content)
+        if "max_tokens" in body:
+            seen.append(("max_tokens", body["max_tokens"]))
+            return httpx.Response(
+                400,
+                json={
+                    "error": {
+                        "message": (
+                            "Unsupported parameter: 'max_tokens' is not "
+                            "supported with this model. Use "
+                            "'max_completion_tokens' instead."
+                        )
+                    }
+                },
+                request=request,
+            )
+        seen.append(("max_completion_tokens", body["max_completion_tokens"]))
+        return ok_response(request)
+
+    respond(monkeypatch, handler)
+    answer = build().complete(system="s", prompt="p")
+
+    assert answer == "Depth helps [E1]."
+    # Retried exactly once, with the same ceiling under the new field name.
+    assert seen == [("max_tokens", 256), ("max_completion_tokens", 256)]
+
+
+def test_unrelated_400_is_not_retried(monkeypatch):
+    calls: list[int] = []
+
+    def handler(request):
+        calls.append(json.loads(request.content)["max_tokens"])
+        return httpx.Response(
+            400,
+            json={"error": {"message": "Invalid 'temperature': must be between 0 and 2."}},
+            request=request,
+        )
+
+    respond(monkeypatch, handler)
+    with pytest.raises(LLMError, match="temperature"):
+        build().complete(system="s", prompt="p")
+
+    assert len(calls) == 1, "no max_completion_tokens hint, so no retry"

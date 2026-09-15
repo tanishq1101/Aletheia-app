@@ -53,10 +53,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Order matters: middleware added last runs first, so the rate limiter sits
-# outside CORS and sheds load before anything heavier touches the request.
-app.add_middleware(RateLimitMiddleware)
-
+# Order matters: Starlette's add_middleware() inserts each new middleware
+# at the front of the stack, so the *last* one added ends up outermost and
+# runs first. CORS is added first here so the rate limiter — added second —
+# sits outside it and sheds load before anything heavier touches the request.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_settings().allowed_origins,
@@ -64,6 +64,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_middleware(RateLimitMiddleware)
 
 
 @app.middleware("http")
