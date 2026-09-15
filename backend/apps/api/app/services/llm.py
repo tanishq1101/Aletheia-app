@@ -161,12 +161,18 @@ class OpenAICompatibleProvider:
             max_output_tokens=min(max_output_tokens, self._max_output_tokens),
         )
 
-    def _post(self, *, messages: list[dict], max_output_tokens: int) -> httpx.Response:
+    def _post(
+        self,
+        *,
+        messages: list[dict],
+        max_output_tokens: int,
+        token_param: str = "max_tokens",
+    ) -> httpx.Response:
         payload = {
             "model": self._model,
             "messages": messages,
             "temperature": self._temperature,
-            "max_tokens": max_output_tokens,
+            token_param: max_output_tokens,
         }
         if self._reasoning_effort:
             payload["reasoning_effort"] = self._reasoning_effort
@@ -182,6 +188,26 @@ class OpenAICompatibleProvider:
 
     def _complete(self, *, messages: list[dict], max_output_tokens: int) -> str:
         response = self._post(messages=messages, max_output_tokens=max_output_tokens)
+
+        # Newer reasoning-family models (o1/o3, some gpt-5 variants) reject the
+        # classic `max_tokens` field and ask for `max_completion_tokens`
+        # instead. Detected from the provider's own error rather than a
+        # hardcoded model list, so a new model in that family needs no code
+        # change here. Retried once, same as the 402 case below.
+        if response.status_code == 400:
+            detail = _error_detail(response)
+            if "max_completion_tokens" in detail:
+                log.warning(
+                    "%s rejected max_tokens for %s; retrying with "
+                    "max_completion_tokens.",
+                    self._label,
+                    self._model,
+                )
+                response = self._post(
+                    messages=messages,
+                    max_output_tokens=max_output_tokens,
+                    token_param="max_completion_tokens",
+                )
 
         # `max_tokens` is a reservation, not a spend: the provider refuses the
         # whole request when the remaining balance cannot cover the ceiling,

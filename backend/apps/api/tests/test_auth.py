@@ -287,6 +287,55 @@ def test_health_is_never_rate_limited(monkeypatch):
     assert 429 not in codes
 
 
+def test_llm_paths_have_their_own_stricter_budget(monkeypatch):
+    """An LLM-shaped path must exhaust its own small budget, not the general one."""
+    settings = get_settings()
+    monkeypatch.setattr(settings, "rate_limit_enabled", True, raising=False)
+    monkeypatch.setattr(settings, "rate_limit_requests_per_minute", 1000, raising=False)
+    monkeypatch.setattr(settings, "rate_limit_llm_requests_per_minute", 2, raising=False)
+    headers = {"Authorization": "Bearer llm-budget-test-token"}
+    with TestClient(app) as client:
+        statuses = [
+            client.get("/projects/does-not-exist/answer", headers=headers).status_code
+            for _ in range(3)
+        ]
+        limited = client.get("/projects/does-not-exist/answer", headers=headers)
+    assert 429 not in statuses[:2], "the first two requests are within budget"
+    assert statuses[2] == 429 or limited.status_code == 429
+    if limited.status_code == 429:
+        assert "AI requests" in limited.json()["detail"]
+
+
+def test_upload_paths_have_their_own_hourly_budget(monkeypatch):
+    """A POST to a /papers route must be metered separately, and by the hour."""
+    settings = get_settings()
+    monkeypatch.setattr(settings, "rate_limit_enabled", True, raising=False)
+    monkeypatch.setattr(settings, "rate_limit_requests_per_minute", 1000, raising=False)
+    monkeypatch.setattr(settings, "rate_limit_uploads_per_hour", 1, raising=False)
+    headers = {"Authorization": "Bearer upload-budget-test-token"}
+    with TestClient(app) as client:
+        first = client.post("/projects/does-not-exist/papers", headers=headers)
+        second = client.post("/projects/does-not-exist/papers", headers=headers)
+    assert first.status_code != 429
+    assert second.status_code == 429
+    assert "uploads" in second.json()["detail"]
+    assert int(second.headers["Retry-After"]) >= 1
+
+
+def test_bearer_tokens_get_independent_budgets(monkeypatch):
+    """Identity comes from the token, not the shared test-client IP."""
+    settings = get_settings()
+    monkeypatch.setattr(settings, "rate_limit_enabled", True, raising=False)
+    monkeypatch.setattr(settings, "rate_limit_requests_per_minute", 1, raising=False)
+    with TestClient(app) as client:
+        first_a = client.get("/projects", headers={"Authorization": "Bearer token-a"})
+        second_a = client.get("/projects", headers={"Authorization": "Bearer token-a"})
+        first_b = client.get("/projects", headers={"Authorization": "Bearer token-b"})
+    assert first_a.status_code != 429
+    assert second_a.status_code == 429, "a second request on the same token must be limited"
+    assert first_b.status_code != 429, "a different token must not share token-a's budget"
+
+
 # --- The startup guard -------------------------------------------------------
 
 
