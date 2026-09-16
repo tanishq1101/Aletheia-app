@@ -35,21 +35,25 @@ model. Embedding and reranking run locally through fastembed — no key, no spen
 those three generation paths return 503 with an explanation; extraction, reading, search, and
 local training still work.
 
-The hosted model is any OpenAI-compatible endpoint, chosen with `LLM_PROVIDER`: `openai`,
-`openrouter`, `gemini`, `groq`, `ollama` or `custom`. **OpenAI is the default primary**;
-when `GEMINI_API_KEY` is also configured, Gemini automatically retries a failed OpenAI request
-with the same grounded evidence. This preserves availability without relaxing citation checks:
+Two providers are supported — **OpenAI** and **Google Gemini** — each with its own switch in
+`backend/.env`. Exactly one is enabled at a time, and both speak the same OpenAI chat shape,
+so moving between them is two booleans and nothing else:
 
-```
-LLM_PROVIDER=openai
+```ini
+OPENAI_ENABLED=true            # provider 1 of 2
 OPENAI_API_KEY=<your OpenAI API key>
-LLM_MODEL=gpt-5.6-luna
-GEMINI_API_KEY=<optional backup key>
-GEMINI_MODEL=gemini-2.5-flash
+OPENAI_MODEL=                  # blank uses the default in services/llm.py
+
+GEMINI_ENABLED=false           # provider 2 of 2
+GEMINI_API_KEY=<your Google AI Studio key>
+GEMINI_MODEL=
 ```
 
-Groq is also free and faster, but text-only, so figure interpretation would fail rather than
-guess. See `backend/.env.example` for every option.
+The switch decides, not the presence of a key. A disabled provider is **never** called —
+not as a standby, not when the enabled one fails. A silent failover would make the switch a
+suggestion and bill an account that was deliberately turned off, and would hide which vendor
+actually saw the evidence. Enabling both, or neither, stops answering with a message naming
+the mistake rather than guessing. See `backend/.env.example` for every option.
 
 ## AI keys and local models
 
@@ -59,9 +63,9 @@ guess. See `backend/.env.example` for every option.
 | Embeddings | fastembed / Jina ONNX, local | No |
 | Cross-encoder reranking | fastembed / Jina ONNX, local | No |
 | Neural relevance-model training | NumPy, local | No |
-| Grounded answers | OpenAI; Gemini fallback when configured | `OPENAI_API_KEY` |
-| Research-agent planning and step answers | OpenAI; Gemini fallback when configured | `OPENAI_API_KEY` |
-| On-demand single-figure interpretation | OpenAI; Gemini fallback when configured, cached by figure/model/prompt | `OPENAI_API_KEY` only on cache miss |
+| Grounded answers | OpenAI or Gemini, whichever is enabled | the enabled provider's key |
+| Research-agent planning and step answers | OpenAI or Gemini, whichever is enabled | the enabled provider's key |
+| On-demand single-figure interpretation | OpenAI or Gemini, cached by figure/model/prompt | the enabled provider's key, only on cache miss |
 | Supabase | Not wired | No key is currently used |
 
 The active hosted-AI secret is `OPENAI_API_KEY`; `GEMINI_API_KEY` is an optional fallback. Set
