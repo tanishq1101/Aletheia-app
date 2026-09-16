@@ -148,45 +148,45 @@ page, and a security pass over the API. Six real defects found and fixed.
 
 ### 1. Third model missing from the Training Lab
 Root cause found, three separate gaps — not one bug:
-- [ ] `app/(app)/training/page.tsx` hardcodes a two-element `experiments` array
+- [x] `app/(app)/training/page.tsx` hardcodes a two-element `experiments` array
       (relevance, stance). The neural relevance reranker is simply absent.
-- [ ] `app/api/training/[task]/route.ts` maps only two notebooks, so even the
+- [x] `app/api/training/[task]/route.ts` maps only two notebooks, so even the
       download route could not serve the third.
-- [ ] `colab/validate_research_notebooks.py` hardcodes the same two filenames,
+- [x] `colab/validate_research_notebooks.py` hardcodes the same two filenames,
       so `Aletheia_Neural_Reranker_Colab.ipynb` has 9 code cells and **zero**
       outputs — it has never been executed, hence no "training session".
-- [ ] `backend/models/neural_relevance_model.json` records only
+- [x] `backend/models/neural_relevance_model.json` records only
       `initial_train_loss` / `final_train_loss`. `TrainingHistory.losses` is
       computed and thrown away, so there is no learning curve to draw.
-- [ ] The `Sprint 6 Benchmark Corpus` project no longer exists in Neon (lost in
+- [x] The `Sprint 6 Benchmark Corpus` project no longer exists in Neon (lost in
       the cut-over), so the trainer cannot rebuild candidates.
 
 Fix, in order:
-- [ ] Re-ingest the 10-paper corpus (`scripts/ingest_corpus.py`) — local
+- [x] Re-ingest the 10-paper corpus (`scripts/ingest_corpus.py`) — local
       embeddings, no API key.
-- [ ] Persist `history.json` from `train_neural_reranker.py` in the same shape
+- [x] Persist `history.json` from `train_neural_reranker.py` in the same shape
       the other two models use, and re-run training.
-- [ ] Make the Training Lab data-driven so a trained model can never again be
+- [x] Make the Training Lab data-driven so a trained model can never again be
       silently missing from the page.
-- [ ] Execute the reranker notebook offline against the local corpus and record
+- [x] Execute the reranker notebook offline against the local corpus and record
       it in `validation-results.json` alongside the other two.
 
 ### 2. Clerk authentication
-- [ ] Google OAuth + email/password + username.
-- [ ] Middleware protecting the `(app)` routes.
-- [ ] Backend verifies the Clerk session JWT; `DEV_USER_ID` is replaced by the
+- [x] Google OAuth + email/password + username.
+- [x] Middleware protecting the `(app)` routes.
+- [x] Backend verifies the Clerk session JWT; `DEV_USER_ID` is replaced by the
       real subject, so projects scope per user for the first time.
-- [ ] `users` table gains a Clerk subject column; users provisioned on first
+- [x] `users` table gains a Clerk subject column; users provisioned on first
       request.
 
 ### 3. Free LLM provider (OpenRouter is out of credits)
-- [ ] Google Gemini free tier via its OpenAI-compatible endpoint — free, high
+- [x] Google Gemini free tier via its OpenAI-compatible endpoint — free, high
       daily limits, and it does vision, which figure interpretation needs.
-- [ ] Keep the provider interface; select with `LLM_PROVIDER`.
+- [x] Keep the provider interface; select with `LLM_PROVIDER`.
 
 ### 4. Rate limiting and security
-- [ ] Per-user / per-IP rate limits, strictest on the LLM-backed routes.
-- [ ] Audit and fix whatever else the pass turns up.
+- [x] Per-user / per-IP rate limits, strictest on the LLM-backed routes.
+- [x] Audit and fix whatever else the pass turns up.
 
 ---
 
@@ -415,7 +415,7 @@ f-strings, so those reached the reader as literal braces.
 - [x] Exercised against a reconstructed copy of the original race (two projects
       171 ms apart) plus a described one, a renamed one and an occupied one:
       it took exactly the one row and left the other four.
-- [ ] **Still to run against the live Neon database.** This local database no
+- [x] **Still to run against the live Neon database.** This local database no
       longer holds the duplicate; the row is in Neon, and the connection string
       is not in this checkout. `npm run projects:dedupe` reports before it
       deletes.
@@ -582,3 +582,233 @@ Superseded, for anyone reading the older sections: "No authentication", "No
 rate limiting", "the rate limiter is per process", "Clerk is built but
 unverified", "build_neural_reranker_notebook.py is still behind the notebook",
 and the OpenRouter-credit entries are all resolved above.
+
+---
+
+# Two-provider LLM configuration (OpenAI / Gemini)
+
+## Decisions (confirmed with user)
+- Two env sections, one per provider, each with an `*_ENABLED` switch. Exactly
+  one enabled; `OPENAI_ENABLED=true` / `GEMINI_ENABLED=false` to start.
+- Remove the unused providers (OpenRouter, Groq, Ollama, custom) and their env
+  vars and helper scripts. Keep nothing else removed.
+- Tidy in place — no file moves that break imports or deploy config.
+- **No fallback.** Off means off; a failed OpenAI call reports OpenAI failed.
+
+## Plan
+- [x] 1. `OPENAI_ENABLED` / `GEMINI_ENABLED` in config.py, with `enabled_providers`
+      and `active_provider` derived rather than a second `LLM_PROVIDER` field
+- [x] 2. `PROVIDER_PROFILES` cut from six entries to two; `FallbackLLMProvider`
+      deleted along with the attribution-header and `requires_api_key` machinery
+- [x] 3. `_selected_provider()` — zero or two enabled is an error naming which
+- [x] 4. `.env` and `.env.example` rewritten into two symmetric sections
+      (existing keys preserved verbatim)
+- [x] 5. settings_store.py bug fixed — reported `openrouter_model` regardless of
+      the configured provider
+- [x] 6. `/settings` reports the enabled provider, or `"none"` when misconfigured
+- [x] 7. ask/page.tsx, render.yaml, both READMEs, types/api.ts, run_benchmark.py
+- [x] 8. `set_openrouter_key.py` / `.sh` deleted
+- [x] 9. test_llm_openrouter.py -> test_llm.py; selection tests rewritten around
+      the switches; live tests now follow the *enabled* provider
+- [x] 10. **Found and fixed live:** `gpt-5.6-luna` rejects `LLM_TEMPERATURE=0.0`
+      (see Review). Retry loop generalised so adaptations compose.
+
+## Review
+
+### What changed
+Provider choice was spread across `LLM_PROVIDER`, `LLM_MODEL`, and the mere
+presence of `GEMINI_API_KEY`; the last of those silently enrolled Gemini as a
+failover. It is now two booleans. `active_provider` is derived from them, so the
+configuration cannot express `LLM_PROVIDER=openai` alongside a disabled OpenAI.
+Zero or two enabled returns a message naming which mistake was made, rather than
+picking one.
+
+Removing `FallbackLLMProvider` is the substantive behaviour change. A silent
+failover makes the switch a suggestion, bills an account the operator turned
+off, and hides which vendor actually saw the evidence.
+
+### The bug the fallback was hiding
+Flipping the live tests to follow the enabled provider made them run against
+OpenAI for the first time, and both failed:
+
+    400 Unsupported value: 'temperature' does not support 0.0 with this model.
+        Only the default (1) value is supported.
+
+`gpt-5.6-luna` has never answered a request from this codebase. Every OpenAI
+call 400'd and the fallback quietly served the answer from Gemini — so the
+configured primary was broken for as long as it has been configured, and the
+system looked healthy. Exactly the `lessons.md` entry about code behind a flag.
+
+Fixed by generalising the existing "read the fix off the provider's own 400"
+retry into a loop over `_adaptation_for()`: a model can need
+`max_completion_tokens` *and* no temperature, which the two one-shot retries
+could never both deliver. Dropping the temperature costs determinism, so it
+logs loudly rather than being absorbed.
+
+### Verified, not assumed
+- Full suite **343 passed, 12 skipped**, same single pre-existing
+  `test_rate_limit_redis` failure as the baseline (the `redis` package is not
+  installed in this venv). Baseline was 337 passed; +6 net new tests.
+- All four switch states exercised against the real builder: openai-only ->
+  `gpt-5.6-luna` @ api.openai.com; gemini-only -> `gemini-3.6-flash` @
+  generativelanguage.googleapis.com; both and neither -> `LLMConfigurationError`.
+- **A real request through each provider**, by flipping the switches and running
+  the live tests both ways. Both grounded and both declined correctly on absent
+  evidence. Neither path is reported working on the strength of a mock.
+- The three new retry tests were proved able to fail: disabling the temperature
+  adaptation turned all three red plus both live tests, and restoring it turned
+  them green.
+- Running API: `GET /settings` returns `llm_provider: "openai"`,
+  `llm_model: "gpt-5.6-luna"` — confirming the settings_store fix, which
+  previously reported `anthropic/claude-haiku-4.5`.
+- `npm run typecheck` and `npm run lint` clean.
+
+### Not verified
+The one-line copy change in `app/(app)/ask/page.tsx` was not rendered in a
+browser: `next dev` cannot start in this checkout because
+`node_modules/@next/swc-darwin-arm64` contains no `.node` binary (a pre-existing
+broken install, unrelated to this work; `npm install --no-save` did not restore
+it because install scripts are blocked here). It is static JSX and passes tsc
+and eslint. Repair with a clean `npm ci` before relying on the dev server.
+
+Also note `node_modules` has Next **16.3.2** while `package.json` asks for
+**16.3.5** — the tree is stale, not just missing a binary.
+
+---
+
+## Combined report, luna integration, and PDF export
+
+### The reported symptom
+Two error notices stacked on the Research Agent page:
+
+> The combined report could not be generated. Individual findings and sources remain available.
+> The agent completed its checks, but could not assemble a combined report. ...
+
+plus a belief that `gpt-5.6-luna` was never billed.
+
+### Root causes (reproduced against the live API, not inferred)
+1. **`gpt-5.6-luna` refuses `temperature` at any value but its default.** The
+   adaptation loop correctly drops it, so every answer runs at temperature 1.0
+   — not the 0.0 the PRD relies on. Five identical synthesis runs returned
+   230 / 6699 / 230 / 271 / 6545 characters, and one returned **empty content**
+   with `finish_reason: "stop"`. Empty content raises
+   `LLMError("empty completion")`, which `run_research_agent`'s blanket
+   `except Exception` converts into the generic synthesis_error.
+   *The combined report was not failing to generate — it was failing at random.*
+2. **The learned request shape is discarded after every call.** `_complete`
+   re-copies `_DEFAULT_REQUEST_SHAPE` each time, so every single LLM call in
+   the app pays 400 -> 400 -> 200: three HTTP round-trips where one would do.
+3. **The 402 budget retry drops the learned shape** (`llm.py`), reverting to
+   `max_tokens` + temperature, which this model 400s on. A genuine low-balance
+   retry would fail with a misleading error.
+4. **The agent page renders both errors at once** — `synthesis_error` *and*
+   the "could not assemble" fallback — and shows the fallback even when
+   synthesis was never requested.
+5. **Synthesis shares the step answer budget** (2048 tokens) despite being a
+   six-section report over ~12 evidence blocks.
+6. **`settings_store.llm_model` is dead** — `build_llm_provider()` reads only
+   the environment, so the Settings page can display a model nothing uses.
+
+Credits *are* being spent — `3427 prompt / 226 completion tokens` logged on a
+real answer. The integration is lossy, not absent.
+
+### Decisions taken (confirmed with the user)
+- Keep `gpt-5.6-luna`; **drop the determinism claim** rather than leave a
+  promise the model cannot honour. (`seed` is accepted but does not reproduce:
+  1135 / 1313 / 1117 chars at `seed=42`. The whole 5.5/5.6 generation refuses
+  `temperature=0`; only `gpt-5.4` and older honour it.)
+- **Server-rendered PDF**, one-click download.
+- Scope: **Ask, Research Agent, Reproducibility**.
+
+### Plan
+- [x] `llm.py`: cache the learned request shape on the provider instance
+- [x] `llm.py`: carry the learned shape through the 402 retry
+- [x] `llm.py`: retry once on an empty completion, then fail with a real reason
+- [x] `llm.py`: generalise `_adaptation_for` to drop a rejected `reasoning_effort`
+- [x] `llm.py`: expose `deterministic` so the UI can say an answer is not reproducible
+- [x] `llm.py`: per-call `max_output_tokens` so synthesis can ask for report-sized output
+- [x] `agent.py`: give synthesis its own budget; carry the real failure reason
+- [x] `report.py` (new): one structured report document built from a completed run
+- [x] `api/reports.py` (new): render that document to PDF — stateless, from the
+      result the user is looking at, so the PDF matches the screen exactly
+- [x] Frontend: Download PDF on Ask, Agent, Reproducibility
+- [x] Frontend: fix the duplicate error; distinguish "failed" from "not requested"
+- [x] Docs: correct every place that promises deterministic answers
+- [x] Tests for each of the above; full suite green
+
+### Review
+
+**The combined report was two bugs wearing one error message.**
+
+1. *Budget starvation (deterministic).* `gpt-5.6-luna` splits its output budget
+   between hidden reasoning and the visible answer, and not proportionally.
+   Measured directly:
+
+   | ceiling | finish_reason | reasoning tokens | visible tokens |
+   |---|---|---|---|
+   | 2048  | length | 2048 | **0** |
+   | 4000  | length | 4000 | **0** |
+   | 8192  | stop   | 69   | 6559 |
+   | 16000 | stop   | 98   | 5973 |
+
+   `LLM_MAX_OUTPUT_TOKENS=2048` was below the floor at which this model writes
+   anything at all. The synthesis prompt — the largest in the app — hit it most
+   often. `reasoning_effort="none"` also fixes it (0 reasoning, all 2048
+   visible) but buys the fix by giving up reasoning entirely, so the ceiling was
+   raised instead and the client now escalates on its own when a model reports
+   it spent the budget without answering.
+
+2. *Non-determinism (intermittent).* The model refuses `temperature`, the client
+   drops it, and the model answers at its own sampling. Five identical synthesis
+   runs returned 230 / 6699 / 230 / 271 / 6545 characters, and one returned
+   empty content with `finish_reason: "stop"`. That is now retried once.
+
+**Credits were being spent all along** — `3427 prompt / 226 completion tokens`
+on a real answer. The integration was lossy, not absent. It was also paying
+**three HTTP round-trips per completion** (400 → 400 → 200) because the
+negotiated request shape was rediscovered on every call; it is now learned once
+per provider instance, so every call after the first is a single request.
+
+### Verified, not assumed
+- Full suite **397 passed, 12 skipped**, with the same single pre-existing
+  `test_rate_limit_redis` failure. Confirmed pre-existing by stashing every
+  change in this work and watching it still fail. Baseline was 343 in
+  `apps/api/tests`; +41 net new tests.
+- **Every new fix was mutation-tested.** Reverting the per-instance shape, the
+  starvation escalation, the 402 shape carry-through, the empty-completion
+  retry, the paper-id cross-check and the CORS header each turned the relevant
+  tests red; restoring each turned them green. No test was accepted without
+  seeing it fail.
+- **All three surfaces driven end-to-end in the real signed-in browser**, against
+  the live OpenAI account:
+  - Research Agent — 3/3 questions, 10 citations, 8 public sources, combined
+    report rendered, **no stacked error notices**, 13-page PDF downloaded.
+  - Ask — grounded answer with citation chips, reproducibility notice, 1-page
+    PDF downloaded.
+  - Reproducibility — 6-dimension audit at 17%, 3-page PDF downloaded.
+- PDF content asserted by extracting text back out of real PDF bytes, not by
+  checking that bytes were returned.
+- `npm run typecheck` and `npm run lint` clean.
+
+### Found while verifying, and fixed
+- **`Content-Disposition` was invisible to the browser.** The first real download
+  saved as `aletheia-brief.pdf` instead of the server's descriptive name: a
+  browser hides every response header from JavaScript except the six
+  CORS-safelisted ones. Added `expose_headers` to the CORS middleware. Only the
+  live browser run caught this — the endpoint tests had passed.
+- **`papers.title` is NULL for most papers**, so citations read "Untitled
+  source". Retrieval now falls back to the filename, which at least names the
+  source. Title extraction itself is untouched.
+- **LaTeX reached the reader.** `\(O(n^2 d)\)` rendered literally in both the
+  reading pane and the PDF. The prompt now asks for plain-text maths, and both
+  renderers strip the delimiters for answers already written.
+- **`reportlab` added to `apps/api/requirements.txt`** — the Dockerfile installs
+  from it, so the export would have 500'd in the container without it.
+
+### Not done, and why
+- **`settings_store.llm_model` is still dead.** It is stored, shown on the
+  Settings page, and never reaches `build_llm_provider`, which reads only the
+  environment. No override is set today, so the page is currently truthful — but
+  setting one would make it lie. Left alone deliberately: the field decides
+  which vendor account gets billed, and making a database row silently redirect
+  spend is a decision to take explicitly, not a side effect of this work.

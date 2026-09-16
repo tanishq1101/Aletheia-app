@@ -29,6 +29,11 @@ httpx==0.28.1
 # lazily, so the API still starts if it is absent.
 chromadb-client==1.5.9
 
+# PDF report export. Pure Python with no system libraries, unlike WeasyPrint
+# (cairo/pango) — which matters because the API ships in a slim container.
+# Only imported by app/services/pdf.py.
+reportlab==5.0.1
+
 # Tests
 pytest==8.4.2
 

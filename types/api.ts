@@ -156,6 +156,10 @@ export interface AnswerResponse {
   evidence_dropped_for_budget: number;
   model_diagnostics?: ModelDiagnostic[];
   truncated?: boolean;
+  /** False when the model refused the configured temperature and answered at
+   *  its own sampling, so re-asking may not reproduce this answer. Shown to
+   *  the reader rather than kept in a server log. */
+  reproducible?: boolean;
   charts?: { title: string; unit: string; conditions: string; note: string; points: { label: string; value: number; evidence_ids: string[] }[] }[];
   model: string;
 }
@@ -203,6 +207,8 @@ export interface MessageMetadata {
   candidates_considered: number;
   fabricated_citations_removed: number;
   evidence_dropped_for_budget: number;
+  /** Absent on answers stored before this was recorded. */
+  reproducible?: boolean;
 }
 
 export interface Message {
@@ -317,8 +323,11 @@ export interface AppSettings {
   rerank_top_k: number;
   context_max_tokens: number;
   llm_model: string;
+  /** The enabled provider ("openai" | "gemini"), or "none" when zero or
+   *  both are enabled — which is a misconfiguration, not a default. */
   llm_provider: string;
-  /** Whether a key is present — the key itself is never sent. */
+  /** Whether the *enabled* provider has a key — the key itself is never sent.
+   *  A key belonging to a disabled provider does not count: nothing calls it. */
   llm_key_configured: boolean;
   embedding_model: string;
   rerank_model: string;

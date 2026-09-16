@@ -133,3 +133,70 @@
   JavaScript-dispatched KeyboardEvent does not run Chromium's default actions, so the form looked
   broken. The same key sent through CDP's Input domain submitted it immediately. Before filing the
   product as faulty, change the instrument.
+- A fallback is also a place for a bug to hide. `LLM_PROVIDER=openai` had been the
+  configured primary for as long as OpenAI was configured, and had never once answered:
+  `gpt-5.6-luna` rejects `temperature=0.0` with a 400, and the automatic Gemini failover
+  served every request instead. Nothing was red, no log said "primary is broken" loudly
+  enough to notice, and `/settings` cheerfully reported OpenAI. Removing the failover
+  surfaced it in one test run. A retry path that can substitute a *different vendor*
+  should report which one answered, or the metric you are watching is availability and
+  the thing you have lost is the ability to tell that half your configuration is dead.
+- "Off" has to mean off, or it is not a switch. Enrolling Gemini as a standby because its
+  key happened to be present meant the only way to *not* call Google was to delete the
+  key — so the config could not express "keep this credential, do not use it", and an
+  operator could be billed by a vendor they thought they had disabled. Make the flag the
+  thing that decides, and never the presence of a credential.
+- One-shot retries do not compose. The 400 handler could swap `max_tokens` for
+  `max_completion_tokens`, and separately could have dropped an unsupported
+  `temperature` — but a model needing both hit the second 400 having already spent its
+  retry, and failed. When adaptations are read off the provider's own error, loop over
+  them and track which have been applied, rather than writing one `if` per symptom.
+- Point the live tests at the configuration that ships. These were pinned to
+  `GEMINI_API_KEY`, so they proved the *backup* worked and skipped silently on the
+  primary. Keying the skip off the enabled provider instead is what turned a
+  long-standing outage into a failing test.
+- On a reasoning model, `max_tokens` is not an answer budget — it is a *shared* budget for
+  hidden reasoning and the visible answer, and the split is not proportional. gpt-5.6-luna
+  spent all 2048 on reasoning and returned an empty completion; at 8192 it reasoned for 69
+  tokens and wrote 6559. The configured ceiling was therefore below the floor at which the
+  model produces any output, and the symptom was not "answers are short" but "the report
+  randomly fails". When a completion comes back empty, read `finish_reason` before retrying:
+  `length` means raise the ceiling, anything else means try again as-is. Retrying `length`
+  unchanged fails identically, forever.
+- A generic error message is a decision to discard the diagnosis. "The combined report could
+  not be generated" was caught from a bare `except Exception` and replaced the real cause,
+  which was an empty completion from a starved budget — recoverable, and named in the
+  exception that was thrown away. The step-level errors in the same file already carried
+  `str(exc)`; the synthesis path did not, so the one failure users actually hit was the one
+  with no reason attached. Put the cause in the message the user sees.
+- Two error notices rendering at once means two components disagree about who owns the
+  failure. The agent page showed `synthesis_error` *and* a hardcoded fallback, because the
+  fallback keyed off "synthesis is absent" rather than "synthesis was requested and failed".
+  A fallback for a missing value has to distinguish "not asked for" from "asked for and
+  broken", or it will eventually accuse the system of a failure that did not happen.
+- Negotiated protocol state belongs on the connection, not the call. Discovering which
+  request fields a model accepts cost a 400 — and on this model a second 400 — before every
+  single completion in the application: three round-trips where one would do, on every
+  answer, every agent step, every extraction. A fixed model name cannot change its mind, so
+  learn it once and keep it. The same bug's twin: the 402 retry path rebuilt its request from
+  the defaults and threw the learned shape away, so the one retry that exists to rescue a low
+  balance would have failed on an unrelated 400.
+- Endpoint tests passing is not evidence that a browser can use the endpoint. `Content-
+  Disposition` was set, asserted, and green in the API tests — and invisible to the actual
+  download, because a browser hides every response header from JavaScript except the six
+  CORS-safelisted ones. The first real click in a signed-in browser found it immediately.
+  Cross-origin behaviour is not observable from a test client that is not a browser.
+- Write the test so that disabling the code makes it fail, then check. The paper-id
+  cross-check test passed against the guard *and* against `if False:` — ownership was
+  404ing on an unknown UUID long before the guard was reached, so the test proved nothing
+  about the thing it was named after. It only became a real test once it used a paper the
+  caller genuinely owns.
+- An export must be rendered from the result on screen, never regenerated. These models do
+  not reproduce their own answers, so a "download this report" endpoint that re-ran the
+  question would hand back a different document and call it the same one.
+- When a capability the product promises turns out to be unavailable, say so on the artefact
+  rather than deleting the promise quietly. Temperature 0 is what made answers re-verifiable,
+  and no model in the 5.5/5.6 generation accepts it (`seed` is accepted but does not
+  reproduce either — measured). The answer now carries `reproducible`, and it is printed on
+  every exported PDF, because the person deciding whether to trust a cited claim is reading
+  the PDF, not the server log.

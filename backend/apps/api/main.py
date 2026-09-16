@@ -14,6 +14,7 @@ from app.api import (
     health,
     papers,
     projects,
+    reports,
     reproducibility,
     search,
     settings as settings_api,
@@ -63,6 +64,13 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # `allow_headers` governs the *request*. A browser hides every response
+    # header from JavaScript except the six CORS-safelisted ones unless it is
+    # named here, so without this the report downloads land under the client's
+    # generic fallback name instead of the descriptive one the server chose.
+    # The API and the web app are separate origins in every deployment of this
+    # project, so this is not a local-only concern.
+    expose_headers=["Content-Disposition"],
 )
 
 app.add_middleware(RateLimitMiddleware)
@@ -115,6 +123,9 @@ app.include_router(claims.router, dependencies=owned)
 app.include_router(cross_paper.router, dependencies=owned)
 app.include_router(reproducibility.router, dependencies=owned)
 app.include_router(agent.router, dependencies=owned)
+# Rendering a result the caller already holds. No model call, so these are
+# outside the AI request budget — see the module docstring.
+app.include_router(reports.router, dependencies=owned)
 
 # Settings are global and hold no user data, but writing them changes every
 # caller's retrieval behaviour, so they still require a session.

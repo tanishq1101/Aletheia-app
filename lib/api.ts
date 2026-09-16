@@ -156,6 +156,96 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+// --- Report export (PDF) ----------------------------------------------------
+
+/** Filename the server chose, from `Content-Disposition`.
+ *
+ *  The server names the file after the question it answers, so the download
+ *  is identifiable a month later in a folder of other downloads. Falling back
+ *  to a generic name is better than failing the download over a header. */
+function filenameFrom(response: Response, fallback: string): string {
+  const header = response.headers.get("content-disposition") ?? "";
+  const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(header);
+  return match ? decodeURIComponent(match[1]) : fallback;
+}
+
+/** POST a finished result and save the PDF the server renders from it.
+ *
+ *  A plain link cannot be used: these carry a session token and a request
+ *  body, so the file is fetched and handed to the browser as a blob. The URL
+ *  is revoked immediately afterwards — a forgotten object URL pins the whole
+ *  PDF in memory for the life of the tab. */
+async function downloadPdf(
+  path: string,
+  body: unknown,
+  fallbackName: string,
+): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(
+      `${API_BASE_URL}${path}`,
+      await withAuth({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    );
+  } catch {
+    throw new ApiError(
+      `Cannot reach the API at ${API_BASE_URL}. Is the backend running?`,
+    );
+  }
+
+  if (!response.ok) throw await readError(response);
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  try {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filenameFrom(response, fallbackName);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+export const downloadAnswerPdf = (
+  projectId: string,
+  question: string,
+  answer: AnswerResponse,
+  projectName = "",
+) =>
+  downloadPdf(
+    `/projects/${projectId}/reports/ask.pdf`,
+    { question, answer, project_name: projectName },
+    "aletheia-answer.pdf",
+  );
+
+export const downloadResearchBriefPdf = (
+  projectId: string,
+  run: AgentResearchResponse,
+  projectName = "",
+) =>
+  downloadPdf(
+    `/projects/${projectId}/reports/brief.pdf`,
+    { run, project_name: projectName },
+    "aletheia-brief.pdf",
+  );
+
+export const downloadReproducibilityPdf = (
+  paperId: string,
+  report: ReproducibilityReport,
+  paperTitle = "",
+) =>
+  downloadPdf(
+    `/papers/${paperId}/reports/disclosure.pdf`,
+    { report, paper_title: paperTitle },
+    "aletheia-reproducibility.pdf",
+  );
+
 // --- Health -----------------------------------------------------------------
 
 /** Health reports degradation as a 503 *with* a body, so the body is what

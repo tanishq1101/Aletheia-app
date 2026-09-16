@@ -54,37 +54,51 @@ class Settings(BaseSettings):
     context_max_tokens: int = 6000
 
     # --- LLM (Sprint 4) -----------------------------------------------------
-    # `openai` is the primary hosted model. Gemini is retained as an automatic
-    # failover when both keys are configured, so a temporary provider outage
-    # does not turn an otherwise grounded research run into an error.
-    # openai | openrouter | gemini | groq | ollama | custom. See
-    # PROVIDER_PROFILES in services/llm.py; every one speaks the OpenAI chat
-    # shape used by this application.
-    llm_provider: str = "openai"
-
-    # Provider credentials. Keep Gemini configured as a backup for the OpenAI
-    # primary; keys never leave this server process.
+    # Two hosted providers, each with its own on/off switch. Exactly one is
+    # enabled at a time: `*_ENABLED=false` means the provider is not called at
+    # all, not that it is a standby. Both keys may stay in .env — the switch,
+    # not the presence of a key, decides who answers. See PROVIDER_PROFILES in
+    # services/llm.py; both speak the OpenAI chat shape this application uses.
+    #
+    # Keys never leave this server process.
+    #
+    # Provider 1 of 2 — OpenAI.
+    openai_enabled: bool = True
     openai_api_key: str = ""
-    gemini_api_key: str = ""
-    # Blank so the model name lives in exactly one place — the gemini
-    # entry in PROVIDER_PROFILES. A hardcoded default here silently wins
-    # over that profile and pins a model Google no longer serves.
-    gemini_model: str = ""
-    llm_api_key: str = ""
-    llm_base_url: str = ""
-    llm_model: str = ""
+    # Model names are blank by default so each lives in exactly one place —
+    # its PROVIDER_PROFILES entry. A hardcoded default here would silently win
+    # over that profile and pin a model the vendor may no longer serve.
+    openai_model: str = ""
 
-    openrouter_api_key: str = ""
-    openrouter_base_url: str = "https://openrouter.ai/api/v1"
-    openrouter_model: str = "anthropic/claude-haiku-4.5"
+    # Provider 2 of 2 — Google Gemini.
+    gemini_enabled: bool = False
+    gemini_api_key: str = ""
+    gemini_model: str = ""
+
+    # Shared by whichever provider is enabled.
+    #
     # Temperature 0: grounding is constraint-following, not a creative task,
-    # and a deterministic answer is one that can actually be re-verified.
+    # and a deterministic answer is one that can actually be re-verified. But
+    # it is requested, not guaranteed: the whole gpt-5.5/5.6
+    # generation refuses any temperature but its own default, and the client
+    # drops the field rather than failing (services/llm.py). Whether it
+    # survived is reported per answer — see `OpenAICompatibleProvider
+    # .deterministic` — because an evidence tool must not claim a
+    # re-runnable answer it cannot deliver.
     llm_temperature: float = 0.0
-    llm_max_output_tokens: int = 2048
-    llm_timeout_seconds: float = 60.0
-    # OpenRouter's optional attribution headers.
-    llm_app_title: str = "AI Research Intelligence Platform"
-    llm_app_url: str = "http://localhost:3000"
+    # On a reasoning model this budget covers hidden reasoning *and* the
+    # visible answer. 2048 was below the floor at which gpt-5.6-luna writes
+    # anything at all: measured, it spent all 2048 on reasoning and returned an
+    # empty completion, which is what made the research agent's combined report
+    # fail. 8192 leaves room for both.
+    llm_max_output_tokens: int = 8192
+    # The largest ceiling the client may escalate to on its own when a model
+    # reports it used the whole budget without answering. A bound, not a
+    # target: it is only ever reached by a model that has already failed once.
+    llm_max_output_tokens_ceiling: int = 32768
+    # Reasoning models think before they write, and a research report is a long
+    # write. 60s was tuned for a non-reasoning model.
+    llm_timeout_seconds: float = 180.0
 
     # --- Vector store (ChromaDB) -------------------------------------------
     # Chroma is the primary index for chunk embeddings. The same vectors stay
@@ -151,6 +165,36 @@ class Settings(BaseSettings):
     # Set it and the limits become cluster-wide. Redis is used only for this,
     # so an outage degrades the limiter rather than the API.
     redis_url: str = ""
+
+    @property
+    def enabled_providers(self) -> list[str]:
+        """The LLM providers switched on, in declaration order.
+
+        Derived from the per-provider switches rather than stored as a name of
+        its own, for the same reason as `auth_enabled` below: a single
+        `LLM_PROVIDER=openai` alongside `OPENAI_ENABLED=false` is a
+        contradiction the configuration should not be able to express.
+        """
+        return [
+            name
+            for name, enabled in (
+                ("openai", self.openai_enabled),
+                ("gemini", self.gemini_enabled),
+            )
+            if enabled
+        ]
+
+    @property
+    def active_provider(self) -> str | None:
+        """The one enabled provider, or None when zero or both are enabled.
+
+        None is a real answer, not a default: "nothing is configured" and "two
+        things are configured" are both states an operator has to fix, and
+        picking one silently would hide that. `build_llm_provider` turns the
+        None into a message naming which of the two mistakes was made.
+        """
+        enabled = self.enabled_providers
+        return enabled[0] if len(enabled) == 1 else None
 
     @property
     def auth_enabled(self) -> bool:

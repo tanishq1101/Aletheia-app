@@ -56,7 +56,7 @@ class ScriptedLLM:
 
     name = "scripted-test-model"
 
-    def complete(self, *, system: str, prompt: str) -> str:
+    def complete(self, *, system: str, prompt: str, max_output_tokens: int | None = None) -> str:
         self.calls += 1
         self.system, self.prompt = system, prompt
         return self.reply
@@ -65,7 +65,7 @@ class ScriptedLLM:
 class BrokenLLM:
     name = "broken-test-model"
 
-    def complete(self, *, system: str, prompt: str) -> str:
+    def complete(self, *, system: str, prompt: str, max_output_tokens: int | None = None) -> str:
         from app.services.llm import LLMError
 
         raise LLMError("upstream returned 502: provider unavailable")

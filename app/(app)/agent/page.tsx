@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import AnswerView from "@/components/AnswerView";
 import ApiErrorNotice from "@/components/ApiErrorNotice";
+import DownloadReportButton from "@/components/DownloadReportButton";
 import ProjectSources from "@/components/ProjectSources";
-import { ApiError, runResearchAgent } from "@/lib/api";
+import { ApiError, downloadResearchBriefPdf, runResearchAgent } from "@/lib/api";
 import { useWorkspace } from "@/lib/workspace";
 import type { AgentResearchResponse } from "@/types/api";
 
@@ -92,13 +93,27 @@ export default function ResearchAgentPage() {
 
     {result && summary && <div className="flex w-full flex-col items-start gap-6">
       <section className="w-full rounded-lg border border-hairline-subtle bg-surface px-5 py-5 sm:px-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><p className="font-ui text-lg font-semibold text-primary">Your research brief</p><p className="mt-1 font-ui text-sm text-secondary">{result.goal}</p></div><span className="font-mono text-[10px] text-muted">Answered by {result.model}</span></div>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div><p className="font-ui text-lg font-semibold text-primary">Your research brief</p><p className="mt-1 font-ui text-sm text-secondary">{result.goal}</p></div>
+          <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
+            <span className="font-mono text-[10px] text-muted">Answered by {result.model}</span>
+            <DownloadReportButton
+              title="The brief, every research question, and every cited passage — exactly as shown here."
+              download={() => downloadResearchBriefPdf(projectId!, result, project?.name ?? "")}
+            />
+          </div>
+        </div>
         <div className="mt-5 grid grid-cols-3 divide-x divide-hairline-subtle rounded-md border border-hairline-subtle bg-surface-raised"><div className="px-3 py-3 text-center"><p className="font-mono text-lg text-brass">{summary.completed}/{result.steps.length}</p><p className="font-ui text-[11px] text-muted">questions answered</p></div><div className="px-3 py-3 text-center"><p className="font-mono text-lg text-brass">{summary.citations}</p><p className="font-ui text-[11px] text-muted">report citations</p></div><div className="px-3 py-3 text-center"><p className="font-mono text-lg text-brass">{summary.discoveries}</p><p className="font-ui text-[11px] text-muted">public sources checked</p></div></div>
         {result.planner_fallback_used && <p className="mt-4 font-ui text-xs text-warning">The planner used your original question directly, so this brief has one focused evidence check.</p>}
       </section>
 
-      {result.synthesis_error && <ApiErrorNotice message={result.synthesis_error} />}
-      {result.synthesis ? <section className="w-full space-y-4"><div><h2 className="font-display text-2xl text-primary">What the evidence says</h2><p className="mt-1 font-ui text-sm text-muted">Claims link to passages below, so you can check the reasoning rather than take it on trust.</p></div><AnswerView result={result.synthesis} /></section> : <ApiErrorNotice message="The agent completed its checks, but could not assemble a combined report. You can still review every completed evidence check below." />}
+      {result.synthesis
+        ? <section className="w-full space-y-4">
+            <div><h2 className="font-display text-2xl text-primary">What the evidence says</h2><p className="mt-1 font-ui text-sm text-muted">Claims link to passages below, so you can check the reasoning rather than take it on trust.</p></div>
+            {result.synthesis.reproducible === false && <p className="font-ui text-xs text-warning">This brief is not reproducible: {result.model} answers at its own sampling setting rather than the deterministic one this app requests, so re-running the same goal may word the findings differently. The cited passages are exact either way.</p>}
+            <AnswerView result={result.synthesis} />
+          </section>
+        : <ApiErrorNotice message={result.synthesis_error ?? "No combined report was produced for this run. Every completed evidence check below is unaffected."} />}
 
       <section className="w-full rounded-lg border border-hairline-subtle bg-surface"><div className="border-b border-hairline-subtle px-5 py-4 sm:px-6"><h2 className="font-ui text-base font-semibold text-primary">How this brief was built</h2><p className="mt-1 font-ui text-xs text-muted">Expand a question to inspect its answer, citations, and all evidence supplied to the model.</p></div><ol className="divide-y divide-hairline-subtle">{result.steps.map((step, index) => <li key={`${index}-${step.question}`} className="px-5 py-4 sm:px-6"><details><summary className="flex cursor-pointer list-none items-start gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-brass"><span className={`mt-1 flex size-5 shrink-0 items-center justify-center rounded-full font-mono text-[10px] ${step.status === "succeeded" ? "bg-success text-base" : "bg-error text-base"}`}>{step.status === "succeeded" ? "✓" : "!"}</span><span className="min-w-0 flex-1 font-ui text-[14px] font-semibold text-primary">{index + 1}. {step.question}</span><span className="shrink-0 font-mono text-[10px] uppercase text-muted">{step.status === "succeeded" ? "review evidence" : "needs attention"}</span></summary><div className="pt-5">{step.error ? <ApiErrorNotice message={step.error} /> : step.answer ? <AnswerView result={step.answer} /> : null}</div></details></li>)}</ol></section>
 

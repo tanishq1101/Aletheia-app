@@ -78,20 +78,23 @@ services:
         value: https://aletheia-rag.vercel.app
 
       # --- The answering model ---------------------------------------------
-      # Set LLM_PROVIDER to openai and supply OPENAI_API_KEY, or leave it as
-      # gemini with GEMINI_API_KEY. With both keys present the OpenAI primary
-      # falls back to Gemini on failure, using the same grounded prompt.
-      - key: LLM_PROVIDER
-        value: gemini
-      - key: GEMINI_API_KEY
-        sync: false
+      # Two providers, one switch each; exactly one may be true. A disabled
+      # provider is never called, so setting both false — or both true — stops
+      # answering with a message naming the mistake rather than guessing.
+      # Flip the pair to move between vendors; nothing else changes.
+      - key: OPENAI_ENABLED
+        value: "false"
       - key: OPENAI_API_KEY
         sync: false
-      # Blank so the model name comes from the gemini provider profile, which
-      # is the single place it is written down.
-      - key: GEMINI_MODEL
+      - key: GEMINI_ENABLED
+        value: "true"
+      - key: GEMINI_API_KEY
+        sync: false
+      # Blank so each model name comes from its provider profile in
+      # services/llm.py, which is the single place they are written down.
+      - key: OPENAI_MODEL
         value: ""
-      - key: LLM_MODEL
+      - key: GEMINI_MODEL
         value: ""
 
       # --- Vector store -----------------------------------------------------

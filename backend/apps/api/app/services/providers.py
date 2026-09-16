@@ -3,7 +3,7 @@
     Sprint 2  DocumentParser      -- implemented (PyMuPDF),    see parsing.py
     Sprint 3  EmbeddingProvider   -- implemented (fastembed),  see embedding.py
     Sprint 4  RerankerProvider    -- implemented (fastembed),  see reranking.py
-    Sprint 4  LLMProvider         -- implemented (OpenRouter), see llm.py
+    Sprint 4  LLMProvider         -- implemented (OpenAI/Gemini), see llm.py
 
 All four are now implemented, and each has exactly one implementing module. That
 is the property worth preserving: no other module imports a model library or an
@@ -87,7 +87,15 @@ class RerankerProvider(Protocol):
 class LLMProvider(Protocol):
     """Sprint 4. Answers are built from supplied evidence only (PRD 5.3/5.4)."""
 
-    def complete(self, *, system: str, prompt: str) -> str: ...
+    def complete(
+        self, *, system: str, prompt: str, max_output_tokens: int | None = None
+    ) -> str:
+        """One completion. `max_output_tokens` overrides the provider default.
+
+        Optional because only callers whose output is structurally larger than
+        a single answer — the research agent's combined report — need it.
+        """
+        ...
 
     def complete_with_image(
         self,

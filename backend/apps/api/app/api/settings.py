@@ -26,16 +26,16 @@ def _current() -> SettingsResponse:
         rerank_top_k=effective.rerank_top_k,
         context_max_tokens=effective.context_max_tokens,
         llm_model=effective.llm_model,
-        llm_provider=env.llm_provider,
-        # Whether answering can work at all — never the key itself.
+        # "none" when zero or both providers are enabled. Naming the broken
+        # state is the point: a plausible-looking provider name next to
+        # "Not configured" sends someone to check the wrong key.
+        llm_provider=env.active_provider or "none",
+        # Whether answering can work at all — never the key itself. Only the
+        # enabled provider's key counts; a key for a disabled provider is not
+        # a working configuration, because nothing will call it.
         llm_key_configured=bool(
-            (env.openai_api_key or env.gemini_api_key)
-            if env.llm_provider == "openai"
-            else env.openrouter_api_key
-            if env.llm_provider == "openrouter"
-            else env.gemini_api_key
-            if env.llm_provider == "gemini"
-            else env.llm_api_key
+            env.active_provider
+            and getattr(env, f"{env.active_provider}_api_key", "")
         ),
         embedding_model=EMBEDDING_MODEL,
         rerank_model=env.rerank_model,

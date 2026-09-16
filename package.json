@@ -16,7 +16,8 @@
     "db:to-neon": "node scripts/run-python.mjs backend/scripts/migrate_to_neon.py",
     "vectors:sync": "node scripts/run-python.mjs backend/scripts/backfill_chroma.py",
     "vectors:status": "node scripts/run-python.mjs backend/scripts/backfill_chroma.py --status",
-    "projects:dedupe": "node scripts/run-python.mjs backend/scripts/remove_duplicate_default_projects.py"
+    "projects:dedupe": "node scripts/run-python.mjs backend/scripts/remove_duplicate_default_projects.py",
+    "projects:adopt": "node scripts/run-python.mjs backend/scripts/adopt_dev_user_library.py"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.1",
