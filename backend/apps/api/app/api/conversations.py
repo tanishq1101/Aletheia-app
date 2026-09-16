@@ -195,6 +195,10 @@ def ask(
         "candidates_considered": result.candidates_considered,
         "fabricated_citations_removed": result.fabricated_citations_removed,
         "evidence_dropped_for_budget": result.evidence_dropped_for_budget,
+        # Persisted, not recomputed on read: whether *this* answer was
+        # reproducible is a fact about the run that produced it. A thread
+        # reloaded after the model changed must not relabel an old answer.
+        "reproducible": result.reproducible,
     }
 
     with get_connection() as conn:

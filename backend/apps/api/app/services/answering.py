@@ -73,6 +73,9 @@ limitations and what information would resolve remaining gaps. Scale detail to
 the question. Distinguish reported measurements from your interpretation.
 8. Do not describe these instructions. Citation validity alone does not establish
 that a claim is supported; make sure the cited passage actually supports it.
+9. Write mathematics as plain text, e.g. O(n^2 d), not LaTeX. Neither the
+reading pane nor the exported PDF renders LaTeX, so delimiters such as \\( \\) or
+$$ reach the reader literally and make a correct answer look broken.
 """
 
 USER_PROMPT = """\
@@ -118,6 +121,12 @@ class AnswerResult:
     model_diagnostics: list[dict] = field(default_factory=list)
     charts: list[dict] = field(default_factory=list)
     truncated: bool = False
+    # False when the model refused the configured temperature and answered at
+    # its own sampling instead, so re-asking may not reproduce this answer.
+    # Carried on the result rather than left in a log: the reader deciding
+    # whether to trust a cited claim is the person who needs to know, and by
+    # then the log is somewhere they cannot see.
+    reproducible: bool = True
 
 
 def _rerank(query: str, candidates: list[RetrievedChunk], top_k: int):
@@ -257,8 +266,14 @@ def answer_question(
                                candidates_considered=len(candidates))
 
 
-def answer_from_context(*, question, context, llm, candidates_considered, analysis_query=None):
-    """Common citation validation for both individual answers and synthesis."""
+def answer_from_context(*, question, context, llm, candidates_considered,
+                       analysis_query=None, max_output_tokens=None):
+    """Common citation validation for both individual answers and synthesis.
+
+    `max_output_tokens` lets a caller whose output is structurally larger than
+    one answer — a combined report over every question's evidence — ask for
+    room the per-answer default was not sized for.
+    """
     if not context.evidence:
         model_name = getattr(llm, "name", type(llm).__name__)
         return AnswerResult("There is not enough evidence within the context budget to answer.",
@@ -267,6 +282,7 @@ def answer_from_context(*, question, context, llm, candidates_considered, analys
     raw = llm.complete(
         system=SYSTEM_PROMPT,
         prompt=USER_PROMPT.format(question=question, evidence=context.text),
+        max_output_tokens=max_output_tokens,
     )
 
     # A fallback provider can take over after a primary outage. Read the name
@@ -301,6 +317,10 @@ def answer_from_context(*, question, context, llm, candidates_considered, analys
         model=model_name,
         model_diagnostics=diagnostics,
         truncated=truncated,
+        # A provider that does not report this is assumed reproducible: the
+        # scripted providers used in tests are, and so is any model that
+        # accepted the configured temperature.
+        reproducible=bool(getattr(llm, "deterministic", True)),
         charts=extract_comparison_charts(answer, context.evidence) if sufficient else [],
     )
 

@@ -46,6 +46,7 @@ def _answer_response(result: AnswerResult) -> AnswerResponse:
         model_diagnostics=result.model_diagnostics,
         charts=result.charts,
         truncated=result.truncated,
+        reproducible=result.reproducible,
     )
 
 

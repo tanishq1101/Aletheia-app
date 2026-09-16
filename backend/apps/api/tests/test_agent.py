@@ -12,7 +12,7 @@ class SequenceLLM:
         self.replies = list(replies)
         self.calls: list[tuple[str, str]] = []
 
-    def complete(self, *, system: str, prompt: str) -> str:
+    def complete(self, *, system: str, prompt: str, max_output_tokens: int | None = None) -> str:
         self.calls.append((system, prompt))
         return self.replies.pop(0)
 

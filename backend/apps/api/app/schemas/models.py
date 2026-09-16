@@ -176,6 +176,11 @@ class AnswerResponse(BaseModel):
     model_diagnostics: list[dict[str, Any]] = Field(default_factory=list)
     charts: list[dict[str, Any]] = Field(default_factory=list)
     truncated: bool = False
+    # False when the model refused the configured temperature and answered at
+    # its own sampling, so re-asking may not reproduce this answer. Part of the
+    # response because the reader deciding whether to trust a cited claim is
+    # the one who needs to know it.
+    reproducible: bool = True
 
 
 class ConversationCreate(BaseModel):
@@ -357,6 +362,30 @@ class AgentResearchResponse(BaseModel):
     synthesis_error: str | None = None
     discoveries: list[dict[str, Any]] = Field(default_factory=list)
     discovery_errors: list[str] = Field(default_factory=list)
+
+
+# --- Report export ----------------------------------------------------------
+# A report is rendered from a result the caller already has, never re-run. The
+# models these endpoints ship against refuse `temperature=0` and so do not
+# reproduce their own answers (see services/llm.py); regenerating would produce
+# a *different* document and present it as the same one. Taking the finished
+# result as input is what makes the PDF match the screen.
+
+
+class AnswerReportRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=4000)
+    answer: AnswerResponse
+    project_name: str = Field(default="", max_length=200)
+
+
+class AgentReportRequest(BaseModel):
+    run: AgentResearchResponse
+    project_name: str = Field(default="", max_length=200)
+
+
+class ReproducibilityReportRequest(BaseModel):
+    report: ReproducibilityReport
+    paper_title: str = Field(default="", max_length=500)
 
 
 class HealthResponse(BaseModel):

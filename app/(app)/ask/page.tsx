@@ -3,11 +3,13 @@
 import { useEffect, useState, type FormEvent } from "react";
 import ApiErrorNotice from "@/components/ApiErrorNotice";
 import AnswerView from "@/components/AnswerView";
+import DownloadReportButton from "@/components/DownloadReportButton";
 import EmptyState from "@/components/EmptyState";
 import ProjectSources from "@/components/ProjectSources";
 import {
   ApiError,
   createConversation,
+  downloadAnswerPdf,
   listConversations,
   listMessages,
   sendMessage,
@@ -29,6 +31,9 @@ function answerFromMessage(message: Message): AnswerResponse {
     candidates_considered: metadata?.candidates_considered ?? 0,
     evidence_dropped_for_budget: metadata?.evidence_dropped_for_budget ?? 0,
     model: metadata?.model ?? "",
+    // Answers stored before this was recorded carry no flag. Assume
+    // reproducible rather than accusing an old answer of something unproven.
+    reproducible: metadata?.reproducible ?? true,
   };
 }
 
@@ -188,12 +193,14 @@ export default function AskPage() {
           <ApiErrorNotice message={error} />
           {needsKey && (
             <p className="font-ui text-xs text-muted">
-              Answering needs an OpenRouter key. From{" "}
-              <span className="font-mono text-secondary">backend/</span>, run{" "}
-              <span className="font-mono text-secondary">
-                ./scripts/set-openrouter-key.sh
-              </span>{" "}
-              and restart the API. Search and the library work without it.
+              Answering needs a key for the enabled provider. In{" "}
+              <span className="font-mono text-secondary">backend/.env</span>,
+              enable exactly one of{" "}
+              <span className="font-mono text-secondary">OPENAI_ENABLED</span>{" "}
+              or{" "}
+              <span className="font-mono text-secondary">GEMINI_ENABLED</span>,
+              set its matching key, and restart the API. Search and the library
+              work without it.
             </p>
           )}
         </div>
@@ -203,18 +210,49 @@ export default function AskPage() {
 
       {messages.length > 0 && (
         <div className="flex w-full flex-col items-start gap-8">
-          {messages.map((message) =>
-            message.role === "user" ? (
-              <p
-                key={message.id}
-                className="font-ui text-[15px] font-semibold text-primary"
-              >
-                {message.content}
-              </p>
-            ) : (
-              <AnswerView key={message.id} result={answerFromMessage(message)} />
-            ),
-          )}
+          {messages.map((message, index) => {
+            if (message.role === "user") {
+              return (
+                <p
+                  key={message.id}
+                  className="font-ui text-[15px] font-semibold text-primary"
+                >
+                  {message.content}
+                </p>
+              );
+            }
+            const result = answerFromMessage(message);
+            // The question this answered is the turn before it. A report
+            // titled by its own answer would be unidentifiable in a folder.
+            const asked =
+              [...messages.slice(0, index)].reverse().find((m) => m.role === "user")
+                ?.content ?? "";
+            return (
+              <div key={message.id} className="flex w-full flex-col items-start gap-3">
+                <div className="flex w-full items-start justify-between gap-4">
+                  {result.reproducible === false ? (
+                    <p className="min-w-px flex-1 font-ui text-xs text-warning">
+                      Not reproducible: {result.model} answers at its own sampling
+                      setting rather than the deterministic one this app requests,
+                      so the same question may be worded differently next time. The
+                      cited passages are exact either way.
+                    </p>
+                  ) : (
+                    <span className="min-w-px flex-1" />
+                  )}
+                  {projectId && (
+                    <DownloadReportButton
+                      title="This answer and every cited passage, as a PDF."
+                      download={() =>
+                        downloadAnswerPdf(projectId, asked, result, project?.name ?? "")
+                      }
+                    />
+                  )}
+                </div>
+                <AnswerView result={result} />
+              </div>
+            );
+          })}
         </div>
       )}
 

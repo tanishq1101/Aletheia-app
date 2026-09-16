@@ -16,6 +16,11 @@ from app.services.providers import LLMProvider
 
 log = get_logger(__name__)
 
+#: How much more output a combined report needs than one answer. Two, because
+#: it restates each question's finding *and* compares them; the comparison is
+#: roughly as long as the findings it draws on.
+_SYNTHESIS_BUDGET_MULTIPLE = 2
+
 PLANNER_SYSTEM = """You are a scientific research planner. Break the user's goal into a
 small set of independent questions that can be answered from an indexed paper library.
 Return JSON only: {"questions": ["...", "..."]}. Do not include prose, markdown, or more
@@ -150,9 +155,18 @@ def run_research_agent(
     if synthesize:
         try:
             synthesis = synthesize_research(goal, steps, discoveries, llm)
-        except Exception:
+        except Exception as exc:
             log.exception("Research synthesis failed")
-            synthesis_error = "The combined report could not be generated. Individual findings and sources remain available."
+            # The reason travels with the failure. The generic sentence this
+            # replaced told the reader only that something had gone wrong, and
+            # the actual cause — an empty completion from a model that had
+            # spent its whole output budget reasoning — was reachable only from
+            # the server log.
+            synthesis_error = (
+                "The combined report could not be generated, so the "
+                "per-question findings and sources below are what this run "
+                f"produced. Reason: {exc}"
+            )
     return AgentRun(
         goal=goal,
         plan=plan,
@@ -196,7 +210,19 @@ def synthesize_research(goal, steps, discoveries, llm):
     if not evidence:
         from app.services.answering import AnswerResult
         return AnswerResult("No usable paper passages or public abstracts were found. Try a more specific research question or add relevant papers.",False,[],[],0,0,0,getattr(llm,'name',type(llm).__name__))
-    context = build_context(ranked=evidence,counter=build_token_counter(),max_tokens=get_settings().context_max_tokens)
+    settings = get_settings()
+    context = build_context(ranked=evidence, counter=build_token_counter(),
+                            max_tokens=settings.context_max_tokens)
     question = goal + "\nProduce a combined research report: direct answer, evidence comparison, explanation, disagreements, limitations, and open questions. Explicitly identify abstract-only evidence. Use cited tables only when comparable measured data exists."
-    return answer_from_context(question=question,context=context,llm=llm,analysis_query=goal,
-                               candidates_considered=sum(a.candidates_considered for a in answers)+len(external))
+    return answer_from_context(
+        question=question, context=context, llm=llm, analysis_query=goal,
+        candidates_considered=sum(a.candidates_considered for a in answers) + len(external),
+        # A six-section report over every question's evidence is structurally
+        # longer than the single answer the per-answer ceiling was sized for.
+        # Asking for the room up front avoids paying for a truncated report and
+        # then paying again for the client's escalation retry.
+        max_output_tokens=min(
+            settings.llm_max_output_tokens * _SYNTHESIS_BUDGET_MULTIPLE,
+            settings.llm_max_output_tokens_ceiling,
+        ),
+    )

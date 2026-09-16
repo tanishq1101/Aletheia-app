@@ -30,6 +30,15 @@ function remarkCitations() {
   };
 }
 
+/** Drop LaTeX delimiters the model sometimes emits despite being asked not to.
+ *
+ *  Nothing here renders LaTeX, so `\(O(n^2 d)\)` reaches the reader with its
+ *  delimiters attached and makes a correct answer look broken. Only the
+ *  delimiters go — the expression between them is already readable. */
+function withoutMathDelimiters(text: string): string {
+  return text.replace(/\\[()[\]]/g, "");
+}
+
 export default function ResearchMarkdown({ text, known, onFocus }: {
   text: string; known: Set<string>; onFocus: (id: string) => void;
 }) {
@@ -56,6 +65,6 @@ export default function ResearchMarkdown({ text, known, onFocus }: {
         }
         return <span>{children}</span>; // Only backend-resolved sources are clickable.
       },
-    }}>{text}</Markdown>
+    }}>{withoutMathDelimiters(text)}</Markdown>
   </div>;
 }

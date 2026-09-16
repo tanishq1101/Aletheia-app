@@ -7,7 +7,12 @@ import CitationCard from "@/components/CitationCard";
 import EmptyState from "@/components/EmptyState";
 import PaperSelect from "@/components/PaperSelect";
 import RepoMetadataCard from "@/components/RepoMetadataCard";
-import { getReproducibilityReport, runReproducibilityReport } from "@/lib/api";
+import DownloadReportButton from "@/components/DownloadReportButton";
+import {
+  downloadReproducibilityPdf,
+  getReproducibilityReport,
+  runReproducibilityReport,
+} from "@/lib/api";
 import { useWorkspace } from "@/lib/workspace";
 import type { ReproducibilityReport } from "@/types/api";
 
@@ -141,6 +146,20 @@ export default function ReproducibilityPage() {
               {report?.checks.filter((c) => c.status === "disclosed").length} of{" "}
               {report?.checks.length} fully disclosed
             </p>
+          </div>
+        )}
+        {report && paperId && (
+          <div className="ml-auto">
+            <DownloadReportButton
+              title="The audit, every judgement, and the disclosure text each rests on."
+              download={() =>
+                downloadReproducibilityPdf(
+                  paperId,
+                  report,
+                  papers.find((paper) => paper.id === paperId)?.title ?? "",
+                )
+              }
+            />
           </div>
         )}
       </div>
