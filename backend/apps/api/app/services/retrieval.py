@@ -124,7 +124,12 @@ def _hydrate(hits: list) -> list[RetrievedChunk]:
                    c.chunk_index,
                    c.token_count,
                    pg.page_number,
-                   p.title         AS paper_title,
+                   -- A paper whose PDF metadata carried no title still has
+                   -- to be identifiable in a citation: "attention.pdf" tells
+                   -- the reader which source a claim came from, and
+                   -- "Untitled source" does not. `filename` stays available
+                   -- separately for callers that want the raw value.
+                   COALESCE(NULLIF(p.title, ''), p.filename) AS paper_title,
                    p.filename
               FROM paper_chunks c
               JOIN papers p       ON p.id = c.paper_id
@@ -170,7 +175,12 @@ def _retrieve_pgvector(
                    c.chunk_index,
                    c.token_count,
                    pg.page_number,
-                   p.title         AS paper_title,
+                   -- A paper whose PDF metadata carried no title still has
+                   -- to be identifiable in a citation: "attention.pdf" tells
+                   -- the reader which source a claim came from, and
+                   -- "Untitled source" does not. `filename` stays available
+                   -- separately for callers that want the raw value.
+                   COALESCE(NULLIF(p.title, ''), p.filename) AS paper_title,
                    p.filename,
                    1 - (c.embedding <=> %s::vector) AS similarity
               FROM paper_chunks c
