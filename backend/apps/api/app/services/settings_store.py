@@ -30,6 +30,23 @@ class EffectiveSettings:
     overridden: tuple[str, ...] = ()
 
 
+def _configured_model() -> str:
+    """The model the enabled provider would actually use.
+
+    Imported lazily to keep this module free of the LLM client, and tolerant of
+    a bad provider configuration for the same reason as the override read
+    below: the settings page exists partly to *show* that misconfiguration, so
+    it must still render when answering cannot run.
+    """
+    from app.services.llm import LLMConfigurationError, configured_llm_model
+
+    try:
+        return configured_llm_model()
+    except LLMConfigurationError as exc:
+        log.warning("No usable LLM provider configured: %s", exc)
+        return ""
+
+
 def _stored_overrides() -> dict:
     with get_connection() as conn, conn.cursor() as cur:
         cur.execute(
@@ -55,7 +72,7 @@ def get_effective_settings() -> EffectiveSettings:
         search_top_k=overrides.get("search_top_k", env.search_top_k),
         rerank_top_k=overrides.get("rerank_top_k", env.rerank_top_k),
         context_max_tokens=overrides.get("context_max_tokens", env.context_max_tokens),
-        llm_model=overrides.get("llm_model", env.openrouter_model),
+        llm_model=overrides.get("llm_model") or _configured_model(),
         overridden=tuple(sorted(overrides)),
     )
 

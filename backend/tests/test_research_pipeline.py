@@ -112,8 +112,8 @@ def test_truncated_response_is_explicit_and_not_sufficient():
 
 def test_provider_preserves_length_finish_reason(monkeypatch):
     import httpx
-    from app.services.llm import OpenRouterProvider
+    from app.services.llm import OpenAICompatibleProvider
     monkeypatch.setattr('app.services.llm.httpx.post', lambda *args, **kwargs: httpx.Response(200,json={'choices':[{'message':{'content':'Partial text'},'finish_reason':'length'}]}))
-    provider=OpenRouterProvider(api_key='test',model='test',base_url='https://example.test',temperature=0,max_output_tokens=5,timeout=1)
+    provider=OpenAICompatibleProvider(api_key='test',model='test',base_url='https://example.test',temperature=0,max_output_tokens=5,timeout=1)
     result=provider.complete(system='s',prompt='q')
     assert result == 'Partial text' and result.truncated

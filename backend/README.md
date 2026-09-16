@@ -8,7 +8,7 @@ See [PRD.md](PRD.md) for scope and [PROGRESS.md](PROGRESS.md) for live project s
 > reranking, and grounded answers with backend-resolved citations.
 > Answers are stateless — conversation history and streaming are Sprint 5.
 > Retrieval and answer quality have **not** been measured against a benchmark
-> (Sprint 6), and the live OpenRouter path is unverified until a key is set.
+> (Sprint 6). The live provider path is unverified until a key is set.
 
 ## Prerequisites
 
@@ -45,21 +45,28 @@ cp .env.example .env
 ```
 
 The defaults work with the bundled docker-compose. Everything except **answering** runs
-with no secrets: embeddings and reranking are local. Grounded answers need an
-[OpenRouter](https://openrouter.ai/keys) key — without one, the answer endpoint returns a
-503 saying so rather than degrading to an ungrounded answer.
+with no secrets: embeddings and reranking are local. Grounded answers need a hosted model
+— without one, the answer endpoint returns a 503 saying so rather than degrading to an
+ungrounded answer.
 
-Set the key with the helper rather than editing `.env` by hand:
+`.env` has one section per provider, and **exactly one is enabled at a time**:
 
-```bash
-./scripts/set-openrouter-key.sh
+```ini
+OPENAI_ENABLED=true          # provider 1 — https://platform.openai.com/api-keys
+OPENAI_API_KEY=sk-...
+
+GEMINI_ENABLED=false         # provider 2 — https://aistudio.google.com/apikey
+GEMINI_API_KEY=
 ```
 
-It prompts with echo off, writes the key straight into `.env`, sets the file to `chmod 600`,
-and verifies the key against OpenRouter before it finishes. The key is never echoed, never
-passed as an argument (`argv` is visible to `ps`), and never enters shell history — only a
-masked fingerprint is shown. `--check` re-verifies the stored key and reports usage and
-limit; `--clear` removes it.
+Switching vendor is those two booleans and nothing else; both keys can stay in the file.
+The switch is what decides, not the presence of a key — a disabled provider is **never**
+called, including when the enabled one fails. That is deliberate: a silent failover makes
+the switch a suggestion and bills an account you turned off. Enabling both, or neither,
+stops answering with a message naming which mistake was made.
+
+`.env` is gitignored; keep it `chmod 600` and never pass a key as a command argument
+(`argv` is visible to `ps`).
 
 **2. Start the unified API, database, and vector store**
 
@@ -176,9 +183,9 @@ Results land in `datasets/benchmark/results/` as a timestamped JSON plus a Markd
 so a chunk-size or model change is comparable against the previous run.
 
 **Retrieval metrics need no LLM and always run.** Answer correctness, citation accuracy and
-faithfulness do, and skip with a stated reason when `OPENROUTER_API_KEY` is unset rather than
-reporting zeros — an unrun metric and a failed one are different facts. Set the key with
-`scripts/set-openrouter-key.sh` (it keeps the value out of shell history) and re-run.
+faithfulness do, and skip with a stated reason when no provider is enabled and keyed rather
+than reporting zeros — an unrun metric and a failed one are different facts. Enable one in
+`backend/.env` (see above), set its key, and re-run.
 
 A few things worth knowing before trusting a number from it:
 

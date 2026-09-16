@@ -349,7 +349,7 @@ def main() -> int:
             "chunk_overlap_tokens": settings.chunk_overlap_tokens,
             "embedding_context_max_tokens": settings.context_max_tokens,
             "rerank_model": settings.rerank_model,
-            "llm_model": settings.openrouter_model if llm else None,
+            "llm_model": llm.name if llm else None,
         },
         "retrieval": {
             f"recall_at_{evidence_k}": acc["recall_at_k"].mean,
