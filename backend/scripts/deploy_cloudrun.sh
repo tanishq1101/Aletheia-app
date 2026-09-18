@@ -18,9 +18,14 @@ REGION="${2:-us-central1}"
 SERVICE="aletheia-api"
 REPO="aletheia"
 
-# The two ONNX models plus PyMuPDF. The Render blueprint already measured
-# 512 MB as too small -- "it will be killed on the first ingest".
-MEMORY="2Gi"
+# Measured, not reasoned about. Loading both ONNX models costs 708 MB before a
+# request arrives; ingesting one 75-page paper then peaks at ~1.8 GB with
+# EMBED_BATCH_SIZE=4 (figure extraction and the embedding arena are the two
+# spikes). 2Gi -- the value this script used to pass -- left no headroom above
+# that, and with the old hardcoded batch of 32 the peak was 3.7 GB and the
+# first real ingest would have been OOM-killed. 4Gi is the smallest size with
+# room for the measured peak plus a concurrent query.
+MEMORY="4Gi"
 CPU="1"
 
 echo "==> project=$PROJECT region=$REGION service=$SERVICE"

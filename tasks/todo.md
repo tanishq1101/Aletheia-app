@@ -344,3 +344,65 @@ Oracle and Cloudflare assets removed this session: `deploy/oracle/`,
 - `scripts/deploy_cloudrun.sh` is otherwise ready: `bash -n` clean, all three
   LOAD-BEARING flags present, and it already prints the follow-up command with
   the now-real `https://aletheia-rag.vercel.app` origin.
+
+
+## Addendum — the memory ceiling was wrong, and measured (2026-09-18)
+
+Every host decision in this file rested on "2 GB is the smallest that works",
+which was reasoned about rather than measured. It is wrong. Measured inside the
+deploy image on `linux/amd64` against one real 75-page paper (112 chunks):
+
+| stage | batch=4 | batch=32 (as shipped) |
+|---|---|---|
+| both ONNX models loaded, idle | 451 MB | 453 MB |
+| + parsed + 99 figures/tables extracted | 766 MB | 765 MB |
+| + all chunks embedded | 1786 MB | 4227 MB |
+| + one `search_top_k=20` rerank while resident | **2326 MB** | **4787 MB** |
+
+Two mechanisms, neither of which is the user's data — the 6.8 MB PDF accounts
+for 6.8 MB:
+
+* **ONNX Runtime sizes its CPU arena to the widest batch it ever sees and keeps
+  it.** The cost is a permanent ceiling, not a spike: 1399 MB after the first
+  pass, then 1409, then 1409 across three passes.
+* **The reranker holds a second arena of its own**, independent of the
+  embedder's — the last row is one rerank adding ~540 MB to a finished ingest.
+
+Confirmed by enforcement rather than by reading peaks, with
+`docker run --memory N --memory-swap N` against the deploy image:
+
+| | 2 GiB | 4 GiB |
+|---|---|---|
+| `EMBED_BATCH_SIZE=4` | OOM-killed (137) | **survives** |
+| `EMBED_BATCH_SIZE=32` | OOM-killed (137) | OOM-killed (137) |
+
+**Neither fix is sufficient alone.** `deploy_cloudrun.sh` would have been
+OOM-killed on its first real ingest at `2Gi`, and lowering the batch without
+raising memory would still have been killed.
+
+### Changed
+- `embed_batch_size` is a setting (default 4), not the hardcoded
+  `EMBED_BATCH_SIZE = 32` in `ingestion.py`. It is a memory ceiling, so it has
+  to be reachable per host.
+- `deploy_cloudrun.sh`: `MEMORY` `2Gi` -> `4Gi`. `--cpu 1` stays; Cloud Run
+  allows up to 4 GiB on one vCPU, so this sits exactly at that ceiling and
+  going higher would force `--cpu 2`.
+- `render.yaml`: `plan: standard` (2 GB) -> `pro` (4 GB), with the measurement
+  replacing the claim it contradicts.
+- `docs/cloudrun-deploy.md`: new sizing section; cost corrected to ~$0.09/hr
+  (~$6/mo light use) for 1 vCPU + 4 GiB.
+- `test_ingestion.py` guards both failure modes — re-hardcoding the width, and
+  raising the default without re-measuring. Proven non-vacuous: it fails under
+  `EMBED_BATCH_SIZE=32`.
+
+413 passed, 13 skipped, 0 failed.
+
+### Caveat
+Measured on one paper. Figure extraction scales with figure count (99 here) and
+the embedding arena with batch width, not paper length, so a 300-page paper
+should land close to this — but that is reasoning, not a measurement.
+
+### What this changes about hosting
+Free 512 MB tiers were never borderline: the two models alone are 451 MB, before
+a request. Oracle's always-free ARM VM (24 GB) and HF Spaces (16 GB) both have
+comfortable headroom; Cloud Run needs `4Gi`, which is not free.

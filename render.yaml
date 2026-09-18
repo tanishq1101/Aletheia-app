@@ -37,10 +37,17 @@ services:
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     region: singapore
-    # Starter is 512 MB, and this image loads two local ONNX models — the
-    # embedding model and the cross-encoder reranker — plus PyMuPDF. It will be
-    # killed on the first ingest. Standard (2 GB) is the smallest that works.
-    plan: standard
+    # Measured inside the deploy image (linux/amd64), not estimated. Loading
+    # the two ONNX models costs 451 MB before a request arrives. Ingesting one
+    # 75-page paper with EMBED_BATCH_SIZE=4 reaches 1.79 GB, and a query
+    # reranked while that ingest is still resident peaks at 2.33 GB — the
+    # reranker keeps an arena of its own, separate from the embedder's.
+    #
+    # So Standard (2 GB) does NOT work: it was OOM-killed at exactly that
+    # point under `docker run --memory 2g`. Pro (4 GB) is the smallest that
+    # survives. Raising EMBED_BATCH_SIZE back to 32 would need more than 4 GB
+    # again — it was killed at 4 GB too.
+    plan: pro
     healthCheckPath: /health
     # The container runs migrations on boot before uvicorn binds, so a deploy
     # that cannot migrate fails the health check instead of serving a half-

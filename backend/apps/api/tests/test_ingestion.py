@@ -5,6 +5,7 @@ by the time an upload call returns, extraction has already run. That makes these
 deterministic without sleeping or polling.
 """
 
+from app.core.config import get_settings
 from app.db.session import get_connection
 from app.services.ingestion import recover_stranded_jobs
 from tests.fixtures import build_corrupt_pdf, build_encrypted_pdf, build_pdf
@@ -259,3 +260,32 @@ def test_stranded_running_jobs_are_recovered_as_retryable(client, project):
     # And it can then actually be retried.
     client.post(f"/papers/{paper_id}/reprocess")
     assert client.get(f"/papers/{paper_id}").json()["status"] == "ready"
+
+
+def test_embed_batch_width_is_a_setting_with_a_memory_bounded_default():
+    """The embedding batch width is a memory ceiling, not a throughput knob.
+
+    ONNX Runtime sizes its CPU arena to the widest batch it is ever handed and
+    then keeps that arena for the life of the process, so this value sets the
+    floor on how much RAM the service needs forever. Measured in the deploy
+    image (linux/amd64) on one 75-page paper, peak resident memory with a
+    query reranked mid-ingest: batch 4 -> 2.33 GB, batch 32 -> 4.79 GB. Under
+    `docker run --memory 4g` the first survives and the second is OOM-killed.
+
+    Two failure modes this guards. Re-hardcoding the width puts the ceiling
+    back out of the operator's reach, and raising the default silently makes
+    every documented `--memory` figure wrong at the same time.
+    """
+    import app.services.ingestion as ingestion
+
+    assert not hasattr(ingestion, "EMBED_BATCH_SIZE"), (
+        "the batch width was hardcoded again; it must come from "
+        "settings.embed_batch_size so a host can lower it"
+    )
+
+    assert get_settings().embed_batch_size == 4, (
+        "the default batch width changed. That moves the service's permanent "
+        "memory ceiling, so re-measure in the container and update --memory in "
+        "scripts/deploy_cloudrun.sh, the plan in render.yaml, and the table in "
+        "docs/cloudrun-deploy.md together with it."
+    )

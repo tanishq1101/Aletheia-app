@@ -233,3 +233,24 @@
   Clerk's CJS build. Two different errors, one cause. The rename Next already printed at every
   build was the actual fix.
 
+- A resource figure that was never measured will be wrong, and it propagates. "Standard (2 GB)
+  is the smallest that works" was reasoned about once in `render.yaml`, then copied into
+  `deploy_cloudrun.sh` as `MEMORY="2Gi"` and into the deploy doc's cost model. Measuring it
+  took one container run and showed the real peak was 4.79 GB — the first ingest would have
+  been OOM-killed on a host chosen and priced on that number. Measure the figure at the point
+  a deploy flag is first written down, because after that it is quoted rather than checked.
+- Measure inside the image, under an enforced limit, not on the dev machine. Peaks on
+  macOS/arm64 with the local venv were not the deployed ones (3.67 GB vs 4.23 GB for the same
+  batch), and reading a peak off a graph is weaker evidence than `docker run --memory 4g`
+  returning exit 137. The enforced run also caught that *neither* fix was sufficient alone:
+  batch=4 still died at 2 GiB, batch=32 still died at 4 GiB.
+- ML inference memory belongs to the arena allocator, not to the request. ONNX Runtime sizes
+  its CPU arena to the widest batch it is ever handed and then keeps it for the process's
+  life, so a batch width is a permanent memory ceiling rather than a throughput knob — and
+  each model holds its own arena, so the reranker's ~540 MB is charged on top of the
+  embedder's. Anything that sets a batch width therefore has to be configuration a host can
+  lower, never a module-level constant.
+- Distinguish storage, image size and RAM before answering a sizing question. The user read
+  "needs 2 GB" as their data being too large; the actual data was 28 MB of PDFs, the image was
+  1.21 GB uncompressed, and the 2 GB was resident memory holding two ONNX models. Three
+  different numbers get called "size", and naming which one is meant is most of the answer.

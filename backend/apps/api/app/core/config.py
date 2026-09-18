@@ -30,6 +30,24 @@ class Settings(BaseSettings):
     chunk_max_tokens: int = 600
     chunk_overlap_tokens: int = 80
 
+    # How many chunks go into one embedding call. This is a *memory* setting,
+    # not a throughput one, and it is the largest single consumer of RAM in the
+    # process. ONNX Runtime sizes its CPU arena to the widest batch it has been
+    # asked for and then keeps that arena for the life of the process, so the
+    # peak is permanent rather than transient. Measured on one 75-page paper
+    # (112 chunks, 800 tokens each), resident after embedding:
+    #
+    #     batch  4 -> 1.41 GB       batch  8 -> 1.82 GB
+    #     batch 32 -> 3.67 GB
+    #
+    # The arena stabilises after the first pass (1399 MB, then 1409, then
+    # 1409 across three passes), so this buys a permanently lower ceiling, not
+    # a slower climb to the same one. 4 is chosen so the service fits a 2 GiB
+    # host with the reranker loaded; ingestion runs in a BackgroundTasks after
+    # the 201 is already sent, so the extra model calls cost no user-visible
+    # latency. Raise it only on a host with RAM measured to spare.
+    embed_batch_size: int = 4
+
     # Retrieval. PRD Section 5.1 step 7: semantic top ~20 -> rerank -> top 5-8.
     # `search_top_k` is the candidate set reranking consumes; `rerank_top_k` is
     # how many survive as evidence.

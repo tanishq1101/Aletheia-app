@@ -41,8 +41,10 @@ STAGE_EMBED = ("embedding", 0.55)
 STAGE_PERSIST = ("persisting", 0.85)
 STAGE_DONE = ("complete", 1.0)
 
-# Embedding is batched so a long paper is not one model call per chunk.
-EMBED_BATCH_SIZE = 32
+# Embedding is batched so a long paper is not one model call per chunk. The
+# width is `settings.embed_batch_size`, not a constant here: it determines the
+# process's permanent memory ceiling rather than just its throughput, so it has
+# to be tunable per host. See the measurements on that setting in config.py.
 
 
 def _set_stage(conn, job_id: UUID, stage: str, progress: float) -> None:
@@ -364,8 +366,9 @@ def process_paper(paper_id: UUID, job_id: UUID) -> None:
             _set_stage(conn, job_id, *STAGE_EMBED)
 
         vectors: list[list[float]] = []
-        for start in range(0, len(chunks), EMBED_BATCH_SIZE):
-            batch = chunks[start : start + EMBED_BATCH_SIZE]
+        batch_size = settings.embed_batch_size
+        for start in range(0, len(chunks), batch_size):
+            batch = chunks[start : start + batch_size]
             vectors.extend(provider.embed(texts=[c.content for c in batch]))
     except EmbeddingError as exc:
         _fail(job_id, paper_id, str(exc))

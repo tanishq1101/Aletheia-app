@@ -85,6 +85,42 @@ done
   job left `running` on startup, assuming the process holding it died. A second
   instance booting would fail the first one's in-flight ingestion.
 
+## Why `--memory 4Gi`, and why `EMBED_BATCH_SIZE` is 4
+
+Both numbers are measured inside this image on `linux/amd64`, not estimated.
+Ingesting one real 75-page paper (112 chunks), resident memory:
+
+| stage | batch=4 | batch=32 |
+|---|---|---|
+| both ONNX models loaded, idle | 451 MB | 453 MB |
+| + parsed, + 99 figures/tables extracted | 766 MB | 765 MB |
+| + all chunks embedded | 1786 MB | 4227 MB |
+| + one query reranked while that is resident | **2326 MB** | **4787 MB** |
+
+Two things this makes visible. First, **ONNX Runtime sizes its CPU arena to the
+widest batch it is ever asked for and then keeps it** — the cost is a permanent
+ceiling, not a transient spike, and it stabilises after the first paper (1399
+MB, then 1409, then 1409 over three passes). Second, **the reranker holds an
+arena of its own**, separate from the embedder's: the last row is a single
+`search_top_k=20` rerank adding ~540 MB on top of a finished ingest.
+
+Verified by enforcement, not by reading the peaks off a graph —
+`docker run --memory ... --memory-swap ...` against the deploy image:
+
+| | 2 GiB | 4 GiB |
+|---|---|---|
+| `EMBED_BATCH_SIZE=4` | OOM-killed (137) | **survives** |
+| `EMBED_BATCH_SIZE=32` | OOM-killed (137) | OOM-killed (137) |
+
+So neither change would have been sufficient alone. `2Gi` — which this script
+passed until now, and which `render.yaml` still called "the smallest that
+works" — is killed even at batch 4, and 4 GiB is killed at batch 32. Raise
+`EMBED_BATCH_SIZE` only alongside a `--memory` rise proven the same way.
+
+`--cpu 1` stays: Cloud Run permits up to 4 GiB on a single vCPU, so 4Gi is
+exactly at that ceiling. Going above 4 GiB would force `--cpu 2` and roughly
+double the hourly rate.
+
 ## Why there is no keepalive ping
 
 The obvious trick for a scale-to-zero host is to ping `/health` every few
@@ -117,11 +153,12 @@ applies when CPU is always allocated. This deployment needs
 plan around it being free.
 
 Plan around the $300 / 90-day trial credit instead, which is unambiguous and
-covers this many times over. At 1 vCPU + 2 GiB under instance-based rates the
-service costs roughly **$0.08 per hour that an instance is alive** — and with
-`--min-instances 0` an instance lives from its cold start until roughly 15
-minutes after its last request, not 24 hours a day. Light demo use lands around
-$5/month once the credit runs out; continuous traffic is about $55.
+covers this many times over. At 1 vCPU + 4 GiB under instance-based rates
+(CPU $0.000018/vCPU-s, memory $0.000002/GiB-s) the service costs roughly
+**$0.09 per hour that an instance is alive** — and with `--min-instances 0` an
+instance lives from its cold start until roughly 15 minutes after its last
+request, not 24 hours a day. Light demo use lands around $6/month once the
+credit runs out; continuous traffic is about $68.
 
 Set a budget alert on day one rather than discovering this at the end of a
 month:
