@@ -254,3 +254,25 @@
   "needs 2 GB" as their data being too large; the actual data was 28 MB of PDFs, the image was
   1.21 GB uncompressed, and the 2 GB was resident memory holding two ONNX models. Three
   different numbers get called "size", and naming which one is meant is most of the answer.
+- Turning a forced decision into configuration beats guessing which way the user wants it.
+  The Oracle setup needed a TLS hostname, and DuckDNS versus an owned domain looked like a
+  blocking question. Reading `API_DOMAIN` from the environment made both work with no file
+  edit and no question asked. When a choice only affects one string, the choice is usually
+  a variable, not a decision.
+- Verify a deploy stack by running it, and pick the setup that makes that cheap. Caddy uses
+  its internal CA for `localhost`, so the entire TLS-terminated stack could be exercised
+  locally without a domain, a public IP, or a Let's Encrypt request. That run caught three
+  things reading the files would not have: a compose `env_file` that made the deploy script's
+  own pre-flight check fail on every laptop, a comment claiming a 413 where the app returns
+  400, and confirmation that CORS was not being duplicated by the proxy.
+- The check that matters is the one the deployed machine cannot perform. Both Oracle
+  firewalls, DNS, and the certificate all fail in ways that look perfectly healthy from
+  inside the instance — `docker compose ps` says healthy while nothing can reach it. So
+  `deploy.sh` ends by curling the public URL from the operator's laptop, and its failure
+  message lists the three causes in order of likelihood rather than saying "unreachable".
+- Read the free tier's reclamation policy, not just its resource limits. Oracle's Always Free
+  A1 is 24 GB and genuinely free, but an instance idle for 7 days can be reclaimed on
+  95th-percentile CPU, network *and* memory all under 20%. A service that idles at 451 MB of
+  24 GB trips every criterion — so the thing that makes the shape attractive is also what
+  makes it look abandoned. "Free" has operating conditions, and they are not in the pricing
+  table.

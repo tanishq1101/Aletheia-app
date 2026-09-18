@@ -1,0 +1,42 @@
+# The build context is backend/, and without this file every build ships the
+# whole of it. The local virtualenv alone is 375 MB of the wrong architecture,
+# and `deploy/oracle/deploy.sh` builds on the instance, where the context
+# crosses a network first.
+
+# Local virtualenvs. Wrong platform for the image, and reinstalled from
+# requirements.txt inside it regardless.
+.venv/
+venv/
+**/__pycache__/
+*.py[cod]
+
+# Secrets. The image must never carry one; the runtime gets them from the
+# environment. Belt and braces with .gitignore, because an image is pushed to
+# places a git remote is not.
+.env
+.env.*
+!.env.example
+
+# The paper library. Uploaded PDFs are runtime data on a volume, not build
+# inputs -- and copying them in would bake one deployment's library into an
+# image that other deployments pull.
+storage/
+
+# Test and tooling artefacts.
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+
+# Docs and deploy assets. The Dockerfile copies apps/api, models and
+# scripts/migrate.py by name, so none of this is referenced -- but excluding it
+# keeps the context small and makes cache invalidation depend on code.
+docs/
+deploy/
+tasks/
+*.md
+docker-compose.yml
+
+# Datasets used for local training/benchmarking, not by the running API.
+datasets/

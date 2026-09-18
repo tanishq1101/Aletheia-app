@@ -406,3 +406,102 @@ should land close to this — but that is reasoning, not a measurement.
 Free 512 MB tiers were never borderline: the two models alone are 451 MB, before
 a request. Oracle's always-free ARM VM (24 GB) and HF Spaces (16 GB) both have
 comfortable headroom; Cloud Run needs `4Gi`, which is not free.
+
+
+## Addendum — Oracle always-free A1 as a second host (2026-09-18)
+
+The genuinely free host. Built fresh: the earlier Oracle attempt was never
+committed to any branch, so nothing was recoverable from history.
+
+### Why it needed no arm64 work at all
+The expected cost was porting the image to aarch64. There was none. Every native
+wheel the API pins publishes an aarch64 build and was verified to import in the
+built image — `onnxruntime` 1.30.0, `pymupdf` 1.28.2, `numpy` 2.5.2, `psycopg`,
+`cryptography`, `tokenizers`, `reportlab`. `docker build --platform linux/arm64`
+against the unmodified Dockerfile produces the same 1.21 GB image with both ONNX
+models baked (271 MB at `/opt/fastembed-cache`), and it builds natively on an
+Apple-silicon laptop.
+
+arm64 memory is slightly *lower* than amd64 — 451 MB idle and 2278 MB peak
+against 451/2326 — so the Cloud Run sizing work carries over unchanged.
+
+### Added
+`backend/deploy/oracle/{docker-compose.yml,Caddyfile,provision.sh,deploy.sh,backup.sh,.env.example}`
+and `backend/docs/oracle-deploy.md`. Plus `backend/.dockerignore`, which did not
+exist: the build context was 482 MB, of which 375 MB was the local `.venv` of the
+wrong architecture. It matters here because `deploy.sh` builds on the instance,
+so the context crosses a network first.
+
+### Decisions
+- **`STORAGE_BACKEND=local`, not R2.** R2 exists because Cloud Run hands a woken
+  container a fresh in-memory filesystem. A VM has a real disk, so the reason
+  evaporates, and local needs no credential minted by hand. R2 stays a one-line
+  switch. `backup.sh` covers what this makes fragile.
+- **No Redis.** With one API container the in-process rate-limit windows *are*
+  the real cluster-wide counters. `/health` reports
+  `rate_limiter: in-memory (per process)`, so the choice is visible.
+- **One instance**, for `recover_stranded_jobs()` — the same constraint as
+  `--max-instances 1` on Cloud Run, for the same reason.
+- **`API_DOMAIN` from the environment**, so a DuckDNS subdomain and an owned
+  domain both work with no file edit. This removed the need to decide up front.
+- **CORS in FastAPI only, never in Caddy.** Two layers setting
+  `Access-Control-Allow-Origin` makes browsers reject the response, and it reads
+  like an application bug.
+
+### Verified by running it, not by inspection
+The whole stack was brought up locally — Caddy uses its internal CA for
+`localhost`, so TLS, the proxy and the API were exercised together without
+touching Let's Encrypt.
+
+- `/health` through TLS: `status: ok`, database ok, storage ok.
+- HTTP → HTTPS is a 308.
+- `curl http://localhost:8000/health` from the host **fails**: the API publishes
+  no port, so TLS is not something a client can skip by accident.
+- CORS: an allowed origin gets exactly **one** `Access-Control-Allow-Origin`;
+  `https://evil.example` gets none.
+- A real 2.1 MB paper uploaded through the proxy reached `ready` with its title
+  extracted, and its bytes landed on the `papers` volume.
+- **The test that justifies local storage:** after `docker compose down` then
+  `up`, `POST /papers/{id}/reprocess` re-read the PDF from the volume and
+  completed. This is the exact sequence that fails on an ephemeral filesystem.
+- Upload limits layer as intended: 52 MB → the API's own
+  `400 {"detail":"File is 51.0 MB, over the 50 MB limit."}`; 67 MB → Caddy's
+  bare `413`.
+- `backup.sh` resolved the real volume name, archived, and verified with
+  `tar tzf` before pruning.
+- Live memory after a real ingest: 955 MiB of the 6 GiB limit.
+- Caddyfile passes `caddy validate`; all three shell scripts pass `bash -n`.
+
+### A bug this found in my own work
+`env_file: .env` makes `docker compose config` fail whenever `.env` is absent —
+which is deliberate on a laptop. So `deploy.sh`'s pre-flight validation would
+have failed for every developer, every time. Fixed with
+`env_file: [{path: .env, required: false}]`; the explicit remote check in
+`deploy.sh` gives a better message than compose's anyway.
+
+### The operational trap worth knowing before committing to this host
+Oracle may reclaim an Always Free instance idle over 7 days: 95th-percentile CPU
+below 20%, network below 20%, **and, on A1 only, memory below 20%**. This service
+idles at 451 MB of 24 GB — 1.9% — so it trips all three. Reclamation stops the
+instance rather than destroying it, but restarting needs A1 capacity, which is
+exactly what is scarce.
+
+The fix is upgrading to Pay As You Go: Always Free resources stay free and PAYG
+accounts are exempt. It cannot be solved with a keepalive — the memory criterion
+is 20% of 24 GB, so a ping would need to hold ~4.8 GB forever.
+
+### Also corrected
+- `.vercelignore` excludes `backend/deploy/` — `backend/` is excluded child by
+  child, so a new subdirectory is uploaded to Vercel until it is named.
+- `cloudrun-deploy.md` no longer claims Cloud Run is "the only deployment path",
+  and its two remaining `2 GiB` / `$0.08` figures now match the 4 GiB fix.
+- `backend/README.md` lists both hosts and the 4 GB floor.
+
+### Not done, and why
+Nothing was deployed. Every remaining step needs an Oracle account, an A1
+instance and a hostname — none of which exist yet, and two of which need a card
+for identity verification. The VCN ingress rules and the DNS A record are console
+work that no script can do; `provision.sh` prints both with the instance's public
+IP rather than pretending otherwise.
+
+413 passed, 13 skipped, 0 failed.

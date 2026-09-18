@@ -14,7 +14,7 @@ properties of this application, and changing them silently breaks ingestion.
 Cloud Run gives a container a fresh filesystem on every cold start, so
 `STORAGE_BACKEND=local` would leave every `papers` row in Neon pointing at a PDF
 that no longer exists. And the filesystem it does give you is an **in-memory
-tmpfs**, so uploaded PDFs would be charged against the same 2 GiB the ONNX
+tmpfs**, so uploaded PDFs would be charged against the same 4 GiB the ONNX
 models need. Object storage is not an optimisation here; it is the only correct
 setting.
 
@@ -126,7 +126,7 @@ double the hourly rate.
 The obvious trick for a scale-to-zero host is to ping `/health` every few
 minutes so a real user never meets a cold start. It is the wrong trick here.
 Keeping the instance alive under `--no-cpu-throttling` turns every one of the
-month's 720 hours into a billed hour (~$0.08 each, so ~$55), and dropping the
+month's 720 hours into a billed hour (~$0.09 each, so ~$68), and dropping the
 flag to make pinging cheap is exactly what breaks ingestion. There is no
 setting where the ping is both cheap and safe.
 
@@ -179,7 +179,9 @@ people there and the bill is already accepted, deploy to `asia-south1` instead:
 ./scripts/deploy_cloudrun.sh PROJECT_ID asia-south1
 ```
 
-Cloud Run is the only deployment path this repo supports. Earlier revisions
+Cloud Run is one of two deployment paths this repo supports; the other is an
+Oracle always-free A1 instance (`docs/oracle-deploy.md`), which is free but is
+a box you administer. Earlier revisions
 also carried Cloudflare Containers and an Oracle always-free ARM VM; both were
 dropped, and `tasks/todo.md` keeps the reasoning that ruled each of them out.
 

@@ -17,6 +17,7 @@
 # excluded, so "backend/" plus a negation would not work.
 backend/apps/
 backend/datasets/
+backend/deploy/
 backend/docs/
 backend/scripts/
 backend/storage/

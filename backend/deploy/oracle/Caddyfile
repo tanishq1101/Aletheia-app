@@ -1,0 +1,53 @@
+# TLS terminator, and the only publicly reachable process in the stack.
+#
+# The site address comes from $API_DOMAIN rather than being written in, so the
+# same file serves a free DuckDNS subdomain and a domain you own without an
+# edit. Caddy obtains and renews a Let's Encrypt certificate for it on its own;
+# that needs port 80 reachable from the internet for the HTTP-01 challenge, which
+# is the second reason the VCN security list has to allow 80 and not just 443.
+
+{$API_DOMAIN} {
+	encode zstd gzip
+
+	reverse_proxy api:8000 {
+		transport http {
+			# The research agent's combined report is the long pole -- the app's
+			# own llm_timeout sits under this. Caddy would otherwise give up on
+			# a legitimately slow answer and return 502, which looks like a
+			# crash rather than a slow model. Matches the --timeout 900 the
+			# Cloud Run deployment passes, so the two hosts fail the same way.
+			read_timeout 900s
+		}
+	}
+
+	request_body {
+		# This ceiling sits deliberately ABOVE the API's own 50 MB
+		# max_upload_bytes, not at it. Verified through this proxy:
+		#
+		#   52 MB -> 400 {"detail":"File is 51.0 MB, over the 50 MB limit."}
+		#   67 MB -> 413 with an empty body, from Caddy
+		#
+		# So a file a user could plausibly pick gets the API's own message
+		# naming the limit, and only an absurd one hits the blunt proxy error.
+		# Setting this to 50 MB would replace the first with the second.
+		max_size 60MB
+	}
+
+	header {
+		# NOTE: no CORS headers here, deliberately. FastAPI's CORSMiddleware
+		# already sets them from CORS_ORIGINS, and a second
+		# Access-Control-Allow-Origin makes browsers reject the response
+		# outright -- the failure looks like a CORS misconfiguration in the app.
+		# One implementation of CORS, in the app, same as every other host.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		# Do not advertise the proxy version to the internet.
+		-Server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}
