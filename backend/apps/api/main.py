@@ -37,7 +37,11 @@ async def lifespan(app: FastAPI):
     # Before anything is served: an API with no identity provider and no
     # explicit statement that it is meant to be open does not start.
     check_auth_configuration()
-    settings.storage_root.mkdir(parents=True, exist_ok=True)
+    # Only the local backend has a directory to create. Calling this for an
+    # object-storage backend would silently create an unused directory and
+    # imply a filesystem that is not there.
+    if settings.storage_backend.lower() == "local":
+        settings.storage_root.mkdir(parents=True, exist_ok=True)
     log.info("API starting — storage=%s", settings.storage_backend)
     # Extraction runs in-process, so a job left 'running' is one a previous
     # process died holding. Fail it now so it is visible and retryable.

@@ -1,0 +1,47 @@
+# Frontend-only deploy: the FastAPI service runs on its own host (see
+# backend/docs/cloudrun-deploy.md), not here.
+#
+# Two directories the frontend DOES need are deliberately not ignored, because
+# excluding them breaks the build or the running app rather than shrinking it:
+#
+#   colab/          — app/api/training/[task]/route.ts reads the notebooks from
+#                     it at runtime. Next traces the directory, but tracing only
+#                     sees files that were uploaded; ignoring it turns every
+#                     notebook download into a 503 nothing warns about.
+#   backend/models/ — lib/experiments.ts imports six model/history JSON files
+#                     from it at build time. Ignoring it fails the build with
+#                     "module not found" (1 MB, so the cost is nothing).
+#
+# backend/ is therefore excluded child by child rather than wholesale: with
+# gitignore semantics a file cannot be re-included once its parent directory is
+# excluded, so "backend/" plus a negation would not work.
+backend/apps/
+backend/datasets/
+backend/docs/
+backend/scripts/
+backend/storage/
+backend/tasks/
+backend/tests/
+backend/Dockerfile
+backend/docker-compose.yml
+backend/*.md
+output/
+tmp/
+docs/
+prisma/
+scripts/
+SUMMARY.md
+SUMMARY.pdf
+tasks/
+.pytest_cache/
+node_modules
+.next
+*.tsbuildinfo
+
+# Defence in depth. Vercel already skips these because .gitignore does, but a
+# real .env reaching a third party should not depend on a second file's rules.
+.env
+.env.*
+!.env*.example
+.venv/
+backend/.venv/
