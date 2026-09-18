@@ -1,814 +1,346 @@
-# Aletheia — Neon + Prisma + ChromaDB integration
+# Aletheia — redeploy: Vercel frontend + Cloud Run backend
+
+Replaces the paused deployment (`aletheia-rag.vercel.app` → `DEPLOYMENT_PAUSED`,
+owned by an account we cannot reach). Frontend moves to a fresh Vercel project
+in *Tanishq's projects*; the API moves off Render to Google Cloud Run.
+
+> **Status (2026-09-17).** The frontend is **live** at
+> <https://aletheia-rag.vercel.app>. Cloud Run is the one remaining host and is
+> blocked only on billing — see the closing addendum.
+>
+> The Cloudflare Containers and Oracle ARM sections below are **superseded**:
+> both hosts were evaluated, built and then removed from the tree. They are kept
+> because they record why each one lost, which is the part worth not repeating.
 
 ## Decisions (confirmed with user)
-- Prisma = schema + migration source of truth only. FastAPI stays on psycopg.
-- ChromaDB = self-hosted Docker server alongside the app.
-- Chroma primary, Neon pgvector mirrored as automatic fallback.
-- Existing data migrated, not re-ingested.
+- Backend host: **Cloudflare Containers**, not Render. Render Standard would
+  run the code unchanged for ~$27.50/mo; Cloudflare is ~$7/mo at bursty traffic
+  but needs an object-storage backend written first.
+- Therefore: **implement a real R2 storage backend** before deploying anything.
+
+## Why the storage work is mandatory, not optional
+Cloudflare's own docs: *"All disk is ephemeral. When a Container instance goes
+to sleep, the next time it is started, it will have a fresh disk."* Containers
+sleep on idle by design. Today `storage_backend` has exactly one
+implementation — `local` — so every sleep/wake would leave Neon rows pointing
+at PDFs that no longer exist: the library would list papers whose reader,
+figures and tables are all broken.
+
+## What makes this tractable
+The seam is already clean. Every byte of file I/O in the API goes through
+`build_storage(settings)` — `papers.py`, `projects.py`, `assets.py`,
+`ingestion.py`. Only two places touch the filesystem directly:
+`main.py:40` (startup `mkdir`) and `health.py:32` (writability probe). So the
+backend swap is one new class plus two backend-aware call sites.
 
 ## Plan
-- [x] 1. `chroma` service in docker-compose (1.5.9, port 8001), healthy
-- [x] 2. `chromadb-client==1.5.9` installed and pinned (thin HTTP client)
-- [x] 3. CHROMA_* settings in config.py + .env.example
-- [x] 4. `services/vector_store.py` — Chroma behind one interface
-- [x] 5. Retrieval reads Chroma, falls back to pgvector; ingestion dual-writes
-       after commit; reprocess clears stale vectors first
-- [x] 6. `prisma/schema.prisma` — 18 models, matches live schema exactly
-- [x] 7. `scripts/migrate_to_neon.py` — transactional row copy, FK order
-- [x] 8. `scripts/backfill_chroma.py` — 459 vectors synced
-- [x] 9. `scripts/verify_schema.py` + `npm run db:verify` guard
-- [x] 10. `tests/test_vector_store.py` — 10 tests, Chroma + fallback
-- [x] 11. Re-verification: 278 pass, build clean, typecheck clean
 
-## Review
+### A. R2 storage backend (the actual engineering)
+- [x] A1. `R2Storage` in `app/services/storage.py`, implementing the existing
+      `StorageBackend` protocol (`store` / `read` / `exists` / `delete`) against
+      R2's **S3-compatible API**, signed with SigV4 over the `httpx` client the
+      repo already depends on.
+      *Chosen over the Worker `outboundByHost` trick (no credentials, less code)
+      because SigV4 is verifiable from this machine before deploying, and keeps
+      the backend portable if Cloudflare is ever abandoned. Chosen over `boto3`
+      because botocore is ~50 MB and the repo explicitly keeps the image slim —
+      same reasoning already written down for reportlab-over-WeasyPrint.*
+- [x] A2. Settings in `config.py`: `r2_account_id`, `r2_bucket`,
+      `r2_access_key_id`, `r2_secret_access_key`, plus a derived endpoint
+      property. Document every one in `backend/.env.example`.
+- [x] A3. Wire `build_storage` for `backend == "r2"`. Keep the unknown-backend
+      and not-implemented errors naming the mistake, as they do now.
+- [x] A4. Make `main.py` startup backend-aware — only `local` should mkdir.
+- [x] A5. Make `/health` probe R2 for real (round-trip a tiny object, or
+      HeadBucket) instead of reporting `not implemented` and going degraded.
+      A storage backend that reports itself healthy without touching storage
+      is the exact failure this file was written to avoid.
+- [x] A6. Tests: round-trip, overwrite, missing-key read, delete idempotence,
+      traversal key refusal (`../`), and `/health` degrading when R2 is
+      unreachable. Run against a real scratch bucket, not a mock.
 
-### What was built
-`vector_store.py` is a small module with one job: hand back (chunk_id,
-similarity) pairs from Chroma, or raise. Retrieval catches that and runs the
-pgvector query instead. Content, section and page are always read from
-Postgres afterwards, so Chroma holds vectors and filter metadata only and the
-two stores cannot drift into disagreeing about what a chunk says.
+### B. Cold-start cost — bake the models in
+- [x] B1. fastembed downloads ~120 MB (embedding) + the cross-encoder on first
+      use and caches them **to disk**. On ephemeral disk that re-downloads on
+      every wake. Pre-fetch both into the image at build time so a cold start
+      loads from the image layer, not the network.
 
-The dual write happens *after* the ingestion transaction commits, not inside
-it. A Chroma outage then costs a paper its place in the primary index and
-nothing else — the vectors are already durable in `paper_chunks.embedding`,
-retrieval still finds them, and `backfill_chroma.py` re-syncs.
+### C. Cloudflare deploy
+- [x] C1. `wrangler.jsonc`: Worker entrypoint + `[[containers]]` bound to
+      `backend/Dockerfile`, Durable Object migration, `instance_type`.
+- [x] C2. Worker: proxy all HTTP to the container; R2 bucket binding.
+- [x] C3. Create the `aletheia-papers` R2 bucket.
+- [ ] C4. Secrets: `DATABASE_URL` (Neon), `CLERK_ISSUER`, `GEMINI_API_KEY`,
+      R2 credentials. Never committed.
+- [ ] C5. Deploy; capture the `*.workers.dev` URL.
 
-### Verified, not assumed
-- Fallback: stopped the container mid-session. Same chunk ids, same order,
-  same similarity scores as Chroma, to 4 dp. `/health` reported
-  `vector_store: degraded` while `status` stayed `ok`.
-- Degradation without the client library installed: import blocked at runtime,
-  retrieval still answered.
-- Baseline fidelity: applied `0_init/migration.sql` to a scratch database and
-  diffed against the source — 132 columns, 45 indexes, 65 constraints, all
-  matching.
-- Cut-over: full 1086-row copy to a scratch target. Vector and JSONB columns
-  compared by md5 over the whole table — byte identical. ANN query works on
-  the target.
-- The guard: dropped an index and a CHECK on a scratch database and confirmed
-  `verify_schema.py` exits 1 and names both.
+### D. Vercel frontend
+- [ ] D1. User creates empty project `aletheia` (the connector here is a role
+      that cannot create projects — verified 403 twice).
+- [ ] D2. Env: `NEXT_PUBLIC_API_URL` → Worker URL, Clerk publishable + secret,
+      sign-in/up URLs.
+- [ ] D3. Deploy to production, confirm build.
 
-### The trap worth knowing about
-`prisma migrate diff` produced a baseline that was missing all 18 CHECK
-constraints, had rewritten the HNSW index as a btree, and had dropped the
-WHERE clause off the partial sha256 index. None of that fails loudly: a
-dropped HNSW index leaves vector search *working*, just sequentially scanning.
-`scripts/dump_raw_objects.py` regenerates the correct DDL from the catalog and
-`npm run db:verify` asserts it is still there. This is why the README says to
-read generated migration SQL before applying it.
+### E. Verification — nothing is "done" until these pass
+- [ ] E1. `/health` returns `ok` with database + storage both ok.
+- [ ] E2. Upload a PDF → ingestion completes → it appears in the library.
+- [ ] E3. Search returns chunks; Ask returns a grounded answer with citations.
+- [ ] E4. **The one that matters:** force the container to sleep, wake it, and
+      confirm the uploaded PDF still opens in the reader. This is the whole
+      reason for section A.
+- [ ] E5. CORS: browser calls from the Vercel origin succeed; a token minted
+      for another origin is refused.
+- [ ] E6. Full backend test suite still green.
 
-### Still open
-- **OpenRouter is out of credits (HTTP 402).** Every LLM feature — answering,
-  agent research, claim verification, figure interpretation, cross-paper
-  synthesis — returns 503 until it is topped up. Unrelated to this work; the
-  2 failing tests are exactly these live calls.
-- **Neon not yet cut over** — waiting on the connection string. Everything is
-  built and rehearsed against a scratch database; the cut-over is 4 commands.
-- `schema_migrations` carries 5 stale rows from an old renumbering. Harmless
-  (the schema is correct) and cleared by starting Neon from the Prisma
-  baseline instead of the legacy SQL migrations.
-- Enter-to-submit on /search could not be reproduced under browser automation.
-  Trusted keydown reaches the input, bubbles un-prevented to window, no submit
-  fires — but CDP's synthetic Enter does not run Chromium's default form
-  action, and the form is otherwise textbook (onSubmit, enabled submit button,
-  input inside the form; requestSubmit works). Needs a 5-second manual check.
+## Open items needing the user
+- **Workers Paid ($5/mo)** must be active — Containers are `N/A` on the free
+  plan. R2 is already enabled (2 buckets exist), so a card is likely on file,
+  but the Workers subscription is separate.
+- **Existing papers' binaries.** Handled: `scripts/backfill_r2.py` copies local
+  files into R2 under their existing keys (`npm run storage:to-r2`). Run
+  against the real schema it found 16 papers + 20 assets, copied and
+  byte-verified the 12 present on this machine, and named the 24 whose bytes
+  are gone with the paused deployment. Those must be re-uploaded through the
+  app; nothing can recover them.
 
----
+## Review — what is built and proven (2026-09-16)
 
-## Final pre-ship audit (7 Sept 2026)
+### Built
+`R2Storage` in `app/services/storage.py` implements the existing four-method
+`StorageBackend` protocol against R2's S3 API, signed with SigV4 over the
+`httpx` client already in requirements. No new Python dependency. `build_storage`
+dispatches on `STORAGE_BACKEND=r2`; `main.py` no longer creates a storage
+directory for a backend that has no filesystem; `/health` probes the bucket for
+real instead of reporting `not implemented`.
 
-Full sweep: build, typecheck, lint, 294 backend tests, live browser walk of every
-page, and a security pass over the API. Six real defects found and fixed.
-
-### Fixed
-
-- [x] **Duplicate default project — papers appeared to vanish.** `listProjects`
-      then "create if empty" is two round trips with a gap; a dev double-mount
-      fell into it and created two "My Library" projects 171 ms apart. The UI
-      then selected the newer, empty one, so the uploaded paper was invisible.
-      Now `POST /projects/default` decides it server-side under a per-user
-      advisory lock. Verified with 5 concurrent calls returning one id.
-- [x] **Every AI feature was down on a 402.** `max_tokens` is a reservation, not
-      a spend, so a 2048 ceiling was refused outright while the balance could
-      cover the actual answer. The provider now retries once at the affordable
-      ceiling, and refuses below 256 tokens rather than serving a stub.
-      This turned the 2 long-standing failing tests green.
-- [x] **467 of 508 Chroma vectors were orphaned (92%).** Left behind by the Neon
-      cut-over. Retrieval skipped them, so no wrong citations — but they
-      occupied candidate slots and silently shrank result sets. Rebuilt from
-      Postgres: now 41/41 in sync.
-- [x] **Paper deletion never removed vectors.** `vector_store.delete_paper` was
-      written and documented for exactly this and never called. Wired in, so
-      the orphan problem above cannot recur.
-- [x] **`DELETE /projects/{id}` did not exist.** The settings screen has always
-      shown a delete-with-confirmation flow; the button returned 405. Route
-      added, cascading to papers, vectors and stored bytes.
-- [x] **Uploads were fully buffered before the size check.** A 2 GB body cost
-      2 GB of memory before being rejected. Now read in 1 MB blocks, stopping
-      one block past the limit.
-
-### Hardening
-
-- [x] Security headers on every response (`nosniff`, `DENY`, `no-referrer`,
-      CSP). Matters because `/assets/{id}/content` replays a media type
-      recorded at ingestion.
-- [x] 402 now names the cause ("account is out of credits") instead of leaking
-      `Prompt tokens limit exceeded: 3332 > 2642`, which reads like an app bug.
-- [x] Two pre-existing `react-hooks/set-state-in-effect` lint errors fixed by
-      deriving the default paper during render instead of seeding it in an
-      effect. Lint is now clean at zero warnings.
+`worker/index.ts` + `wrangler.jsonc` run the container behind a Worker that
+only wakes it and forwards the request — routing, auth, CORS and rate limiting
+stay in FastAPI, so there is one implementation of each, not two.
 
 ### Verified, not assumed
+- **SigV4 is correct against AWS's own published vector**, not merely
+  self-consistent: the derived signing key matches the hex in AWS's "how to
+  derive a signing key" example. A fake S3 in the tests independently
+  re-derives the signature from the raw request that arrived, which is what
+  would catch a wrong canonical request.
+- **A bug the tests found:** the signed `Host` header omitted a non-default
+  port. Harmless against R2 on 443, fatal against any endpoint with a port.
+  Fixed before it could reach a deploy.
+- **Both backends refuse the same keys.** `../`, absolute and backslash keys
+  raise on R2 exactly as they already did on local disk, so swapping backends
+  cannot widen what a key may address.
+- **The image builds**, via `wrangler deploy --dry-run` — Worker bundle,
+  bindings and Dockerfile all resolve. 1.21 GB.
+- **Cold starts no longer download models.** Both ONNX models are baked into
+  the image (271 MB at `/opt/fastembed-cache`) and load with `--network none`
+  in 0.5s. Without this, a woken container would re-fetch ~150 MB inside the
+  request path on every cold start, on top of the model load itself.
+- **Nothing regressed:** 403 passed, 12 skipped, 0 failed.
+  One earlier failure (`test_rate_limit_redis`) was a stale local venv missing
+  the already-pinned `redis==6.4.0`, not a code change — proven by installing
+  it and re-running, not by inspection.
 
-- 294 backend tests pass. `tsc --noEmit`, `eslint` and `next build` all clean.
-- Search end-to-end against the rebuilt index: 0.797 top similarity, relevant.
-- Fresh-user path (cleared localStorage) now lands on the library holding the
-  paper, and persists that choice.
-- CORS refuses a forged origin; all SQL is parameterized; storage resolves and
-  re-checks against the root, so no traversal.
+### Not yet done, and why
+Everything remaining needs either money or a credential only the account owner
+can mint:
+- Workers Paid ($5/mo) — Containers are `N/A` on the free plan.
+- An R2 API token (Object Read & Write on `aletheia-papers`).
+- `wrangler login`, then `wrangler secret put` ×6, then `wrangler deploy`.
+- The Vercel project: this session's connector is a role that cannot create
+  projects (403, confirmed twice — via git link and via direct file deploy).
 
-### Still open
+E1-E6 are deliberately still unchecked. E4 in particular — upload a PDF, let
+the instance sleep, confirm the paper still opens — is the test the whole R2
+change exists to pass, and it cannot run until the service is deployed.
 
-- **OpenRouter account is out of credits.** Not a code problem: the retry lands
-  on a *prompt*-token ceiling of ~2642 against a 3300-token evidence prompt.
-  One live test fails only when run back-to-back with the other; it passes
-  alone. Everything else — search, reranking, extraction — is local.
-- **No authentication.** Anyone who can reach the API reads and writes
-  everything. The sign-in page says so honestly. This is the one thing that
-  must land before any deployment reachable from a network.
-- **No rate limiting.** An open, unauthenticated LLM-backed endpoint is a
-  billing risk as soon as it is exposed.
-- The duplicate empty "My Library" still exists. It is no longer selected;
-  removing it is now possible from Settings.
 
----
+## Addendum — backfill script (2026-09-16)
 
-## Sprint: third training session, Clerk auth, free LLM, rate limiting (7 Sept 2026)
+`scripts/backfill_r2.py`, wired as `npm run storage:to-r2`, with
+`--status` / `--dry-run` / `--verify` / `--force` / `--source-dir`.
 
-### 1. Third model missing from the Training Lab
-Root cause found, three separate gaps — not one bug:
-- [x] `app/(app)/training/page.tsx` hardcodes a two-element `experiments` array
-      (relevance, stance). The neural relevance reranker is simply absent.
-- [x] `app/api/training/[task]/route.ts` maps only two notebooks, so even the
-      download route could not serve the third.
-- [x] `colab/validate_research_notebooks.py` hardcodes the same two filenames,
-      so `Aletheia_Neural_Reranker_Colab.ipynb` has 9 code cells and **zero**
-      outputs — it has never been executed, hence no "training session".
-- [x] `backend/models/neural_relevance_model.json` records only
-      `initial_train_loss` / `final_train_loss`. `TrainingHistory.losses` is
-      computed and thrown away, so there is no learning curve to draw.
-- [x] The `Sprint 6 Benchmark Corpus` project no longer exists in Neon (lost in
-      the cut-over), so the trainer cannot rebuild candidates.
+Verified end to end, not just unit-tested:
+- Against the **real schema and the real dev database** — 16 papers, 20 assets.
+  A wrong column name would only ever show at runtime, so the CLI itself was
+  run, not just `transfer()`.
+- **12 files copied and read back byte-for-byte**, their digests checked
+  against the `papers.sha256` recorded at upload.
+- **24 correctly reported unrecoverable**, listed by filename, **exit code 1** —
+  a partial recovery cannot be mistaken for a complete one.
+- **Idempotent:** the second run copied 0 and skipped 12 without overwriting.
+- 9 tests cover the failure modes that matter: skip-if-present, force-overwrite,
+  missing-locally, dry-run writes nothing, and the one that matters most —
+  bytes contradicting the recorded digest are refused rather than uploaded.
 
-Fix, in order:
-- [x] Re-ingest the 10-paper corpus (`scripts/ingest_corpus.py`) — local
-      embeddings, no API key.
-- [x] Persist `history.json` from `train_neural_reranker.py` in the same shape
-      the other two models use, and re-run training.
-- [x] Make the Training Lab data-driven so a trained model can never again be
-      silently missing from the page.
-- [x] Execute the reranker notebook offline against the local corpus and record
-      it in `validation-results.json` alongside the other two.
+Suite: 412 passed, 13 skipped, 0 failed.
 
-### 2. Clerk authentication
-- [x] Google OAuth + email/password + username.
-- [x] Middleware protecting the `(app)` routes.
-- [x] Backend verifies the Clerk session JWT; `DEV_USER_ID` is replaced by the
-      real subject, so projects scope per user for the first time.
-- [x] `users` table gains a Clerk subject column; users provisioned on first
-      request.
 
-### 3. Free LLM provider (OpenRouter is out of credits)
-- [x] Google Gemini free tier via its OpenAI-compatible endpoint — free, high
-      daily limits, and it does vision, which figure interpretation needs.
-- [x] Keep the provider interface; select with `LLM_PROVIDER`.
+## Addendum — the Cloud Run deployment path (2026-09-17)
 
-### 4. Rate limiting and security
-- [x] Per-user / per-IP rate limits, strictest on the LLM-backed routes.
-- [x] Audit and fix whatever else the pass turns up.
+Chosen after checking what the 2 GiB image actually rules out. Render's free
+tier is 512 MB (the blueprint already measured that as too small), Railway and
+Fly.io no longer have free tiers, and Hugging Face Spaces now requires a paid
+plan to run a Docker Space at all. Cloud Run is the least-friction host that
+fits, and Oracle's always-free ARM VM is the only genuinely free one.
 
----
+Cloud Run is **not** reliably free for this service, and the doc says so rather
+than pretending otherwise: Google enumerates the always-free allowance under
+*request-based* billing, and the flag this app requires (below) puts it on
+instance-based. The $300 / 90-day trial credit is what makes the first months
+free; after that, light use is ~$5/month. A budget alert is part of the runbook.
 
-## Review — third training session, Clerk auth, free LLM, rate limiting
+Added `scripts/deploy_cloudrun.sh` and `docs/cloudrun-deploy.md`.
 
-### 1. The third model was missing in four separate places
+### The finding that shaped it
+An upload returns 201 and finishes extraction in a FastAPI `BackgroundTasks`
+(`app/api/papers.py:65`). Cloud Run's **default** request-based billing
+throttles CPU to ~0 the moment the response is sent, so that background work
+would stall mid-ingest: the paper sits at `running`, and the next cold start
+marks it failed via `recover_stranded_jobs()`. `--no-cpu-throttling` is
+therefore a correctness requirement on this host, not a performance knob —
+the same class of constraint as `STORAGE_BACKEND=r2` on Cloudflare.
 
-Not one bug. The neural relevance reranker was trained, evaluated and
-completely invisible, and each layer had its own reason:
+Its consequence is that a keepalive ping — the obvious cure for scale-to-zero
+cold starts, and what was recommended before this was checked — is wrong here:
+staying warm under lifetime billing costs 720 h/month against a free allowance
+of ~50. Cold starts (~30–40s, floored by the 25s model load) are accepted
+instead, and the reasoning is written down in the doc so it is not re-litigated.
 
-- [x] `app/(app)/training/page.tsx` held a two-element literal. The reranker
-      was never added to it.
-- [x] `app/api/training/[task]/route.ts` held a *second* two-element literal,
-      so the download would have 404'd even once the page offered it.
-- [x] `colab/validate_research_notebooks.py` held a *third*, so the notebook
-      had nine code cells and zero outputs — never executed, whatever the
-      prose said.
-- [x] `TrainingHistory.losses` was computed every run and thrown away.
-      `neural_relevance_model.json` kept only the first and last loss, so
-      there was no curve to draw even if the page had wanted one.
-- [x] The `Sprint 6 Benchmark Corpus` project no longer existed in Neon (lost
-      in the cut-over), so the trainer could not rebuild its candidates.
+`--max-instances 1` carries over from the Cloudflare notes for the same
+`recover_stranded_jobs()` reason.
 
-Fixed by making the list exist once. `lib/experiments.ts` is now the single
-registry the page and the download route both read, and the notebook validator
-derives its list from the directory and **fails** if a notebook in `colab/` is
-not in it. A fourth model is one entry; a half-added one cannot ship looking
-complete.
+### Verified this session
+- **Image builds clean: 1.21 GB**, both ONNX models baked in.
+- **Frontend builds: 16 routes, exit 0** — and again with `.env.local` moved
+  away, which proves the Clerk keys are runtime-only. A first deploy will not
+  fail for want of them.
+- `test_storage_r2` + `test_backfill_r2` + `test_health`: **29 passed,
+  1 skipped**.
+- `CLERK_ISSUER` is `https://amazed-heron-68.clerk.accounts.dev`, derived from
+  the publishable key rather than guessed.
+- R2 bucket `aletheia-papers` confirmed present.
 
-The card is not a copy of the other two. A ranking model has no meaningful
-accuracy and no confusion matrix, so it shows MRR and Recall@6 against the
-cosine baseline it has to beat. Forcing it into the classifier layout would
-have meant inventing numbers.
+### Blocked, and on what
+- **Cloud Run needs an open billing account.** `tks2005homes@gmail.com` has one
+  billing account, `01A552-CEFF0A-9DDD0F` (INR), and it is **closed**
+  (`open: false`). Two projects do have billing enabled —
+  `collective-odyssey-lr5vm`, `forward-icon-lfq84` — but the account has no
+  permission on either them or their billing accounts; `describe` and
+  `services list` both return `AUTH_PERMISSION_DENIED`. They are not usable.
+- **An R2 API token** still has to be minted by hand; the Cloudflare connector
+  exposes bucket CRUD but not token creation.
+- **The Vercel project** could not be created again this session — blocked by
+  the permission mode before it could reach the connector's own 403.
 
-### 2. Two real bugs found only by running things
 
-- [x] **The reranker notebook crashed on cell 4.** `make_chunks` iterated
-      `lines`, which was never assigned. Anyone who opened it in Colab and
-      chose Run all hit `NameError`. Found because the notebook was executed
-      for the first time, which is the entire argument for executing it.
-- [x] **`build_neural_reranker_notebook.py` would have silently reverted it.**
-      The generator has drifted well behind the checked-in notebook — it still
-      emits the pypdf→PyMuPDF switch, drops the download retry loop, and has
-      12 double-brace sites that print `{key}` instead of the value. Running it
-      overwrote all of that without a word. It now compares the code cells and
-      refuses unless `--force`, naming what to reconcile.
+## Addendum — Oracle always-free VM, the chosen host (2026-09-17)
 
-### 3. Retraining reproduced the original run exactly
+Chosen over Cloud Run after the billing arithmetic stopped being free. The
+Cloud Run assets stay in the tree as the managed-host alternative; this is the
+one to deploy.
 
-Re-ingested the corpus (10/10 papers, 198 pages, 389 chunks embedded) and
-retrained. Same 1,920/500 split, same 169/41 positives, same MRR 0.717, same
-Recall@6 0.799, same losses to 4 dp as the run from 1 September. A re-ingest
-that produces byte-identical retrieval candidates is a stronger reproducibility
-result than the notebook was ever going to give.
+Added `deploy/oracle/{docker-compose.yml,Caddyfile,provision.sh,deploy.sh,.env.example}`
+and `docs/oracle-deploy.md`.
 
-`history.json` now records 21 sampled epochs with **both** train and validation
-loss. The validation line is new for all future runs: it costs one forward pass
-per sample and it is the only thing on the chart that can show overfitting.
+### Why this host and not the other three
+It is the only one whose execution model the application does not have to be
+compensated for. A real disk means `STORAGE_BACKEND` stays `local`, so there is
+no R2 token to mint and no backfill to run — and `papers.storage_path` keeps
+meaning what it says. Always-on CPU means the `BackgroundTasks` that finish
+ingestion (`app/api/papers.py:65`) simply run, rather than needing Cloud Run's
+`--no-cpu-throttling` and its by-the-hour bill. No sleep means no cold start.
+`max_instances 1` is satisfied by there being one container, so the
+`recover_stranded_jobs()` constraint needs no flag at all.
 
-### 4. Authentication (Clerk)
-
-- [x] Google, email and username sign-in. Clerk hosts the form, so no
-      credential ever passes through this codebase.
-- [x] `middleware.ts` protects every route by allow-list. A page added next
-      month is protected by default; with a deny-list it would be public by
-      accident and nobody would notice.
-- [x] The API verifies the session JWT locally against Clerk's JWKS — one
-      fetch per key rotation, not per request, and the secret key is not
-      involved. Users are provisioned on first request rather than by webhook,
-      because a webhook that has not arrived yet is a signed-in user staring at
-      an error.
-- [x] Migration `0011_clerk_users.sql`. The local UUID stays the primary key —
-      every foreign key already points at it — with `clerk_user_id` unique
-      alongside, so one person cannot fork into two half-libraries.
-- [x] **The API refuses to start** with no issuer and no explicit
-      `ALLOW_UNAUTHENTICATED=true`. A deployment that forgets to configure
-      Clerk gets a startup error instead of an open database.
-- [x] Without keys, everything behaves exactly as before and the sign-in page
-      says so. A repository checked out fresh still builds and runs.
-
-### 5. A live IDOR, found while wiring auth in
-
-Only `GET /projects` filtered by user. `GET /projects/{id}`,
-`DELETE /projects/{id}` and every paper, claim, conversation and asset route
-took an id from the URL and trusted it. With one seeded user that was
-invisible; the moment accounts existed, **any signed-in user could have read or
-deleted another's entire library by guessing a UUID.**
-
-`app/core/ownership.py` is attached at the router, not the handler — FastAPI
-resolves dependencies after route matching, so one function sees whichever
-resource id the matched route declares and a new endpoint inherits the check
-the day it is written. Per-handler would have been thirty edits and one that
-got forgotten, which is precisely the failure that produced the bug above.
-
-404, not 403, for someone else's id: a 403 confirms the id exists.
-
-### 6. Rate limiting
-
-Three sliding windows, per signed-in user and falling back to IP: 120
-requests/minute general, **12/minute** for the LLM-backed routes because those
-cost money and take seconds, and 60 uploads/hour because those consume disk.
-`/health` is never limited — a liveness probe that fails during an incident is
-worse than useless.
-
-Stated plainly in the module: the counter is in memory, so it is per process
-and N workers permit roughly N times the rate. For one process it is exact; for
-a scaled deployment it is a floor and the counter belongs in Redis.
-
-### 7. Free LLM provider
-
-OpenRouter is out of credits — the account affords 210 output tokens against a
-256 minimum, which is why two live tests fail. The provider is now any
-OpenAI-compatible endpoint, selected by `LLM_PROVIDER`: `openrouter`, `gemini`,
-`groq`, `ollama` or `custom`. **Google Gemini** is the recommended free option
-and is the one to switch to — free tier, no card, and it does vision, which
-figure interpretation needs. Groq is free and faster but text-only, so figures
-would fail loudly rather than be guessed at.
-
-429 is now distinguished from 402 in the error text, because "your free tier
-quota reset in 37 seconds" and "your wallet is empty" are different problems
-and only one of them is fixed with a credit card.
+The cost is ops: patching, uptime and backups become ours. The backup gap is
+written down in the doc rather than left implicit — the `papers` volume is now
+the only copy of every uploaded PDF.
 
 ### Verified, not assumed
-
-- 319 backend tests pass. The 2 failures are the live OpenRouter calls,
-  failing on 402 for lack of credits — the same two that were already failing.
-- 22 new security tests, including `alg: none`, a token signed by the wrong
-  key, a wrong issuer, an expired token and a token minted for another origin.
-- **Negative control run:** the ownership dependency was removed and all four
-  cross-user tests failed, including the delete. The guard is load-bearing and
-  the tests are not passing vacuously.
-- Rate limiting against the live API: exactly 120 requests allowed, then 429
-  with `Retry-After: 30`, while `/health` kept answering 200 throughout.
-- All three notebooks execute end to end. `validation-results.json` lists
-  three, not two.
-- `tsc --noEmit`, `eslint` and `next build` all clean. Training Lab renders
-  three cards with three learning curves; all three notebook downloads return
-  200 and an unknown one returns 404.
-
-### Still open
-
-- **Clerk is built but unverified against a live tenant.** No keys were
-  supplied, so the sign-in flow, the Google redirect and a real signed token
-  end-to-end have not been exercised in a browser. The verification path is in
-  `test_auth.py` and everything below the token is tested; what is untested is
-  Clerk itself.
-- **The reranker notebook does not reproduce the shipped numbers,** and now
-  says so in its own final cell. It retrieves with TF-IDF so it can run
-  anywhere; the shipped pipeline retrieves with a semantic embedding model.
-  Different candidates, different baseline, and the notebook's MLP comes out
-  slightly *below* its baseline. Both numbers are real; they are not the same
-  experiment.
-- **`build_neural_reranker_notebook.py` is still behind the notebook.** It no
-  longer overwrites silently, but reconciling the two is unfinished work.
-- The rate limiter is per process. Correct for one worker, a floor for many.
-
----
-
-## Sprint: carried-over debt, landing page, production audit (12 Sept 2026)
-
-Four items left open by the previous sprint, then a pass over whether this is
-actually deployable.
-
-### 1. The notebook generator was behind its own notebook
-
-`build_neural_reranker_notebook.py` refused to overwrite, which stopped the
-damage but left the two disagreeing. The notebook was ahead in four ways: it
-used pypdf where the generator still emitted PyMuPDF, it carried the arXiv
-download retry loop, it had the `make_chunks` fix for the `NameError` that hit
-anyone who chose Run all, and it had two markdown sections the generator did
-not. The generator also emitted 12 `{{...}}` sites in cells that are not
-f-strings, so those reached the reader as literal braces.
-
-- [x] Every cell body is now a module-level **raw, non-f-string** constant at
-      column zero, taken verbatim from the notebook. The one cell needing a
-      substitution names a placeholder and replaces it. The whole class of
-      escaping bug is gone rather than fixed site by site — which matters,
-      because the previous attempt at fixing it by blanket-replacing braces
-      broke the cells that really were f-strings.
-- [x] Regenerating now **preserves** the execution outputs and the validator's
-      record when the code is unchanged, and drops them when `--force` changes
-      the code, because an output that no longer matches its cell is worse than
-      no output.
-- [x] The comparison decodes the embedded benchmark instead of comparing its
-      base64. gzip output differs between zlib builds, so the old check
-      reported drift on a byte no reader of the notebook can see.
-- [x] `--check` added, wired into `validate_research_notebooks.py` and into the
-      test suite (`test_notebook_generator.py`), so drift fails on its own
-      rather than when someone remembers to look.
-- [x] Negative control: injected a comment into the notebook and confirmed
-      `--check`, the bare generator, and pytest all go red.
-
-### 2. The rate limiter now has somewhere shared to count
-
-- [x] `REDIS_URL` selects a sorted-set sliding window in Redis; blank keeps the
-      in-process deque. The trim, count and append happen inside one Lua
-      script, so the check and the write cannot interleave across workers.
-- [x] Redis is treated as a limiter, not a dependency: if it is unreachable the
-      request is counted against the in-process window and the API keeps
-      serving. Refusing instead would hand anyone who can disrupt Redis a way
-      to take the service down.
-- [x] `/health` reports which backend is counting and whether it has degraded.
-- [x] A `redis` service in docker-compose with no persistence — a lost window
-      costs one caller one extra minute of allowance.
-- [x] **Found while writing it:** the caller's identity was `hash(token)`, and
-      `hash()` is salted per process. Every worker would have bucketed the same
-      user differently and each granted a full budget, so the shared counter
-      would have been shared in name only. Now blake2b.
-- [x] Verified against the real stack, not just unit tests: exactly 120 of 130
-      requests allowed with `Retry-After` correct, `/health` answering 200
-      throughout, then Redis stopped mid-flight — the API kept answering,
-      `/health` said `redis (degraded: falling back to in-process)`, and it
-      recovered on its own when Redis came back.
-- [x] Negative control: two in-process limiters each granted a full budget
-      where two Redis limiters shared one, so the test distinguishes them.
-
-### 3. The duplicate "My Library"
-
-- [x] `backend/scripts/remove_duplicate_default_projects.py`, dry-run by
-      default. It only takes a project that is not its user's oldest, holds no
-      papers, has no description and is named exactly the default — two
-      projects a user deliberately gave the same name is a legitimate thing to
-      want. The emptiness check is repeated inside the deleting transaction,
-      so a paper uploaded mid-run saves its project.
-- [x] Eight tests covering each refusal, including the mid-run upload.
-- [x] Exercised against a reconstructed copy of the original race (two projects
-      171 ms apart) plus a described one, a renamed one and an occupied one:
-      it took exactly the one row and left the other four.
-- [x] **Still to run against the live Neon database.** This local database no
-      longer holds the duplicate; the row is in Neon, and the connection string
-      is not in this checkout. `npm run projects:dedupe` reports before it
-      deletes.
-
-### 4. A landing page
-
-- [x] `/` was a redirect into `/library`, so a signed-out visitor was bounced
-      to a sign-in form having never been told what this is. It is now a real
-      page: the problem, the four guarantees, the six-step path a question
-      takes, the eight workspace entry points, and the three trained models.
-- [x] Added to the middleware allow-list as `"/"` exactly, not `"/(.*)"`.
-- [x] The stance classifier is shown at 54% and labelled as below its own
-      baseline. A page about not fabricating citations is a bad place to start
-      quietly dropping the result that did not work.
-- [x] Verified rendered at 1440px and 390px through a real browser.
-
-### 5. Production audit
-
-- [x] **Critical: unauthenticated RCE in Next.js** (GHSA-p293-qw3h-jr36, plus
-      an AVIF path in the image optimiser). 16.3.2 was inside the affected
-      range and this is a Windows host, which is exactly what the first
-      advisory targets. Upgraded to 16.3.5 — a patch bump — along with sharp
-      and js-yaml. Build, typecheck, lint and 342 tests clean afterwards.
-- [x] **`npm run db:verify` was passing vacuously on Windows.** The npm scripts
-      named `backend/.venv/bin/python`, which does not exist here; cmd.exe
-      printed "'backend' is not recognized" and npm still exited 0. The schema
-      guard — the one asserting the HNSW index and 18 CHECK constraints Prisma
-      cannot express are still present — had been reporting success without
-      running. `scripts/run-python.mjs` resolves the interpreter per platform
-      and propagates the real exit code. It now runs: 3 raw indexes, 18 CHECKs.
-- [x] **A malformed token answered 500, not 401.** Found by pointing the API at
-      a real JWKS server instead of the suite's stub: finding the signing key
-      parses the token header, so `Authorization: Bearer nonsense` raised
-      `DecodeError` — a *sibling* of the JWKS errors, not a subclass — and
-      escaped both handlers. An unauthenticated caller could write a traceback
-      into the log on demand. The suite could not have caught it: its stub
-      returned a key for any string, which is more forgiving than PyJWKClient.
-      The stub now parses the header like the real one does, and five
-      parametrised cases fail without the fix.
-- [x] Auth verified end to end over HTTP against a live JWKS: 15 checks
-      covering anonymous, garbage, expired, wrong issuer, wrong key, `alg:none`
-      and unknown `kid`, plus first-request provisioning, the same subject
-      returning to the same library, and four cross-user isolation checks.
-- [x] Whole stack from a cold `docker compose up`: API, Postgres, Chroma and
-      Redis all healthy, `/health` green on every dependency.
-- [x] No secrets committed — only `.env.example` files are tracked, and a scan
-      for key-shaped strings across the tree is clean.
-
-### Still open
-
-- **Clerk has still never run against a live tenant.** Everything below the
-  token is now verified against a real JWKS over real HTTP, so what remains
-  untested is Clerk's hosted sign-in UI and the Google redirect — their
-  product, not this code. It needs keys from a Clerk dashboard; nothing else
-  is blocking it.
-- **The dedupe script has not been run against Neon** (see 3).
-- **4 high-severity advisories remain, all in the `prisma` CLI**
-  (`deepmerge-ts`, and `mysql2` via `@prisma/config`). There is no fixed 7.x —
-  npm's proposed "fix" is a downgrade to 6.19.3, which would break the schema
-  baseline. It is a devDependency: it never runs in production, nothing imports
-  `@prisma/client` at runtime, and `mysql2` is a MySQL driver a Postgres
-  project never loads. Worth revisiting when Prisma ships a patched 7.x.
-- **~1 MB of scratch artifacts are committed** under `tmp/pdfs/` and
-  `output/pdf/` — intermediate page renders from building SUMMARY.pdf. Not a
-  blocker, but `tmp/` is not a directory that belongs in a repository.
-- The reranker notebook still does not reproduce the shipped numbers, and still
-  says so in its own final cell. TF-IDF retrieval against a semantic pipeline
-  is a different experiment, not a worse run of the same one.
-
----
-
-## Clerk, verified against a live tenant (12 Sept 2026)
-
-Keys were supplied for the `fast-humpback-4260` development instance, so the
-last open item from every previous sprint — "Clerk is built but unverified
-against a live tenant" — is now closed. Four defects, all of which were
-invisible without real keys, because without a publishable key the provider is
-never mounted and none of this code runs.
-
-### What broke the moment keys existed
-
-- [x] **`next build` failed.** `UserMenu` used `<SignedIn>` / `<SignedOut>`.
-      Clerk Core 3 still *exports* them for Next.js but they throw when
-      rendered, so prerendering `/cross-paper` died. Rewritten around
-      `useAuth()`, which is what Core 3 expects, rendering nothing until the
-      session has resolved so prerender cannot bake in a guess.
-- [x] **Protected pages answered 404 to signed-out visitors.**
-      `auth.protect()` is shaped for API routes; someone opening `/library`
-      while signed out was told the page did not exist, with no way to sign in
-      from there. Now a redirect to `/sign-in` carrying `redirect_url`, so they
-      land on the page they asked for. Verified: `/library` → 307 →
-      `/sign-in?redirect_url=...%2Flibrary`, and after signing in the browser
-      arrived at `/library`.
-- [x] **A signed-in user saw "This endpoint requires a signed-in session".**
-      `<AuthBridge />` registers the token provider from an effect, after Clerk
-      loads the session, while the workspace starts fetching as soon as it
-      mounts. Whichever requests won that race went out bare and came back 401,
-      so a correctly authenticated user landed on an error banner and an "API
-      offline" badge until they pressed Retry. `lib/api.ts` now waits for the
-      provider — bounded, and only when a key is configured, so a keyless build
-      pays nothing. Fixed once at the choke point rather than per call site.
-- [x] **The test suite was not hermetic.** It read `CLERK_ISSUER` from
-      `backend/.env`, so it passed only while nobody had configured an identity
-      provider. Adding real keys turned 119 tests red on a machine where
-      nothing was wrong. `conftest.py` now blanks the Clerk and Redis settings
-      explicitly, alongside the storage and Chroma overrides it already made.
-      342 tests pass with Clerk fully configured.
-
-### Verified in a real browser, against real Clerk
-
-- [x] Sign-in and sign-up render Clerk's hosted form, themed to the app's
-      palette, offering Google, email and username — the configuration the
-      dashboard was set up with.
-- [x] Google SSO reaches Google's real consent screen with the right client id
-      and the Clerk callback. Completing a Google login needs Google
-      credentials, so that last hop is still unexercised.
-- [x] Sign-up is protected by Cloudflare Turnstile, which a headless browser
-      cannot solve. The account was created through Clerk's Backend API
-      instead, and the browser drove the **sign-in**. Worth knowing: automated
-      end-to-end tests cannot sign up through the UI while bot protection is on.
-- [x] Clerk's new-device email verification step appeared and was satisfied
-      with the `+clerk_test` code, so that path works too.
-- [x] The token the browser mints is accepted by FastAPI: `iss` the real Clerk
-      issuer, `azp` `http://localhost:3000`, `GET /projects` 200 with the token
-      and 401 without it, in the same page, seconds apart.
-- [x] First request provisioned the user — one row, keyed by the Clerk subject.
-- [x] The advisory lock held under a real mount: exactly one "My Library",
-      not the two that started this whole thread.
-- [x] Sign-out clears the session, lands on `/sign-in`, and re-opening
-      `/library` redirects again.
-
-### Still open
-
-- **The default session token carries no email or username.** `_resolve_user`
-  reads `email` / `username` claims that Clerk does not include by default, so
-  those columns stay null and anything showing them will be blank. Fix is a
-  JWT template in the Clerk dashboard adding the two claims; the code already
-  handles their absence rather than failing.
-- **Google sign-in's final hop is unexercised** (see above).
-- **Bot protection blocks automated sign-up**, so any future end-to-end suite
-  must create users through the Backend API.
-
-### Also closed while answering "what is left" (12 Sept 2026)
-
-- [x] **Enter-to-submit on /search works.** Carried as open since the pre-ship
-      audit, which could only say it "could not be reproduced under browser
-      automation". It was the automation: a `KeyboardEvent` dispatched from
-      JavaScript arrives with `isTrusted` true and bubbles, but Chromium does
-      not run default actions for it, so implicit form submission never fired.
-      Sending the key through CDP's Input domain instead — a real browser-level
-      press — submits: `/search` became `/search?q=embeddings`. The form was
-      always correct.
-- [x] **The LLM path works against the live Gemini key.** Several older "still
-      open" entries said every AI feature returned 503 because OpenRouter was
-      out of credits. Answering now returns a grounded, correctly cited answer,
-      and figure interpretation returns 254 words of accurate description where
-      the bug being fixed produced a truncated one-liner — the vision budget
-      and `reasoning_effort` change, confirmed against the real API rather than
-      inferred from a unit test.
-- [x] Signing in a second time skipped the device-verification step, as
-      expected, and the API returned the user's own single project.
-
-Superseded, for anyone reading the older sections: "No authentication", "No
-rate limiting", "the rate limiter is per process", "Clerk is built but
-unverified", "build_neural_reranker_notebook.py is still behind the notebook",
-and the OpenRouter-credit entries are all resolved above.
-
----
-
-# Two-provider LLM configuration (OpenAI / Gemini)
-
-## Decisions (confirmed with user)
-- Two env sections, one per provider, each with an `*_ENABLED` switch. Exactly
-  one enabled; `OPENAI_ENABLED=true` / `GEMINI_ENABLED=false` to start.
-- Remove the unused providers (OpenRouter, Groq, Ollama, custom) and their env
-  vars and helper scripts. Keep nothing else removed.
-- Tidy in place — no file moves that break imports or deploy config.
-- **No fallback.** Off means off; a failed OpenAI call reports OpenAI failed.
-
-## Plan
-- [x] 1. `OPENAI_ENABLED` / `GEMINI_ENABLED` in config.py, with `enabled_providers`
-      and `active_provider` derived rather than a second `LLM_PROVIDER` field
-- [x] 2. `PROVIDER_PROFILES` cut from six entries to two; `FallbackLLMProvider`
-      deleted along with the attribution-header and `requires_api_key` machinery
-- [x] 3. `_selected_provider()` — zero or two enabled is an error naming which
-- [x] 4. `.env` and `.env.example` rewritten into two symmetric sections
-      (existing keys preserved verbatim)
-- [x] 5. settings_store.py bug fixed — reported `openrouter_model` regardless of
-      the configured provider
-- [x] 6. `/settings` reports the enabled provider, or `"none"` when misconfigured
-- [x] 7. ask/page.tsx, render.yaml, both READMEs, types/api.ts, run_benchmark.py
-- [x] 8. `set_openrouter_key.py` / `.sh` deleted
-- [x] 9. test_llm_openrouter.py -> test_llm.py; selection tests rewritten around
-      the switches; live tests now follow the *enabled* provider
-- [x] 10. **Found and fixed live:** `gpt-5.6-luna` rejects `LLM_TEMPERATURE=0.0`
-      (see Review). Retry loop generalised so adaptations compose.
-
-## Review
-
-### What changed
-Provider choice was spread across `LLM_PROVIDER`, `LLM_MODEL`, and the mere
-presence of `GEMINI_API_KEY`; the last of those silently enrolled Gemini as a
-failover. It is now two booleans. `active_provider` is derived from them, so the
-configuration cannot express `LLM_PROVIDER=openai` alongside a disabled OpenAI.
-Zero or two enabled returns a message naming which mistake was made, rather than
-picking one.
-
-Removing `FallbackLLMProvider` is the substantive behaviour change. A silent
-failover makes the switch a suggestion, bills an account the operator turned
-off, and hides which vendor actually saw the evidence.
-
-### The bug the fallback was hiding
-Flipping the live tests to follow the enabled provider made them run against
-OpenAI for the first time, and both failed:
-
-    400 Unsupported value: 'temperature' does not support 0.0 with this model.
-        Only the default (1) value is supported.
-
-`gpt-5.6-luna` has never answered a request from this codebase. Every OpenAI
-call 400'd and the fallback quietly served the answer from Gemini — so the
-configured primary was broken for as long as it has been configured, and the
-system looked healthy. Exactly the `lessons.md` entry about code behind a flag.
-
-Fixed by generalising the existing "read the fix off the provider's own 400"
-retry into a loop over `_adaptation_for()`: a model can need
-`max_completion_tokens` *and* no temperature, which the two one-shot retries
-could never both deliver. Dropping the temperature costs determinism, so it
-logs loudly rather than being absorbed.
-
-### Verified, not assumed
-- Full suite **343 passed, 12 skipped**, same single pre-existing
-  `test_rate_limit_redis` failure as the baseline (the `redis` package is not
-  installed in this venv). Baseline was 337 passed; +6 net new tests.
-- All four switch states exercised against the real builder: openai-only ->
-  `gpt-5.6-luna` @ api.openai.com; gemini-only -> `gemini-3.6-flash` @
-  generativelanguage.googleapis.com; both and neither -> `LLMConfigurationError`.
-- **A real request through each provider**, by flipping the switches and running
-  the live tests both ways. Both grounded and both declined correctly on absent
-  evidence. Neither path is reported working on the strength of a mock.
-- The three new retry tests were proved able to fail: disabling the temperature
-  adaptation turned all three red plus both live tests, and restoring it turned
-  them green.
-- Running API: `GET /settings` returns `llm_provider: "openai"`,
-  `llm_model: "gpt-5.6-luna"` — confirming the settings_store fix, which
-  previously reported `anthropic/claude-haiku-4.5`.
-- `npm run typecheck` and `npm run lint` clean.
-
-### Not verified
-The one-line copy change in `app/(app)/ask/page.tsx` was not rendered in a
-browser: `next dev` cannot start in this checkout because
-`node_modules/@next/swc-darwin-arm64` contains no `.node` binary (a pre-existing
-broken install, unrelated to this work; `npm install --no-save` did not restore
-it because install scripts are blocked here). It is static JSX and passes tsc
-and eslint. Repair with a clean `npm ci` before relying on the dev server.
-
-Also note `node_modules` has Next **16.3.2** while `package.json` asks for
-**16.3.5** — the tree is stale, not just missing a binary.
-
----
-
-## Combined report, luna integration, and PDF export
-
-### The reported symptom
-Two error notices stacked on the Research Agent page:
-
-> The combined report could not be generated. Individual findings and sources remain available.
-> The agent completed its checks, but could not assemble a combined report. ...
-
-plus a belief that `gpt-5.6-luna` was never billed.
-
-### Root causes (reproduced against the live API, not inferred)
-1. **`gpt-5.6-luna` refuses `temperature` at any value but its default.** The
-   adaptation loop correctly drops it, so every answer runs at temperature 1.0
-   — not the 0.0 the PRD relies on. Five identical synthesis runs returned
-   230 / 6699 / 230 / 271 / 6545 characters, and one returned **empty content**
-   with `finish_reason: "stop"`. Empty content raises
-   `LLMError("empty completion")`, which `run_research_agent`'s blanket
-   `except Exception` converts into the generic synthesis_error.
-   *The combined report was not failing to generate — it was failing at random.*
-2. **The learned request shape is discarded after every call.** `_complete`
-   re-copies `_DEFAULT_REQUEST_SHAPE` each time, so every single LLM call in
-   the app pays 400 -> 400 -> 200: three HTTP round-trips where one would do.
-3. **The 402 budget retry drops the learned shape** (`llm.py`), reverting to
-   `max_tokens` + temperature, which this model 400s on. A genuine low-balance
-   retry would fail with a misleading error.
-4. **The agent page renders both errors at once** — `synthesis_error` *and*
-   the "could not assemble" fallback — and shows the fallback even when
-   synthesis was never requested.
-5. **Synthesis shares the step answer budget** (2048 tokens) despite being a
-   six-section report over ~12 evidence blocks.
-6. **`settings_store.llm_model` is dead** — `build_llm_provider()` reads only
-   the environment, so the Settings page can display a model nothing uses.
-
-Credits *are* being spent — `3427 prompt / 226 completion tokens` logged on a
-real answer. The integration is lossy, not absent.
-
-### Decisions taken (confirmed with the user)
-- Keep `gpt-5.6-luna`; **drop the determinism claim** rather than leave a
-  promise the model cannot honour. (`seed` is accepted but does not reproduce:
-  1135 / 1313 / 1117 chars at `seed=42`. The whole 5.5/5.6 generation refuses
-  `temperature=0`; only `gpt-5.4` and older honour it.)
-- **Server-rendered PDF**, one-click download.
-- Scope: **Ask, Research Agent, Reproducibility**.
-
-### Plan
-- [x] `llm.py`: cache the learned request shape on the provider instance
-- [x] `llm.py`: carry the learned shape through the 402 retry
-- [x] `llm.py`: retry once on an empty completion, then fail with a real reason
-- [x] `llm.py`: generalise `_adaptation_for` to drop a rejected `reasoning_effort`
-- [x] `llm.py`: expose `deterministic` so the UI can say an answer is not reproducible
-- [x] `llm.py`: per-call `max_output_tokens` so synthesis can ask for report-sized output
-- [x] `agent.py`: give synthesis its own budget; carry the real failure reason
-- [x] `report.py` (new): one structured report document built from a completed run
-- [x] `api/reports.py` (new): render that document to PDF — stateless, from the
-      result the user is looking at, so the PDF matches the screen exactly
-- [x] Frontend: Download PDF on Ask, Agent, Reproducibility
-- [x] Frontend: fix the duplicate error; distinguish "failed" from "not requested"
-- [x] Docs: correct every place that promises deterministic answers
-- [x] Tests for each of the above; full suite green
-
-### Review
-
-**The combined report was two bugs wearing one error message.**
-
-1. *Budget starvation (deterministic).* `gpt-5.6-luna` splits its output budget
-   between hidden reasoning and the visible answer, and not proportionally.
-   Measured directly:
-
-   | ceiling | finish_reason | reasoning tokens | visible tokens |
-   |---|---|---|---|
-   | 2048  | length | 2048 | **0** |
-   | 4000  | length | 4000 | **0** |
-   | 8192  | stop   | 69   | 6559 |
-   | 16000 | stop   | 98   | 5973 |
-
-   `LLM_MAX_OUTPUT_TOKENS=2048` was below the floor at which this model writes
-   anything at all. The synthesis prompt — the largest in the app — hit it most
-   often. `reasoning_effort="none"` also fixes it (0 reasoning, all 2048
-   visible) but buys the fix by giving up reasoning entirely, so the ceiling was
-   raised instead and the client now escalates on its own when a model reports
-   it spent the budget without answering.
-
-2. *Non-determinism (intermittent).* The model refuses `temperature`, the client
-   drops it, and the model answers at its own sampling. Five identical synthesis
-   runs returned 230 / 6699 / 230 / 271 / 6545 characters, and one returned
-   empty content with `finish_reason: "stop"`. That is now retried once.
-
-**Credits were being spent all along** — `3427 prompt / 226 completion tokens`
-on a real answer. The integration was lossy, not absent. It was also paying
-**three HTTP round-trips per completion** (400 → 400 → 200) because the
-negotiated request shape was rediscovered on every call; it is now learned once
-per provider instance, so every call after the first is a single request.
-
-### Verified, not assumed
-- Full suite **397 passed, 12 skipped**, with the same single pre-existing
-  `test_rate_limit_redis` failure. Confirmed pre-existing by stashing every
-  change in this work and watching it still fail. Baseline was 343 in
-  `apps/api/tests`; +41 net new tests.
-- **Every new fix was mutation-tested.** Reverting the per-instance shape, the
-  starvation escalation, the 402 shape carry-through, the empty-completion
-  retry, the paper-id cross-check and the CORS header each turned the relevant
-  tests red; restoring each turned them green. No test was accepted without
-  seeing it fail.
-- **All three surfaces driven end-to-end in the real signed-in browser**, against
-  the live OpenAI account:
-  - Research Agent — 3/3 questions, 10 citations, 8 public sources, combined
-    report rendered, **no stacked error notices**, 13-page PDF downloaded.
-  - Ask — grounded answer with citation chips, reproducibility notice, 1-page
-    PDF downloaded.
-  - Reproducibility — 6-dimension audit at 17%, 3-page PDF downloaded.
-- PDF content asserted by extracting text back out of real PDF bytes, not by
-  checking that bytes were returned.
-- `npm run typecheck` and `npm run lint` clean.
-
-### Found while verifying, and fixed
-- **`Content-Disposition` was invisible to the browser.** The first real download
-  saved as `aletheia-brief.pdf` instead of the server's descriptive name: a
-  browser hides every response header from JavaScript except the six
-  CORS-safelisted ones. Added `expose_headers` to the CORS middleware. Only the
-  live browser run caught this — the endpoint tests had passed.
-- **`papers.title` is NULL for most papers**, so citations read "Untitled
-  source". Retrieval now falls back to the filename, which at least names the
-  source. Title extraction itself is untouched.
-- **LaTeX reached the reader.** `\(O(n^2 d)\)` rendered literally in both the
-  reading pane and the PDF. The prompt now asks for plain-text maths, and both
-  renderers strip the delimiters for answers already written.
-- **`reportlab` added to `apps/api/requirements.txt`** — the Dockerfile installs
-  from it, so the export would have 500'd in the container without it.
-
-### Not done, and why
-- **`settings_store.llm_model` is still dead.** It is stored, shown on the
-  Settings page, and never reaches `build_llm_provider`, which reads only the
-  environment. No override is set today, so the page is currently truthful — but
-  setting one would make it lie. Left alone deliberately: the field decides
-  which vendor account gets billed, and making a database row silently redirect
-  spend is a decision to take explicitly, not a side effect of this work.
+- **arm64 is proven, not hoped for.** The image already builds `linux/arm64` on
+  this machine, which is exactly what Ampere A1 runs.
+- **That image was run against the real Neon database** with this deployment's
+  exact environment: `/health` → `database: ok, storage: ok, vector_store:
+  disabled (pgvector only)`, healthy **5s** from cold. Worth recording: the
+  ONNX models load lazily on first use, not at boot, so the ~25s figure from
+  the Dockerfile notes is a first-request cost, not a startup cost.
+- **Auth and CORS enforced, not merely configured.** Unauthenticated
+  `GET /projects` → **401**. Preflight from `https://aletheia-rag.vercel.app` →
+  **200** with a matching `access-control-allow-origin`. Preflight from a
+  forged origin → **400**.
+- `docker compose config` and `caddy validate` both pass.
+- `git check-ignore` confirms `deploy/oracle/.env` cannot be committed.
+
+### The failure mode the doc leads with
+An Oracle instance has two independent firewalls. `provision.sh` opens the one
+inside the VM — inserting the iptables accepts *above* Canonical's final REJECT
+rule, since appending them does nothing — but the VCN security list lives in
+Oracle's console and is unreachable from the instance. Miss it and there is no
+error anywhere: Let's Encrypt cannot reach the HTTP-01 challenge, Caddy retries
+quietly, requests from outside time out, and `curl localhost` on the box works
+perfectly. `deploy.sh` therefore health-checks from the laptop, not from the
+VM, because the localhost check passes in exactly the broken case.
+
+### Still blocked, and on what
+- **An Oracle account and an A1 instance.** Signup needs a card for identity
+  verification. `Out of host capacity` on A1 is the normal experience, not a
+  mistake — retry over days or use an autoscaling Instance Pool. The always-free
+  AMD `E2.1.Micro` is not a fallback: 1 GB is below one ingest.
+- **The Vercel project** — unchanged. Blocked by the permission mode this
+  session, and by a connector-role 403 in the previous one.
+
+
+## Addendum — the frontend is deployed (2026-09-17)
+
+Live: **<https://aletheia-rag.vercel.app>** — Vercel project `aletheia-rag` in
+*Tanishq's projects*, deployed from the working tree with the CLI rather than a
+git link, because this account has `push` but not `admin` on
+`AdityaShukla06/Aletheia` and installing the Vercel GitHub App needs `admin`.
+
+Oracle and Cloudflare assets removed this session: `deploy/oracle/`,
+`docs/oracle-deploy.md`, `worker/`, `wrangler.jsonc`, `worker-configuration.d.ts`,
+`backend/{package.json,package-lock.json,tsconfig.json}`,
+`docs/cloudflare-deploy.md`, plus 223 MB of orphaned wrangler `node_modules`.
+**R2 stayed** — `storage.py`, `test_storage_r2.py`, `test_backfill_r2.py` and
+`backfill_r2.py` are Cloudflare *storage*, which Cloud Run depends on.
+
+### Four bugs between "builds locally" and "works deployed"
+1. **`.vercelignore` excluded `colab/`**, which `app/api/training/[task]/route.ts`
+   reads at runtime. Next traces the directory, but tracing only sees uploaded
+   files, so every notebook download would have 503'd with a clean build log.
+2. **`.vercelignore` excluded `backend/`**, which `lib/experiments.ts` imports six
+   model/history JSON files from at build time. This one failed the Vercel build
+   outright. `backend/` is now excluded child by child, because gitignore
+   semantics cannot re-include a file under an excluded parent.
+3. **`framework: null`** on the project — `vercel project add` creates a bare
+   project, so Next built perfectly and the platform served the output as a static
+   directory: `public/` assets 200, every route a platform `NOT_FOUND`. Fixed by
+   committing `vercel.json` with `{"framework": "nextjs"}`.
+4. **`middleware.ts` is deprecated in Next 16** and is executed unbundled on
+   Vercel — it died on its first `import`. Migrated to `proxy.ts` (`git mv`, so
+   history follows); Clerk 7.9.3 accepts either filename on Next 16+.
+
+### Verified against the live URL
+- `/` → **200**, renders, `<title>Aletheia — grounded research intelligence</title>`.
+- `/sign-in` → **200**, Clerk widget mounts with Google SSO and email, no console
+  errors. Carries Clerk's **Development mode** badge, which is expected: a Clerk
+  *production* instance needs a custom domain for the CNAME and cannot be issued
+  for a `*.vercel.app` subdomain.
+- `/library`, `/training`, `/api/training/relevance` → **307** to
+  `/sign-in?redirect_url=…`. The allow-list in `proxy.ts` is enforced in
+  production, and the return URL is carried.
+- Build reproduced against **exactly** the file set Vercel receives (98 files,
+  2 MB — git's ignore rules plus `.vercelignore`, applied with git's own matcher).
+  That build is what proved bug 2 fixed and the three notebooks still traced.
+
+### Still blocked, and on what
+- **Cloud Run needs an open billing account.** `01A552-CEFF0A-9DDD0F` is still
+  `open: false`. The two projects that *do* have billing —
+  `collective-odyssey-lr5vm`, `forward-icon-lfq84` — are Google-managed sandboxes:
+  the roles held on the first are free-tier only (`runSaasUserFreeTier`,
+  `firebaseUserFreeTier`, `cloudSqlUserFreeTier`) with no `run.admin`, and the
+  second denies `getIamPolicy` outright. Neither can host this service.
+- **An R2 API token** still has to be minted by hand.
+- `scripts/deploy_cloudrun.sh` is otherwise ready: `bash -n` clean, all three
+  LOAD-BEARING flags present, and it already prints the follow-up command with
+  the now-real `https://aletheia-rag.vercel.app` origin.

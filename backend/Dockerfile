@@ -6,6 +6,22 @@ FROM python:3.12-slim
 WORKDIR /app
 COPY apps/api/requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+# Bake the two local ONNX models into the image.
+#
+# fastembed downloads the embedding model and the cross-encoder reranker
+# (~150MB together) on first use and caches them to disk. Where the disk
+# survives a restart that is a one-off cost paid by the first request after a
+# deploy. On a host with an ephemeral filesystem — Cloudflare Containers hand a
+# woken instance a fresh disk — it would be paid again on *every* cold start,
+# inside the request path, on top of the ~25s the embedding model already takes
+# to load. Baking them into an image layer turns that download into a local
+# read. FASTEMBED_CACHE_PATH is set before the fetch so the runtime looks in
+# the same place the build wrote to.
+ENV FASTEMBED_CACHE_PATH=/opt/fastembed-cache
+RUN python -c "from fastembed import TextEmbedding; TextEmbedding('jinaai/jina-embeddings-v2-small-en')" \
+ && python -c "from fastembed.rerank.cross_encoder import TextCrossEncoder; TextCrossEncoder('jinaai/jina-reranker-v1-turbo-en')"
+
 COPY apps/api /app/apps/api
 COPY models /app/models
 COPY scripts/migrate.py /app/scripts/migrate.py

@@ -200,3 +200,36 @@
   reproduce either — measured). The answer now carries `reproducible`, and it is printed on
   every exported PDF, because the person deciding whether to trust a cited claim is reading
   the PDF, not the server log.
+- A host's free tier is a claim about a *billing mode*, not about the platform. Cloud Run's
+  always-free allowance is enumerated under request-based billing, and this app cannot use
+  request-based billing at all: uploads return 201 and finish extraction in a FastAPI
+  `BackgroundTasks`, which that mode throttles to ~0 CPU the moment the response is sent.
+  The recommendation to add a keepalive ping — made before the execution model was checked —
+  would have produced a service that looked warm and silently stopped ingesting. Match a
+  host against how the application actually executes, not against its language and RAM.
+- An ignore file is part of the build, not housekeeping. `.vercelignore` excluded `colab/`
+  and all of `backend/`, and both were load-bearing: `app/api/training/[task]/route.ts`
+  reads the notebooks at runtime, and `lib/experiments.ts` imports six model JSON files at
+  build time. Next's tracer resolves both correctly, but tracing only sees files that were
+  uploaded, so the first failed the deploy outright and the second would have shipped a
+  route that 503s with nothing in the build output to warn about. The general shape: an
+  exclusion written to keep a deploy small silently deletes inputs the build depends on.
+- Verify a deploy by reproducing what the host receives, not what the repo contains. A local
+  `npm run build` passed while the Vercel build failed, because the difference was entirely
+  in which files were uploaded. Copying the repo down to exactly the upload set — git's
+  ignore rules plus `.vercelignore`, applied with git's own matcher — and building *that*
+  found the second missing-input bug before the platform did, and would have found the first.
+- A green build is not a served route. The Vercel project was created with
+  `vercel project add`, which leaves `framework: null`; the Next build then ran and completed
+  perfectly while the platform served the output as a plain static directory. The signature
+  is precise and worth recognising: files in `public/` return 200, every application route
+  returns a platform-level `NOT_FOUND`, and the build log looks flawless. Pinning
+  `{"framework": "nextjs"}` in `vercel.json` keeps the setting in the repo instead of in
+  dashboard state that no one can review.
+- Deprecation warnings in a build log are load-bearing on some hosts. Next 16 deprecated the
+  `middleware` file convention in favour of `proxy`; locally `middleware.ts` still worked, and
+  on Vercel it was executed as unbundled source and died on its first `import` — as CJS
+  loading ESM, and then, after `"type": "module"`, as ESM failing to find a named export in
+  Clerk's CJS build. Two different errors, one cause. The rename Next already printed at every
+  build was the actual fix.
+

@@ -20,6 +20,11 @@ const isPublic = createRouteMatcher([
  *  totally dead app rather than an unprotected one. */
 const configured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
+/** Next 16 renamed the `middleware` file convention to `proxy`; the signature
+ *  and the matcher config are unchanged, and Clerk accepts either filename on
+ *  Next 16+. Kept as `proxy.ts` because the deprecated `middleware.ts` path is
+ *  no longer bundled by Next on Vercel — it gets executed as raw source and
+ *  dies on the first `import`. */
 export default configured
   ? clerkMiddleware(async (auth, request) => {
       if (isPublic(request)) return;

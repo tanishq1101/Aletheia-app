@@ -5,6 +5,7 @@ from app.core.logging import get_logger
 from app.core.rate_limit import describe_backend
 from app.db.session import get_connection
 from app.schemas.models import HealthResponse
+from app.services.storage import StorageError, build_storage
 from app.services.vector_store import VectorStoreError
 from app.services.vector_store import count as vector_count
 
@@ -28,7 +29,8 @@ def health(response: Response) -> HealthResponse:
         database = f"unreachable: {type(exc).__name__}"
         healthy = False
 
-    if settings.storage_backend.lower() == "local":
+    backend_name = settings.storage_backend.lower()
+    if backend_name == "local":
         root = settings.storage_root
         try:
             root.mkdir(parents=True, exist_ok=True)
@@ -37,6 +39,19 @@ def health(response: Response) -> HealthResponse:
         except OSError as exc:
             log.error("Health check: storage root unusable: %s", exc)
             storage = f"unwritable: {exc.strerror}"
+            healthy = False
+    elif backend_name == "r2":
+        # A real round trip to the bucket, not a config read. A HEAD on a key
+        # that is not there returns 404 when the credentials are good and 403
+        # when they are not, so this separates "reachable and authorised" from
+        # "misconfigured" — which is the failure a deploy actually hits. It is
+        # one class-B operation, cheap enough to run on every health check.
+        try:
+            build_storage(settings).exists(key="_health/probe")
+            storage = "ok"
+        except StorageError as exc:
+            log.error("Health check: R2 unreachable: %s", exc)
+            storage = f"unreachable: {exc}"
             healthy = False
     else:
         storage = f"backend={settings.storage_backend} (not implemented)"

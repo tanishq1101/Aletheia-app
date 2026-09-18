@@ -125,6 +125,22 @@ class Settings(BaseSettings):
     supabase_service_role_key: str = ""
     supabase_storage_bucket: str = "papers"
 
+    # --- Cloudflare R2 (STORAGE_BACKEND=r2) ---------------------------------
+    # Required wherever the disk does not survive a restart. Cloudflare
+    # Containers give a woken instance a fresh disk, so `local` there would
+    # lose every uploaded PDF while the `papers` rows still referenced them.
+    #
+    # Give either R2_ENDPOINT outright, or R2_ACCOUNT_ID and let the endpoint
+    # be derived — the account-id form is what the R2 dashboard shows.
+    r2_account_id: str = ""
+    r2_endpoint_url: str = ""
+    r2_bucket: str = ""
+    r2_access_key_id: str = ""
+    r2_secret_access_key: str = ""
+    # R2 ignores the region but SigV4 signs it, so it must match what the
+    # credentials were issued against. "auto" is what R2 documents.
+    r2_region: str = "auto"
+
     github_token: str = ""
 
     api_host: str = "0.0.0.0"
@@ -214,6 +230,15 @@ class Settings(BaseSettings):
             for party in self.clerk_authorized_parties_csv.split(",")
             if party.strip()
         ]
+
+    @property
+    def r2_endpoint(self) -> str:
+        """The S3 endpoint for this account, explicit or derived."""
+        if self.r2_endpoint_url:
+            return self.r2_endpoint_url
+        if self.r2_account_id:
+            return f"https://{self.r2_account_id}.r2.cloudflarestorage.com"
+        return ""
 
     @property
     def storage_root(self) -> Path:
