@@ -33,6 +33,11 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.local.example
+# Any .env.example, at any depth. Without this, `.env*` above silently swallows
+# the example file next to a new deploy target -- `git add -A` skips it without
+# a word, and the first symptom is a deploy doc telling someone to copy a file
+# that is not in the repo. A negation with no slash matches at every level.
+!.env.example
 
 # vercel
 .vercel
