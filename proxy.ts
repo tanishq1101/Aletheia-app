@@ -8,6 +8,10 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 const isPublic = createRouteMatcher([
   // The landing page, and only the landing page: "/" exactly, not "/(.*)".
   "/",
+  // Tells the browser where the API is, and nothing else. It has to answer
+  // before a session exists, or the first thing a signed-out visitor's client
+  // gets back is a sign-in redirect where it expected JSON.
+  "/api/config",
   "/sign-in(.*)",
   "/sign-up(.*)",
   // Clerk's own callbacks (OAuth return, verification links).

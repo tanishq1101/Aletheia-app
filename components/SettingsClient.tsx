@@ -5,8 +5,8 @@ import ApiErrorNotice from "@/components/ApiErrorNotice";
 import Badge, { type BadgeTone } from "@/components/Badge";
 import SettingsFieldRow from "@/components/SettingsFieldRow";
 import {
-  API_BASE_URL,
   ApiError,
+  currentApiBaseUrl,
   deleteProject,
   getHealth,
   getSettings,
@@ -216,7 +216,10 @@ export default function SettingsClient() {
         {error && <ApiErrorNotice message={error} onRetry={() => void check()} />}
 
         <div className="flex w-full flex-col items-start gap-px">
-          <SettingsFieldRow label="API URL" value={API_BASE_URL} />
+          {/* Read at render rather than at import: the URL is resolved at
+              runtime now, and the health check above is what settles it — so
+              the re-render that shows `health` also shows the real URL. */}
+          <SettingsFieldRow label="API URL" value={currentApiBaseUrl()} />
           {health && (
             <>
               <DependencyRow label="Overall" value={health.status} />

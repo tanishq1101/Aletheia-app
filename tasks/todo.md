@@ -836,3 +836,184 @@ only the user can make — whether to expose the machine right now, and which
 Clerk instance the deployed site should use — and `docs/DEPLOYMENT.md` insists
 authentication is on *before* a tunnel opens, because a tunnelled API with
 `ALLOW_UNAUTHENTICATED=true` is an open database.
+
+---
+
+## Topbar overlap, nav order, and a dead quick tunnel (2026-09-22)
+
+### Plan
+- [x] Diagnose the "API offline" badge on the deployed site
+- [x] Reproduce and fix the control overlapping the search field in the topbar
+- [x] Re-order the sidebar navigation to follow the workflow
+- [x] Verify the header at desktop, cramped-desktop and mobile widths
+
+### What the "API offline" badge actually was
+Not a stale Vercel variable, which is the failure `docs/DEPLOYMENT.md` warns
+about. The URL baked into the deployed bundle is still the one `cloudflared` is
+serving — the tunnel itself is dead:
+
+```
+/ready                              {"status":503,"readyConnections":0}
+cloudflared_tunnel_ha_connections   0
+tunnel_register_fail{error="server_error"}  8
+tunnel_register_success             1
+dig karaoke-int-shelf-against.trycloudflare.com   NXDOMAIN
+```
+
+It registered once at 10:24, served 98 requests, lost its edge connection, and
+failed eight re-registrations; Cloudflare then withdrew the hostname. The
+process is still alive and still reports that hostname on `/quicktunnel`, which
+is why "is cloudflared running?" is the wrong question to ask of it — ask
+`/ready`. The backend itself was healthy throughout (`status ok, database ok,
+storage ok, vector_store ok (509 vectors), rate_limiter redis`).
+
+A quick tunnel's hostname changes on restart, so recovering means a new URL, a
+new `NEXT_PUBLIC_API_URL` on Vercel and a redeploy without the build cache.
+`CORS_ORIGINS` does **not** change — it names the front end's origin, not the
+tunnel's.
+
+### The overlap
+`Topbar`'s header was `md:flex-nowrap`, and every control on it is `shrink-0`.
+That leaves the search form as the only thing that can absorb a narrow window,
+and `min-w-px` let it absorb one all the way down to 1px. The `<input>` inside
+will not follow it that far — its automatic minimum size holds it at ~30px — so
+the field overflowed its own form by ~29px and the status pill, painted later
+and opaque, landed on top of it. Measured, before:
+
+```
+colW 400  formW 2.8  inputW 30  inputOverflowsForm +27.2  gap_input_to_pill -7.2
+colW 380  formW 1.0  inputW 30  inputOverflowsForm +29.0  gap_input_to_pill -9.0
+```
+
+Fixed by letting the header wrap at every width instead of only below `md`,
+giving the form a real floor (`md:min-w-[14rem]`), and adding `min-w-0` to the
+input so it can shrink with its form rather than bursting out of it.
+
+### Nav order
+`Upload` was sixth, below three pages that do nothing until it has been used,
+and `Training Lab` sat between `Research Agent` and `Upload` although it does
+not touch the library at all. Re-ordered to sources → reading → cross-library
+analysis → lab. One list feeds both the desktop rail and the mobile menu.
+
+### Verified
+`npx tsc --noEmit` clean. The header was measured in a browser across eight
+column widths from 1195px down to 300px: `inputOverflowsForm` is 0 and the
+input/pill intersection is 0 at every one of them, against -9px before. Checked
+visually at 1461px (one row, search fills the line), 820px (header wraps, no
+crushing — this is the width the bug used to bite) and 375px (controls on row
+one, full-width search on row two).
+
+Because `/library` needs a Clerk session and `next dev` refuses a second server
+in the same directory, verification ran against a copy of the front end in the
+scratchpad with `node_modules` cloned in and no `proxy.ts`, which makes the
+shell public without weakening auth in the repository. It reached the API from
+port 3100, which `CORS_ORIGINS` does not list — the "cannot reach the API"
+notice in those screenshots is that, not a backend fault.
+
+### The tunnel, restarted (and what that revealed)
+Restarting it produced `step-wearing-mood-britain`, which verified clean —
+health ok, `/projects` 401 bare and 401 with a bogus bearer, CORS admitting
+`aletheia-rag.vercel.app` and refusing `evil.example`. Vercel's
+`NEXT_PUBLIC_API_URL` was updated and production redeployed with `--force`.
+
+It then died after **six minutes**, and the log explains the whole class of
+failure:
+
+```
+08:04:56 precheck "UDP Connectivity" QUIC connection failed  -> suggested_protocol=http2
+08:10:51 Lost connection with the edge connIndex=0
+08:37:19 Register tunnel error from server side error="Unauthorized: Tunnel not found"
+09:43:07 Register tunnel error from server side error="Unauthorized: Tunnel not found"
+11:11:24 Register tunnel error from server side error="Unauthorized: Tunnel not found"
+```
+
+Cloudflare deletes a *quick* tunnel the moment its last connection drops, and
+`cloudflared` cannot re-create one — it retries the dead tunnel forever with
+exponential backoff while staying alive and still reporting the hostname on
+`/quicktunnel`. So the process looks healthy, the URL looks current, and
+nothing works. UDP is blocked on this network, so QUIC — the more resilient
+transport — is unavailable and the fragile http2 path is the only option.
+
+A second restart gave `taxi-elementary-enhance-subcommittee`, verified the same
+way, and Vercel was repointed and redeployed again.
+
+### Not done, and why
+Nothing durable. A quick tunnel cannot survive a dropped connection, so every
+drop costs a new hostname, a new Vercel variable and a full no-cache rebuild.
+Two candidates, neither chosen by the user yet:
+- A **named** tunnel (needs a Cloudflare account and a domain) reconnects to
+  the *same* hostname, because the tunnel keeps existing server-side. This is
+  the only option that removes the failure rather than shortening it.
+- Resolving the API base URL at **runtime** instead of inlining it at build
+  time would at least drop the rebuild from the recovery, leaving one
+  `vercel env` call.
+
+The `/legal` route in the working tree belongs to another session and was
+deliberately left out of both deployments; they shipped `HEAD` plus the two
+files changed here.
+
+---
+
+## Runtime API URL: no redeploy per tunnel restart (2026-09-22)
+
+### The constraint that shaped this
+The obvious fix — read `process.env` server-side instead of inlining
+`NEXT_PUBLIC_API_URL` — does not work on Vercel. Environment variables are
+bound to a deployment, so editing one changes nothing until a redeploy, which
+is the exact cost being removed. Edge Config is the only part of a Vercel
+project that is mutable in place, so that is where the value lives.
+
+### Shape
+- `app/api/config/route.ts` — `force-dynamic`, `Cache-Control: no-store`,
+  reads `apiBaseUrl` from Edge Config over its REST API and falls back to the
+  build-time `NEXT_PUBLIC_API_URL`, then `http://localhost:8000`. Reports which
+  one it used as `source`, so "is this stale?" is answerable without guessing.
+  No `@vercel/edge-config` dependency — the whole interaction is one
+  authenticated GET, and the token has to go in an `Authorization` header
+  because the query-string form is rejected on the items endpoints.
+- `lib/api.ts` — `API_BASE_URL` (a const) became `resolveApiBaseUrl()` (a
+  cached promise) plus `currentApiBaseUrl()` (the last resolved value). The
+  promise is cached rather than the value so the requests a page fires on mount
+  share one lookup instead of racing. A failed lookup returns the build-time
+  value rather than throwing: `/api/config` being unreachable must not be a
+  harder failure than the API it describes.
+- `assetContentUrl` stays synchronous — it feeds an `<img src>`, which cannot
+  await. Safe because an asset ID can only have come from `listAssets()`, an
+  awaited call that resolves the base URL before returning.
+- `proxy.ts` — `/api/config` added to the public matcher. It returns a backend
+  URL and nothing else, and if it required a session the first thing a
+  signed-out client would get back is a sign-in redirect where it expected
+  JSON.
+- `SettingsClient` reads `currentApiBaseUrl()` at render; the health check it
+  already runs is what settles the value, so that re-render shows the real one.
+
+### Verified
+`npx tsc --noEmit` clean. Locally, with the dev server started on
+`NEXT_PUBLIC_API_URL=http://localhost:8000`, the browser called
+`https://taxi-elementary-enhance-subcommittee.trycloudflare.com/projects` —
+the Edge Config value beat the inlined one — and the error notice quoted the
+resolved URL too. With `EDGE_CONFIG` unset the endpoint answered
+`{"apiBaseUrl":"http://localhost:8000","source":"build"}`, so a laptop is
+unaffected. On live production, editing the store and re-requesting
+`/api/config` returned the new value about two seconds later with nothing
+rebuilt, then returned the real one after restoring it.
+
+One cold-start request answered `source: "build"` immediately after the token
+rotation, while the new token was still propagating — the fallback behaving
+exactly as intended rather than a fault, but worth knowing before reading a
+single sample as breakage.
+
+### Token hygiene
+`vercel global-config tokens --add` prints the token to stdout, so the first
+one ended up in a transcript. It was replaced, `EDGE_CONFIG` repointed, the
+deployment rebuilt to pick that up, and the original revoked — confirmed dead
+with three `unauthorized` reads afterwards. Revoking needs `--yes`; without it
+the CLI exits with a JSON `confirmation_required` payload that reads like a
+success if only the tail is inspected.
+
+### Not done
+`NEXT_PUBLIC_API_URL` is still set on Vercel and is still the fallback. It is
+now only consulted when Edge Config is unreachable, but it is stale the moment
+the tunnel moves — worth either keeping deliberately current or dropping so
+that `source: "build"` degrades to an obvious localhost failure instead of a
+plausible-looking wrong host.

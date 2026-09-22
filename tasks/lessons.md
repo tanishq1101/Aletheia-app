@@ -340,3 +340,45 @@
   "com.docker.compose.project"}}'` said `dlproject`, with its own data volume. Running a
   throwaway on another port with another name cost one command; removing the container would
   have destroyed someone else's database. Check the labels before reusing a name.
+- A running `cloudflared` is not a working tunnel. The process stayed up, kept answering
+  `/quicktunnel` with the hostname it was given at startup, and reported it in
+  `cloudflared_tunnel_user_hostnames_counts` — while `ha_connections` was 0, `/ready` was
+  503 and the hostname had gone NXDOMAIN. `ps aux | grep cloudflared` and the URL it printed
+  an hour ago both say "fine"; only `curl 127.0.0.1:20241/ready` says otherwise. Check the
+  readiness endpoint before concluding a baked-in `NEXT_PUBLIC_API_URL` is stale.
+- `min-w-px` on a flex item that contains an `<input>` does not mean "may shrink to 1px", it
+  means "the wrapper shrinks to 1px and the input overflows it". An input's automatic minimum
+  size holds it at ~30px no matter what its wrapper does, so the wrapper collapses, the input
+  bursts out of it, and whatever is painted next lands on top. `min-w-0` on the *input* is the
+  fix; a floor on the wrapper is what keeps it usable.
+- Reproduce a layout bug by measurement, not by eye. Three rounds of estimating coordinates off
+  a screenshot produced three different viewport widths and no answer; sweeping the real
+  container width in the browser and printing `inputOverflowsForm` and the input/pill
+  intersection found the exact threshold (below ~400px of column) in one call. Pixel forensics
+  on a scaled screenshot cannot distinguish "collapsed to 22px" from "collapsed to 30px at a
+  different DPR", and that distinction was the whole bug.
+- When a route needs a session and `next dev` refuses a second server in the same directory,
+  copy the front end to the scratchpad and `cp -Rc` the `node_modules` (APFS clone, 710 MB in
+  under four seconds; a symlink is rejected by Turbopack as "points out of the filesystem
+  root"). Leaving `proxy.ts` out of the copy makes the shell public for QA without touching
+  authentication in the repository — and remember the copy runs on a port `CORS_ORIGINS` does
+  not list, so its "cannot reach the API" notice is expected, not a finding.
+- "Read it at runtime instead of build time" does not mean `process.env` on Vercel. Env vars
+  are bound to a deployment, so editing one still needs a redeploy before a running lambda
+  sees it — the same cost the change was supposed to remove. Edge Config (or KV/Blob) is the
+  only project state that is mutable in place. Check *where* the value lives, not just *when*
+  it is read.
+- Cache the promise, not the resolved value, for a one-time async lookup that many callers
+  need at mount. Caching the value leaves a window where several callers all see "not resolved
+  yet" and each start their own request; caching the promise makes the second caller await the
+  first one's work.
+- Keep one synchronous escape hatch when an async resolver feeds something that cannot await.
+  `assetContentUrl` returns a string for an `<img src>`, so it reads the last resolved value —
+  which is sound only because the ID it is given could only have come from an awaited call
+  that already resolved it. Write that ordering argument down next to the code; it is the
+  whole reason the sync read is safe.
+- A CLI that prints a secret to stdout has put it in the transcript. `vercel global-config
+  tokens --add` does exactly this, and piping it to a file does not help because the tool
+  output is captured either way. Assume the first token is burned: create it, use it, then
+  rotate and revoke. And revoking needs `--yes` — without it the command exits with a JSON
+  `confirmation_required` body that looks like output, not like a refusal.
