@@ -423,9 +423,17 @@ export default function LandingPage() {
           <p className="font-ui text-xs text-muted">
             Aletheia — grounded research intelligence.
           </p>
-          <p className="font-mono text-[11px] tracking-[1.1px] text-muted">
-            RETRIEVAL LOCAL · ANSWERING HOSTED · CITATIONS VERIFIED
-          </p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <Link
+              href="/legal"
+              className="font-ui text-xs text-secondary transition-colors hover:text-brass"
+            >
+              Terms &amp; privacy
+            </Link>
+            <p className="font-mono text-[11px] tracking-[1.1px] text-muted">
+              RETRIEVAL LOCAL · ANSWERING HOSTED · CITATIONS VERIFIED
+            </p>
+          </div>
         </div>
       </footer>
     </main>
