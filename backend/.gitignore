@@ -43,3 +43,6 @@ GEMINI.md
 # Reproducible public research snapshots; keep manifests and reports.
 /datasets/research/raw/
 /datasets/research/*.jsonl
+
+# Local-only compose overrides (real database URLs, per-machine ports).
+docker-compose.override.yml
