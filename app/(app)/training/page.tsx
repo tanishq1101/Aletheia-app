@@ -32,9 +32,9 @@ function LearningCurve({ title, history }: { title: string; history: EpochPoint[
         className="w-full"
       >
         <path d="M40 25V190H530" fill="none" stroke="currentColor" opacity="0.3" />
-        <polyline fill="none" stroke="#b39a64" strokeWidth="3" points={line(point => point.train_loss)} />
+        <polyline fill="none" stroke="var(--accent-brass)" strokeWidth="3" points={line(point => point.train_loss)} />
         {validation ? (
-          <polyline fill="none" stroke="#91a1ca" strokeWidth="3" points={validation} />
+          <polyline fill="none" stroke="var(--chart-series-b)" strokeWidth="3" points={validation} />
         ) : null}
         <g fill="currentColor" fontSize="12">
           <text x="6" y="30">{ceiling.toFixed(1)}</text>

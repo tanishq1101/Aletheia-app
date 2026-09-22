@@ -61,7 +61,7 @@ export default function ResearchMarkdown({ text, known, onFocus }: {
       a: ({ href, children }) => {
         if (href?.startsWith("#evidence-")) {
           const id = href.slice(10);
-          return <button type="button" aria-label={`Show evidence ${id}`} disabled={!known.has(id)} onClick={() => onFocus(id)} className="mx-1 rounded border border-brass px-1 py-px align-baseline font-mono text-[10px] leading-5 text-brass hover:bg-brass hover:text-base disabled:opacity-40">{children}</button>;
+          return <button type="button" aria-label={`Show evidence ${id}`} disabled={!known.has(id)} onClick={() => onFocus(id)} className="mx-1 rounded border border-brass px-1 py-px align-baseline font-mono text-[10px] leading-5 text-brass hover:bg-brass hover:text-on-brass disabled:opacity-40">{children}</button>;
         }
         return <span>{children}</span>; // Only backend-resolved sources are clickable.
       },

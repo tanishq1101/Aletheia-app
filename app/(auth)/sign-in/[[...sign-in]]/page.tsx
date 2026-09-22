@@ -42,7 +42,7 @@ export default function SignInPage() {
 
         <Link
           href="/library"
-          className="flex w-full items-center justify-center rounded-md bg-oxblood py-[13px] font-ui text-sm font-semibold text-primary"
+          className="flex w-full items-center justify-center rounded-md bg-oxblood py-[13px] font-ui text-sm font-semibold text-on-accent"
         >
           Continue to the library
         </Link>

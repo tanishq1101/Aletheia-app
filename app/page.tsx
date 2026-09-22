@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import ThemeToggle from "@/components/ThemeToggle";
 
 /** The public landing page.
  *
@@ -179,7 +180,8 @@ export default function LandingPage() {
             Aletheia
           </span>
         </div>
-        <nav className="flex items-center gap-2 sm:gap-4">
+        <nav className="flex items-center gap-2 sm:gap-3">
+          <ThemeToggle />
           <Link
             href="/sign-in"
             className="rounded-md px-3 py-2 font-ui text-[13px] text-secondary transition-colors hover:text-primary"
@@ -215,7 +217,7 @@ export default function LandingPage() {
         <div className="flex flex-wrap items-center gap-3">
           <Link
             href={authConfigured ? "/sign-up" : "/library"}
-            className="rounded-md bg-oxblood px-6 py-[13px] font-ui text-sm font-semibold text-primary transition-colors hover:bg-oxblood-bright"
+            className="rounded-md bg-oxblood px-6 py-[13px] font-ui text-sm font-semibold text-on-accent transition-colors hover:bg-oxblood-bright"
           >
             {authConfigured ? "Create an account" : "Continue to the library"}
           </Link>
@@ -409,7 +411,7 @@ export default function LandingPage() {
         </p>
         <Link
           href={authConfigured ? "/sign-up" : "/upload"}
-          className="rounded-md bg-oxblood px-6 py-[13px] font-ui text-sm font-semibold text-primary transition-colors hover:bg-oxblood-bright"
+          className="rounded-md bg-oxblood px-6 py-[13px] font-ui text-sm font-semibold text-on-accent transition-colors hover:bg-oxblood-bright"
         >
           {authConfigured ? "Create an account" : "Upload a paper"}
         </Link>

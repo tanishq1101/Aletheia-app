@@ -181,6 +181,11 @@ class AnswerResponse(BaseModel):
     # response because the reader deciding whether to trust a cited claim is
     # the one who needs to know it.
     reproducible: bool = True
+    # Questions to ask next, written by the model that saw this evidence. An
+    # empty list is normal: the feature can be switched off, the call can fail,
+    # and a reply that does not meet the contract is discarded rather than
+    # shown. Nothing downstream may treat it as required.
+    follow_ups: list[str] = Field(default_factory=list)
 
 
 class ConversationCreate(BaseModel):

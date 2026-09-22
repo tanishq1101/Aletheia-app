@@ -46,19 +46,35 @@ TOPIC_PAGES = [
 
 
 class ScriptedLLM:
-    """An LLMProvider that returns a fixed reply and records what it was sent."""
+    """An LLMProvider that returns a fixed reply and records what it was sent.
+
+    `system` and `prompt` are the *first* call's, which is always the answering
+    one. Answering an endpoint question can make a second call — for "what to
+    ask next", see services/follow_ups.py — and these assertions are about the
+    grounding contract, not about whatever was sent last. `sent` has every call
+    for a test that needs to look at the others.
+    """
 
     def __init__(self, reply: str) -> None:
         self.reply = reply
-        self.system: str | None = None
-        self.prompt: str | None = None
-        self.calls = 0
+        self.sent: list[tuple[str, str]] = []
 
     name = "scripted-test-model"
 
+    @property
+    def calls(self) -> int:
+        return len(self.sent)
+
+    @property
+    def system(self) -> str | None:
+        return self.sent[0][0] if self.sent else None
+
+    @property
+    def prompt(self) -> str | None:
+        return self.sent[0][1] if self.sent else None
+
     def complete(self, *, system: str, prompt: str, max_output_tokens: int | None = None) -> str:
-        self.calls += 1
-        self.system, self.prompt = system, prompt
+        self.sent.append((system, prompt))
         return self.reply
 
 

@@ -12,6 +12,7 @@ from uuid import UUID, uuid5, NAMESPACE_URL
 from app.core.logging import get_logger
 from app.services.answering import AnswerResult, answer_question
 from app.services.llm import LLMError
+from app.services.model_json import decode_model_json
 from app.services.providers import LLMProvider
 
 log = get_logger(__name__)
@@ -53,26 +54,6 @@ class AgentRun:
     discovery_errors: list[str] = field(default_factory=list)
 
 
-def _planner_json(raw: str) -> object:
-    """Decode strict JSON plus the common fenced-JSON model wrapper."""
-    candidate = raw.strip()
-    if candidate.startswith("```"):
-        lines = candidate.splitlines()
-        if lines and lines[-1].strip() == "```":
-            candidate = "\n".join(lines[1:-1]).strip()
-    try:
-        return json.loads(candidate)
-    except json.JSONDecodeError:
-        # Some providers add one short sentence despite a JSON-only request.
-        # Extract exactly one outer object; downstream schema checks still
-        # reject missing/wrong fields and the max-step cap remains authoritative.
-        start = candidate.find("{")
-        end = candidate.rfind("}")
-        if start < 0 or end <= start:
-            raise
-        return json.loads(candidate[start : end + 1])
-
-
 def plan_research(
     *, goal: str, llm: LLMProvider, max_steps: int
 ) -> PlannedResearch:
@@ -81,7 +62,7 @@ def plan_research(
         prompt=f"Goal: {goal}\nMaximum questions: {max_steps}",
     )
     try:
-        body = _planner_json(raw)
+        body = decode_model_json(raw)
         values = body.get("questions") if isinstance(body, dict) else None
         if not isinstance(values, list):
             raise ValueError("questions must be a list")

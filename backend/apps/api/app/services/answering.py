@@ -127,6 +127,9 @@ class AnswerResult:
     # whether to trust a cited claim is the person who needs to know, and by
     # then the log is somewhere they cannot see.
     reproducible: bool = True
+    # Questions to ask next, from a separate call that only some callers make
+    # (see `services/follow_ups`). Empty is a normal outcome, not a failure.
+    follow_ups: list[str] = field(default_factory=list)
 
 
 def _rerank(query: str, candidates: list[RetrievedChunk], top_k: int):
@@ -226,6 +229,7 @@ def answer_question(
     llm: LLMProvider,
     top_k: int | None = None,
     rerank_top_k: int | None = None,
+    suggest_next: bool = False,
 ) -> AnswerResult:
     """Answer a question from a project's papers. Raises EmbeddingError,
     RerankError, or LLMError — each with a real reason, never swallowed."""
@@ -263,16 +267,22 @@ def answer_question(
     )
 
     return answer_from_context(question=question, context=context, llm=llm,
-                               candidates_considered=len(candidates))
+                               candidates_considered=len(candidates),
+                               suggest_next=suggest_next)
 
 
 def answer_from_context(*, question, context, llm, candidates_considered,
-                       analysis_query=None, max_output_tokens=None):
+                       analysis_query=None, max_output_tokens=None,
+                       suggest_next=False):
     """Common citation validation for both individual answers and synthesis.
 
     `max_output_tokens` lets a caller whose output is structurally larger than
     one answer — a combined report over every question's evidence — ask for
     room the per-answer default was not sized for.
+
+    `suggest_next` adds one further model call for "what to ask next". Off by
+    default so it is a decision each call site makes: the research agent runs
+    this function once per planned question and has nowhere to put the result.
     """
     if not context.evidence:
         model_name = getattr(llm, "name", type(llm).__name__)
@@ -306,6 +316,20 @@ def answer_from_context(*, question, context, llm, candidates_considered,
     from app.services.research_models import research_diagnostics
     diagnostics = research_diagnostics(analysis_query or question, context.evidence)
     from app.services.comparison_charts import extract_comparison_charts
+
+    # After validation, never before: the suggester is shown the answer as it
+    # will actually be read, with any fabricated citation already stripped out.
+    follow_ups: list[str] = []
+    if suggest_next:
+        from app.services.follow_ups import suggest_follow_ups
+        follow_ups = suggest_follow_ups(
+            question=question,
+            answer=answer,
+            evidence=context.evidence,
+            cited_ids={citation.evidence_id for citation in citations},
+            llm=llm,
+        )
+
     return AnswerResult(
         answer=answer,
         sufficient_evidence=sufficient,
@@ -322,6 +346,7 @@ def answer_from_context(*, question, context, llm, candidates_considered,
         # accepted the configured temperature.
         reproducible=bool(getattr(llm, "deterministic", True)),
         charts=extract_comparison_charts(answer, context.evidence) if sufficient else [],
+        follow_ups=follow_ups,
     )
 
 

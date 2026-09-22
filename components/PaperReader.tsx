@@ -128,7 +128,7 @@ export default function PaperReader({ paperId }: { paperId: string }) {
                   );
                 }
               }}
-              className="shrink-0 rounded-md bg-oxblood px-[18px] py-[10px] font-ui text-[13px] font-semibold text-primary"
+              className="shrink-0 rounded-md bg-oxblood px-[18px] py-[10px] font-ui text-[13px] font-semibold text-on-accent"
             >
               Retry processing
             </button>

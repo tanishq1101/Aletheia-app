@@ -131,7 +131,7 @@ export default function ReproducibilityPage() {
           type="button"
           onClick={run}
           disabled={!paperId || running}
-          className="shrink-0 rounded-md bg-oxblood px-[18px] py-[10px] font-ui text-[13px] font-semibold text-primary disabled:opacity-50"
+          className="shrink-0 rounded-md bg-oxblood px-[18px] py-[10px] font-ui text-[13px] font-semibold text-on-accent disabled:opacity-50"
         >
           {running ? "Auditing…" : report ? "Re-run audit" : "Run audit"}
         </button>

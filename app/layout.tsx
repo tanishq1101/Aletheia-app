@@ -1,7 +1,8 @@
-import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Fraunces, Source_Serif_4, Inter, JetBrains_Mono } from "next/font/google";
+import Providers from "@/components/Providers";
+import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -33,44 +34,26 @@ export const metadata: Metadata = {
   description: "Aletheia",
 };
 
-/** Clerk is optional at build time.
- *
- * A repository checked out without keys must still `next build` and run — the
- * sign-in page then says plainly that there are no accounts, which is what it
- * said before Clerk existed. Wrapping unconditionally makes a missing
- * publishable key a hard crash on every page instead of a degraded mode. */
-const authConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
-
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
-  const document = (
+  return (
+    // `suppressHydrationWarning` because the script below writes `data-theme`
+    // onto this element before React hydrates. That difference is the point of
+    // the script, not a bug for React to report.
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${fraunces.variable} ${sourceSerif4.variable} ${inter.variable} ${jetBrainsMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <head>
+        {/* Must run before the first paint, or a reader whose theme is light
+            gets a dark flash on every navigation. */}
+        <script
+          dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }}
+        />
+      </head>
+      <body className="min-h-full flex flex-col">
+        <Providers>{children}</Providers>
+      </body>
     </html>
-  );
-
-  // The dark surface tokens are the app's, not Clerk's defaults; without this
-  // the modal arrives as a white rectangle in the middle of a dark page.
-  return authConfigured ? (
-    <ClerkProvider
-      afterSignOutUrl="/sign-in"
-      appearance={{
-        variables: {
-          colorPrimary: "#7d2027",
-          colorBackground: "#14110f",
-          colorInput: "#1b1815",
-          colorInputForeground: "#f2ede4",
-          colorForeground: "#f2ede4",
-          colorMutedForeground: "#a8a096",
-          borderRadius: "0.375rem",
-        },
-      }}
-    >
-      {document}
-    </ClerkProvider>
-  ) : (
-    document
   );
 }

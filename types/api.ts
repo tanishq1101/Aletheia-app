@@ -161,6 +161,13 @@ export interface AnswerResponse {
    *  the reader rather than kept in a server log. */
   reproducible?: boolean;
   charts?: { title: string; unit: string; conditions: string; note: string; points: { label: string; value: number; evidence_ids: string[] }[] }[];
+  /** Questions to ask next, written by the model that saw this evidence.
+   *
+   * Optional and often empty — the feature can be switched off on the API, the
+   * extra call can fail, and a reply that does not meet the contract is
+   * discarded rather than shown. Callers fall back to the locally derived
+   * suggestions in `lib/suggestions`; nothing may require this. */
+  follow_ups?: string[];
   model: string;
 }
 
@@ -209,6 +216,9 @@ export interface MessageMetadata {
   evidence_dropped_for_budget: number;
   /** Absent on answers stored before this was recorded. */
   reproducible?: boolean;
+  /** Stored with the answer, so reopening a thread offers the same questions
+   *  it offered when the answer arrived. Absent on older messages. */
+  follow_ups?: string[];
 }
 
 export interface Message {

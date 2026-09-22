@@ -55,6 +55,7 @@ def answer(
             llm=llm,
             top_k=payload.top_k,
             rerank_top_k=payload.rerank_top_k,
+            suggest_next=True,
         )
     except EmbeddingError as exc:
         log.error("Could not embed question for project %s: %s", project_id, exc)
@@ -102,4 +103,5 @@ def answer(
         charts=result.charts,
         truncated=result.truncated,
         reproducible=result.reproducible,
+        follow_ups=result.follow_ups,
     )

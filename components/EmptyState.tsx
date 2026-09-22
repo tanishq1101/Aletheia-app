@@ -20,7 +20,7 @@ export default function EmptyState({
       {actionLabel && actionHref && (
         <Link
           href={actionHref}
-          className="mt-1 rounded-md bg-oxblood px-[18px] py-[10px] font-ui text-[13px] font-semibold text-primary"
+          className="mt-1 rounded-md bg-oxblood px-[18px] py-[10px] font-ui text-[13px] font-semibold text-on-accent"
         >
           {actionLabel}
         </Link>

@@ -1,7 +1,24 @@
 @import "tailwindcss";
 @config "../tailwind.config.ts";
 
-:root {
+/* ---------------------------------------------------------------------------
+ * Themes.
+ *
+ * Every colour in the app is one of these tokens — components never name a
+ * hex. Dark is the default because it is what the design was drawn in and what
+ * a reader with no stored preference and no OS preference gets.
+ *
+ * Two tokens exist only to stop a recurring mistake: `--text-on-accent` and
+ * `--text-on-brass`. Filled buttons used to label themselves `text-primary`,
+ * which happens to be readable on oxblood in the dark theme and vanishes in
+ * the light one. "Text that sits on a filled accent" is a different colour
+ * from "body text" and now says so.
+ * ------------------------------------------------------------------------ */
+
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
   --bg-base: #14110d;
   --bg-surface: #1c1712;
   --bg-surface-raised: #241d16;
@@ -13,6 +30,10 @@
   --text-secondary: #b8a88f;
   --text-muted: #7a6b58;
 
+  /* Labels printed *on top of* a filled accent, not next to one. */
+  --text-on-accent: #f7f1e4;
+  --text-on-brass: #17130e;
+
   --accent-brass: #b08d57;
   --accent-brass-bright: #d4af6a;
   --accent-oxblood: #7b2d26;
@@ -23,11 +44,91 @@
   --status-success: #5c7a5a;
   --status-warning: #c08a3e;
   --status-error: #a13b31;
+
+  --focus-ring: #d4af6a;
+  --shadow-raised: 0 18px 40px -24px rgb(0 0 0 / 0.85);
+
+  /* The learning curves' second series. Brass carries the first, and the
+   * palette has no other hue — this is the only one, so it lives here rather
+   * than as a literal in the chart. */
+  --chart-series-b: #91a1ca;
+}
+
+/* The archive in daylight: warm paper rather than a blue-white sheet, so the
+ * brass and oxblood keep meaning the same thing in both themes. Accents are
+ * darkened — the dark theme's brass is a 2.1:1 stripe on paper. */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-base: #f4eee2;
+  --bg-surface: #fffdf7;
+  --bg-surface-raised: #ece3d3;
+
+  --border-hairline: #c0ae92;
+  --border-hairline-subtle: #ded2bd;
+
+  --text-primary: #221b14;
+  --text-secondary: #56483a;
+  --text-muted: #7d6d59;
+
+  --text-on-accent: #fdf8ef;
+  --text-on-brass: #fdf8ef;
+
+  --accent-brass: #8a6a33;
+  --accent-brass-bright: #6d5122;
+  --accent-oxblood: #8d2f28;
+  --accent-oxblood-bright: #6f211b;
+  --accent-forest: #3d4b3b;
+  --accent-forest-bright: #2c3829;
+
+  --status-success: #3f6b3d;
+  --status-warning: #8a5c14;
+  --status-error: #a3302a;
+
+  --focus-ring: #8a6a33;
+  --shadow-raised: 0 18px 40px -26px rgb(66 48 24 / 0.35);
+
+  --chart-series-b: #3c5288;
 }
 
 body {
   background: var(--bg-base);
   color: var(--text-primary);
+}
+
+/* Only after the theme script has run, so the first paint cannot animate. */
+@media (prefers-reduced-motion: no-preference) {
+  html[data-theme-ready] body {
+    transition: background-color 180ms ease, color 180ms ease;
+  }
+}
+
+/* One visible focus treatment for everything reachable by keyboard. Several
+ * controls used to clear the outline with `focus:outline-none` and replace it
+ * with nothing, which is invisible rather than subtle.
+ *
+ * In `base`, so it is a default rather than a decree: a control that draws its
+ * own focus state — the composer's card, an input that brightens its border —
+ * can still opt out with `focus:outline-none`, because Tailwind's utilities
+ * layer sits above this one. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+::selection {
+  background: var(--accent-brass);
+  color: var(--text-on-brass);
+}
+
+/* The theme toggle's two glyphs are both rendered; CSS picks one. Doing this
+ * in React would paint the server's guess first and then flip. */
+:root[data-theme="dark"] .theme-when-light,
+:root[data-theme="light"] .theme-when-dark {
+  display: none;
 }
 
 @keyframes agent-pulse {
@@ -53,7 +154,27 @@ body {
   transform-origin: 2px 19px;
 }
 
+/* --- Clerk -----------------------------------------------------------------
+ *
+ * Clerk's palette is configured in `components/Providers.tsx`, where it can
+ * follow the active theme. What is left here is layout the appearance API does
+ * not express: the hosted card is a panel inside our own page, so it should
+ * fill the column it was given rather than centre a fixed-width box in it. */
+.cl-rootBox,
+.cl-cardBox,
+.cl-card {
+  width: 100%;
+}
+
+@keyframes suggestion-in {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: none; }
+}
+
+.suggestion-in { animation: suggestion-in 160ms ease-out both; }
+
 @media (prefers-reduced-motion: reduce) {
   .agent-pulse,
+  .suggestion-in,
   .agent-orbit::after { animation: none; }
 }

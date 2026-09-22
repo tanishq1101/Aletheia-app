@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ApiErrorNotice from "@/components/ApiErrorNotice";
 import AnswerView from "@/components/AnswerView";
 import DownloadReportButton from "@/components/DownloadReportButton";
 import EmptyState from "@/components/EmptyState";
 import ProjectSources from "@/components/ProjectSources";
+import QuestionComposer from "@/components/QuestionComposer";
 import {
   ApiError,
   createConversation,
@@ -14,6 +15,7 @@ import {
   listMessages,
   sendMessage,
 } from "@/lib/api";
+import { followUpQuestions, openingQuestions } from "@/lib/suggestions";
 import { useWorkspace } from "@/lib/workspace";
 import type { AnswerResponse, Message } from "@/types/api";
 
@@ -34,6 +36,9 @@ function answerFromMessage(message: Message): AnswerResponse {
     // Answers stored before this was recorded carry no flag. Assume
     // reproducible rather than accusing an old answer of something unproven.
     reproducible: metadata?.reproducible ?? true,
+    // Stored with the answer, so a reopened thread offers the same next
+    // questions rather than a fresh set derived from a partial record.
+    follow_ups: metadata?.follow_ups,
   };
 }
 
@@ -84,6 +89,21 @@ export default function AskPage() {
     };
   }, [projectId]);
 
+  /** What to offer as the next question.
+   *
+   * After an answer, the offers are built from that answer's own evidence —
+   * see `lib/suggestions`. Before one, they are built from the papers in the
+   * project. Either way every suggestion names something this corpus holds,
+   * rather than a topic it might not cover. */
+  const suggestions = useMemo(() => {
+    const lastAnswer = [...messages]
+      .reverse()
+      .find((message) => message.role === "assistant");
+    return lastAnswer
+      ? followUpQuestions(answerFromMessage(lastAnswer), papers)
+      : openingQuestions(papers);
+  }, [messages, papers]);
+
   const startNewThread = () => {
     setConversationId(null);
     setMessages([]);
@@ -91,8 +111,7 @@ export default function AskPage() {
     setNeedsKey(false);
   };
 
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
+  const submit = async () => {
     const trimmed = question.trim();
     if (!trimmed || !projectId) return;
 
@@ -147,38 +166,16 @@ export default function AskPage() {
         )}
       </div>
 
-      <form
-        onSubmit={submit}
-        className="flex w-full shrink-0 flex-col items-start gap-3 rounded-lg border border-brass bg-surface px-5 py-4"
-      >
-        <textarea
-          value={question}
-          onChange={(event) => setQuestion(event.target.value)}
-          onKeyDown={(event) => {
-            // Enter sends; Shift+Enter keeps the newline.
-            if (event.key === "Enter" && !event.shiftKey) {
-              event.preventDefault();
-              void submit(event);
-            }
-          }}
-          rows={2}
-          placeholder="What do these papers say about chunk size and retrieval quality?"
-          className="w-full resize-none bg-transparent font-ui text-[15px] text-primary placeholder:text-muted focus:outline-none"
-        />
-        <div className="flex w-full items-center gap-3">
-          <p className="min-w-px flex-1 font-mono text-[10px] text-muted">
-            {indexed} indexed paper{indexed === 1 ? "" : "s"} in{" "}
-            {project?.name ?? "this project"}
-          </p>
-          <button
-            type="submit"
-            disabled={!projectId || pending || !question.trim()}
-            className="shrink-0 rounded-md bg-oxblood px-[18px] py-[9px] font-ui text-[13px] font-semibold text-primary disabled:bg-surface-raised disabled:text-muted"
-          >
-            {pending ? "Thinking…" : "Ask"}
-          </button>
-        </div>
-      </form>
+      <QuestionComposer
+        value={question}
+        onChange={setQuestion}
+        onSubmit={() => void submit()}
+        suggestions={suggestions}
+        disabled={!projectId}
+        pending={pending}
+        placeholder="What do these papers say about chunk size and retrieval quality?"
+        footer={`${indexed} indexed paper${indexed === 1 ? "" : "s"} in ${project?.name ?? "this project"}`}
+      />
 
       {pending && (
         <p className="font-ui text-[13px] text-muted">

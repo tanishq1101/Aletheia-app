@@ -1,3 +1,257 @@
+# UI pass — themes, Clerk contrast, and a Tab-completing question composer
+
+## What was asked
+1. Go through the whole site and fix UI bugs.
+2. Add a dark/light mode toggle.
+3. Fix the transparency/visibility glitch on the Clerk sign-in page.
+4. When the AI recommends a next question, pressing Tab should print the
+   *whole* question. Make it more interactive.
+
+## Bugs found by audit (before any change)
+
+### B1 — `text-base` is a font size, not a colour  *(root cause of several)*
+`tailwind.config.ts` maps `colors.base → var(--bg-base)`, so the codebase
+writes `text-base` meaning "dark text on a brass chip". Tailwind's core
+`text-base` utility (font-size: 1rem) wins. Verified in the browser:
+`.text-base` computes `font-size: 16px` and leaves `color` inherited.
+
+Every site is therefore *two* bugs — unreadable colour **and** a font-size jump:
+- `app/(app)/library/page.tsx:76` — active filter chip: cream-on-brass, and the
+  chip grows from 12px to 16px when selected, shifting the row.
+- `app/(app)/search/page.tsx:87` — "Semantic" chip, same.
+- `app/(app)/claim-verification/page.tsx:176` — active filter chip, same.
+- `components/CitationCard.tsx:15` — evidence pill on brass: 9px → 16px, breaks
+  the card's single-line layout.
+- `app/(app)/agent/page.tsx:30,~120` — step badges inside a `size-4`/`size-5`
+  circle get 16px glyphs that overflow the circle.
+- `components/ResearchMarkdown.tsx:64` — `hover:bg-brass hover:text-base`
+  reflows the whole paragraph on hover of an inline citation.
+
+### B2 — Clerk's neutral colour is black on a dark card
+`app/layout.tsx` sets `colorBackground`/`colorForeground` but never
+`colorNeutral`, which defaults to black. Clerk derives social-button text,
+borders and dividers from it, so "Continue with Google" computes as
+`color(srgb 0 0 0 / 0.62)` on a `#14110f` card — the invisible text in the
+report. Same cause makes the card border `rgba(0,0,0,0.11)`, i.e. nothing.
+
+### B3 — the Clerk card does not read as a card
+`colorBackground: #14110f` vs the page's `--bg-base: #14110d`. Two units
+apart: the form floats with no edge. It should sit on `--bg-surface`.
+
+### B4 — accent buttons label themselves with the body text colour
+`bg-oxblood … text-primary` in 12 places, `bg-brass` + chip text likewise.
+Correct by accident in dark; in a light theme `--text-primary` is dark and the
+label disappears. There is no "text that sits on an accent" token.
+
+### B5 — no theme system at all
+`:root` holds one hard-coded dark palette. Nothing reads
+`prefers-color-scheme`, `color-scheme` is unset (so form controls and
+scrollbars render light-mode chrome on a dark page).
+
+### B6 — misc
+- `app/(app)/training/page.tsx:35,37` — chart strokes hardcoded `#b39a64` /
+  `#91a1ca` instead of tokens.
+- Focus styling is inconsistent; several interactive elements remove the
+  outline without replacing it.
+
+## Plan
+
+- [x] Audit the site, reproduce B2/B3 in a browser, confirm B1 by computed style
+- [x] **Tokens** — rewrite `app/globals.css` as a themed token set: dark under
+      `:root` / `[data-theme=dark]`, light under `[data-theme=light]`, plus
+      `--text-on-accent` and `--text-on-brass`. Set `color-scheme` per theme.
+- [x] **Tailwind** — expose `on-accent` / `on-brass`
+- [x] **Theme runtime** — `lib/theme.tsx` (provider + `useTheme`), no-flash
+      inline script in `app/layout.tsx`, persisted to `localStorage`, defaults
+      to the OS setting and keeps following it until the user chooses
+- [x] **Toggle** — `components/ThemeToggle.tsx`, mounted in the app Topbar, the
+      landing masthead and the auth layout (the three shells)
+- [x] **Clerk** — move `ClerkProvider` into a client `Providers` component so
+      its appearance follows the theme; set `colorNeutral`; point every Clerk
+      variable at a real app token; give the card a visible border (B2, B3)
+- [x] **Fix B1** everywhere; **fix B4** everywhere
+- [x] **Question composer** — `components/QuestionComposer.tsx`: inline ghost
+      text, **Tab inserts the whole suggestion**, `→` at end-of-line also
+      accepts, `↑`/`↓` cycles, `Esc` dismisses, chips below for pointer users.
+      Suggestions from `lib/suggestions.ts`, derived from the last answer's
+      evidence, uncited blocks, and sufficiency — and superseded by
+      `follow_ups` from the API if the backend ever returns it.
+- [x] **Verify** — typecheck, lint, build, and drive both themes in a browser
+
+## Review
+
+### Files
+New: `lib/theme.tsx`, `lib/suggestions.ts`, `components/ThemeToggle.tsx`,
+`components/Providers.tsx`, `components/QuestionComposer.tsx`.
+Rewritten: `app/globals.css`, `app/layout.tsx`, `app/(auth)/layout.tsx`.
+Touched: the tailwind config, the app shell, Topbar, Sidebar, the workspace
+provider, and the eleven pages/components carrying a mis-typed colour class.
+
+### What changed
+
+**Themes.** `globals.css` now holds two token sets — dark under `:root`, light
+under `:root[data-theme="light"]` — and sets `color-scheme` for each, which is
+what makes native scrollbars, `<select>` popups and autofill match the page.
+Two new tokens, `--text-on-accent` and `--text-on-brass`, name the colour that
+sits *on* a filled accent; that is the distinction the old palette did not
+have, and the one every miscoloured button was failing to make.
+
+The theme is read through `useSyncExternalStore`, not mirrored into React
+state. That was not a style choice: the first version kept it in a provider
+whose effect wrote `data-theme`, and because React runs effects child-first,
+the Clerk palette below it read the theme it was switching *away* from — the
+sign-in card stayed dark on a light page. Reading the store makes the DOM write
+happen before anything can observe it, and it gave cross-tab sync for free.
+An inline script in `<head>` applies the stored theme before first paint, so
+there is no flash; the toggle's two glyphs are both in the DOM and chosen by
+CSS, so the icon cannot render the server's guess and then flip.
+
+Default is the OS setting, and it keeps following the OS until the reader picks
+a side. Verified: with storage cleared and the OS on light, the app opens light.
+
+**Clerk.** Root cause was `colorNeutral`, never set and therefore black. Clerk
+derives the social-button label, the "or" divider and several borders from it
+at low alpha, so "Continue with Google" computed to `color(srgb 0 0 0 / 0.62)`
+on a near-black card — present in the DOM, invisible on screen. Every Clerk
+variable is now read from the app's own custom properties at runtime, so there
+is one place a hex is written and the hosted form re-themes with everything
+else. The card also moved from `#14110f` (two units off the page background) to
+`--bg-surface`, and links moved off `colorPrimary`, which has to be a button
+fill and is too dark to read as text.
+
+**Tab-completing next question.** `QuestionComposer` draws the suggestion as
+ghost text behind the textarea — never in its value, so it cannot be submitted
+by accident — and **Tab inserts the whole question**, not a word or a prefix.
+`→` at end of line does the same, `↑`/`↓` cycle, `Esc` dismisses, and chips
+below cover pointer users. As you type, the offer moves to the suggestion your
+text is actually a prefix of. Tab with nothing to complete still moves focus,
+so the field is not a keyboard trap.
+
+Suggestions come from `lib/suggestions.ts` and are anchored in what the backend
+returned: passages it retrieved and did not cite, papers it cited more than
+one of, the section a citation came from, and — when the evidence was
+insufficient — the nearest passage it found. Each carries a visible reason.
+They were derived on the client at this point, with a seam for the API to
+supply its own. **See "Follow-up 2" below — the API now does, and the client
+derivation is the fallback for when it cannot.**
+
+**Bugs fixed beyond the brief.** The app shell collapsed to its content height,
+so the sidebar stopped partway down the page — `<body>` is `min-h-full` with an
+auto height, and every `h-full` under it resolved against an indefinite
+containing block. The shell now sizes by flex. The topbar said "API offline"
+for any failure, including a refused request from a perfectly healthy API; it
+now distinguishes the two. The focus ring is a real, visible default in `base`,
+which controls can still override. The training charts use tokens instead of
+two hardcoded hexes.
+
+### Verification
+- `tsc --noEmit`, `eslint` and `next build` all clean.
+- Both themes driven in a browser on the landing page, sign-in, sign-up, the
+  app shell and the Training Lab, including a live toggle in each.
+- `Tab`, `↑`/`↓`, `Esc`, prefix matching and tab-out were each exercised
+  against the real component and asserted on the textarea's value.
+- Root causes were confirmed from computed styles before being fixed, not
+  guessed: `.text-base` computing to `font-size: 16px` with an inherited
+  colour, and the Google button computing to `color(srgb 0 0 0 / 0.62)`.
+
+### Follow-up 2 — the API writes the next questions itself
+
+The client-side derivation above is now the fallback. `POST /answer` and
+`POST /conversations/{id}/messages` return `follow_ups`, written by the model
+that just read the evidence.
+
+**As a second completion, not an extra section in the answering prompt.** That
+prompt is where the citation guarantee lives — which IDs may be cited, the
+`INSUFFICIENT_EVIDENCE` marker on its own first line, the exact columns a
+numeric comparison table must use — and all three are parsed afterwards by
+`answering.py`. Appending "and also suggest three questions" puts unparsed free
+text next to a marker check and three regexes, to buy a garnish. One more round
+trip is the cheaper risk.
+
+Two consequences, both deliberate:
+
+- **It cannot fail an answer.** Provider outage, unparseable reply, a shape
+  nobody anticipated — every one yields no suggestions and a log line. There is
+  a deliberate `except Exception` in `services/follow_ups.py`, and a test that
+  runs it, because a guard with no failing test is an assumption.
+- **It is opt-in per call site.** `answer_from_context` defaults to off, so the
+  research agent does not buy a set of suggestions for each of its four planned
+  questions on the way to one brief.
+
+The reply is not trusted because it was asked for politely. `_usable_questions`
+drops anything that is not a question, is over 180 characters (dropped, not
+truncated — half a question cannot be accepted with Tab), repeats the question
+just asked, or duplicates another, then caps the count. Fenced and
+prose-wrapped JSON are both accepted, via `services/model_json.py` — extracted
+from the research planner, which had the same decoder inline.
+
+`follow_ups` is stored in the message metadata, so reopening a thread offers
+the questions it offered when the answer arrived rather than a fresh set, or a
+fresh model call.
+
+`FOLLOW_UP_SUGGESTIONS_ENABLED=false` turns the whole thing off without
+touching code; answers are identical either way.
+
+**Verified.** 19 new tests in `tests/test_follow_ups.py`; full backend suite
+444 passed, 1 skipped. The endpoint test was proved able to fail by removing
+`suggest_next=True` from the route and watching it go red. One live call
+against the configured model (`gpt-5.6-luna`) returned two questions, both
+drawn from the evidence blocks the answer had *not* cited — which is what the
+prompt asks for and the reason the call exists.
+
+The suite also caught a real assumption of its own: `ScriptedLLM` recorded only
+the most recent call, so `test_the_model_is_given_evidence_ids_not_chunk_ids`
+started asserting the grounding contract against the follow-up prompt. The
+fixture now records every call and exposes the *first* — the answering one —
+which is what those tests always meant.
+
+### End-to-end against the rebuilt container
+
+`docker compose build api` + `docker compose up -d api`. The container serves
+the real Neon library (509 vectors) through the real configured model
+(`gpt-5.6-luna`).
+
+- **Contract published.** `GET /openapi.json` now carries
+  `AnswerResponse.follow_ups: array<string>` — proof the running image is the
+  new code, not a cached layer.
+- **Full pipeline, real corpus.** A question the corpus does *not* cover
+  returned `sufficient_evidence: false` with 2 citations, 0 fabricated, and 4
+  uncited evidence blocks — and two follow-ups both drawn from those uncited
+  blocks, pivoting to what the library does hold. The insufficient case is
+  where a next question matters most, and it is the case that works.
+- **Persistence, real database.** The conversation route wrote three follow-ups
+  into the message metadata on Neon and read them back byte-identical, with 5
+  citations alongside. Both test conversations were deleted afterwards.
+- **A `citations persisted: 0` on the first run was the model, not the write
+  path** — that answer contained no bracketed IDs. Re-run on a well-covered
+  question: 5 written, 5 read back. Chased rather than assumed, because
+  reporting a clean bill of health over a real regression is the expensive
+  mistake.
+- **Auth intact.** An unauthenticated `POST /answer` is still `401 {"detail":
+  "This endpoint requires a signed-in session."}`, and the container log has no
+  errors since the restart.
+- **Frontend closes the loop.** The three questions the API actually returned,
+  fed through `followUpQuestions`, all carried the reason "suggested by the
+  model" — so `follow_ups` took precedence over the client heuristics — and Tab
+  inserted the full 101-character question with the caret at the end.
+
+Not covered: the HTTP route through a signed-in browser session. Clerk signs
+tokens with RS256 and I cannot mint one; the route's own layer above the
+pipeline is exercised by `tests/test_follow_ups.py` against a real database,
+and by the 401 above.
+
+### Not done
+- Data-bearing states (a populated library, a real answer with citations) were
+  not photographed in light mode: the API requires a signed-in session and I
+  cannot sign in. Every one of those surfaces is built from the same tokens as
+  the pages that were checked, but that is reasoning, not a screenshot.
+
+---
+
+# Previous task — deployment (settled 2026-09-22)
+
+Kept for the record; see `docs/DEPLOYMENT.md` for the current arrangement.
+
 # Aletheia — deployment: Vercel frontend, backend on the developer's machine
 
 Replaces the paused deployment (`aletheia-rag.vercel.app` → `DEPLOYMENT_PAUSED`,

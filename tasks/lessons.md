@@ -291,3 +291,52 @@
   every new frontend origin meant editing committed YAML. Removing the line was the whole
   fix: the app's own default is the same string, so local dev was unaffected and `.env`
   became the only place to edit. Deleting configuration beat adding an interpolation.
+- A design token whose name collides with a core utility silently loses. `colors.base` made
+  `text-base` look like "the base colour" in every review, while Tailwind resolved it to
+  `font-size: 1rem` and left the colour inherited. Six call sites were therefore *two* bugs
+  each — unreadable text on a filled chip, plus a font-size jump that moved the layout when the
+  chip became active. Nothing errored and nothing looked obviously wrong in a diff. Before
+  trusting a token name, check it against the framework's own utility namespace, and confirm a
+  colour class actually produces `color` in `getComputedStyle` rather than reading the class
+  list and believing it.
+- A third-party component library's palette is not covered by the variables you happen to set.
+  Clerk's `colorNeutral` defaults to black and is the source of its social-button label,
+  dividers and several borders at low alpha; setting `colorBackground` and `colorForeground`
+  and stopping there produced `rgba(0,0,0,0.62)` text on a near-black card — in the DOM,
+  invisible on screen, and reported as "a transparency glitch". Read the computed style of the
+  element that looks wrong before theorising about opacity.
+- React runs effects child-first, so an effect that *reads* the DOM cannot depend on a parent
+  effect that *writes* it. A theme provider wrote `data-theme` on `<html>`; a descendant read
+  the resolved custom properties to build a third-party palette and got the previous theme
+  every single time. The symptom — the sign-in card staying dark on a light page — looked like
+  the library ignoring prop changes. External state belongs in `useSyncExternalStore`, where
+  the write happens before any subscriber can observe it, not mirrored into state by an effect.
+- Resetting derived state on a prop's *identity* breaks for every caller that builds the prop
+  inline. A suggestion list rebuilt each render reset its own selected index before the next
+  keypress, so cycling looked implemented and did nothing. Compare contents, and adjust during
+  render rather than in an effect.
+- `height: 100%` resolves to `auto` under a parent whose height is only a `min-height`. An app
+  shell of `html.h-full > body.min-h-full > div.h-full` collapsed to its content, so the
+  sidebar stopped partway down the page. `flex-1` gives a definite height where a percentage
+  cannot; `items-start` then has to go, or the children still will not stretch into it.
+- A preview pane's screenshot is not proof of what the browser painted. Scrolled content came
+  back as a blank page here while `elementFromPoint` found real headings at those coordinates.
+  Distinguish "the capture is empty" from "the page is empty" — enlarge the viewport or hide
+  the preceding sections — before hunting a rendering bug that does not exist.
+- Adding a second model call breaks every test fixture that assumed one. `ScriptedLLM` stored
+  `self.system, self.prompt = system, prompt` on each call, so the moment answering made a
+  follow-up call, a test asserting the *grounding* contract was reading the *suggestion*
+  prompt and failing for a reason that had nothing to do with what it tested. A recorder that
+  keeps only the last call silently redefines what every assertion about it means; record all
+  of them and let the test name which one it meant.
+- Put an optional enhancement in its own call, not in a prompt whose output is parsed. The
+  answering prompt here is checked afterwards for a first-line marker, bracketed citation IDs
+  and fixed table columns. Appending "also suggest some questions" to it would have risked all
+  three to save one round trip. When the primary output has a contract, anything optional gets
+  its own call and its own failure mode — and that failure mode must be "return nothing", never
+  "lose the primary output".
+- A container name collision is a reason to stop, not to `docker rm`. `research-intelligence-db`
+  existed but belonged to a *different* project — `docker inspect --format '{{index .Config.Labels
+  "com.docker.compose.project"}}'` said `dlproject`, with its own data volume. Running a
+  throwaway on another port with another name cost one command; removing the container would
+  have destroyed someone else's database. Check the labels before reusing a name.

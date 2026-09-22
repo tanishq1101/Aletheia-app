@@ -45,7 +45,7 @@ export default function LibraryPage() {
         </h1>
         <Link
           href="/upload"
-          className="shrink-0 rounded-md bg-oxblood px-[18px] py-[10px] font-ui text-[13px] font-semibold text-primary"
+          className="shrink-0 rounded-md bg-oxblood px-[18px] py-[10px] font-ui text-[13px] font-semibold text-on-accent"
         >
           + Add source
         </Link>
@@ -73,7 +73,7 @@ export default function LibraryPage() {
             >
               <p
                 className={`font-ui text-xs font-medium whitespace-nowrap ${
-                  active ? "text-base" : "text-secondary"
+                  active ? "text-on-brass" : "text-secondary"
                 }`}
               >
                 {chip.label} · {countFor(chip.key)}

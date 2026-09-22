@@ -37,7 +37,7 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-full w-[260px] shrink-0 flex-col items-start gap-1 overflow-y-auto border-r border-hairline-subtle bg-surface px-6 py-7">
+    <aside className="flex min-h-0 w-[260px] shrink-0 flex-col items-start gap-1 overflow-y-auto border-r border-hairline-subtle bg-surface px-6 py-7">
       <div className="flex flex-col items-start gap-0.5 whitespace-nowrap">
         <p className="font-mono text-[11px] tracking-[1.1px] text-brass">
           THE ARCHIVE

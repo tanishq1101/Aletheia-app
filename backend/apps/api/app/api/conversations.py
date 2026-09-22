@@ -172,6 +172,10 @@ def ask(
             llm=llm,
             top_k=payload.top_k,
             rerank_top_k=payload.rerank_top_k,
+            # The Ask page offers these under its input. Asked for here rather
+            # than in `answer_from_context` so the research agent, which shares
+            # that function, does not buy a set per planned question.
+            suggest_next=True,
         )
     except EmbeddingError as exc:
         log.error("Could not embed question in conversation %s: %s", conversation_id, exc)
@@ -199,6 +203,10 @@ def ask(
         # reproducible is a fact about the run that produced it. A thread
         # reloaded after the model changed must not relabel an old answer.
         "reproducible": result.reproducible,
+        # Stored, so reopening a thread offers the same next questions it
+        # offered when the answer arrived. Regenerating them on read would
+        # cost a model call per message and give different answers each time.
+        "follow_ups": result.follow_ups,
     }
 
     with get_connection() as conn:

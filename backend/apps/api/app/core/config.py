@@ -71,6 +71,14 @@ class Settings(BaseSettings):
     # reported, never silently truncated.
     context_max_tokens: int = 6000
 
+    # "What to ask next", offered under the Ask box. One extra model call per
+    # answered question — small, but not free, and the only feature here that
+    # spends money on something nobody asked a question about. An operator
+    # watching a bill can switch it off without touching code; answers are
+    # unaffected either way. See services/follow_ups.py.
+    follow_up_suggestions_enabled: bool = True
+    follow_up_suggestion_count: int = 3
+
     # --- LLM (Sprint 4) -----------------------------------------------------
     # Two hosted providers, each with its own on/off switch. Exactly one is
     # enabled at a time: `*_ENABLED=false` means the provider is not called at

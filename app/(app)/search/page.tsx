@@ -64,7 +64,7 @@ function SearchPageBody() {
 
       <form
         onSubmit={submit}
-        className="flex w-full shrink-0 items-center gap-2.5 rounded-lg border border-brass bg-surface px-5 py-4"
+        className="flex w-full shrink-0 items-center gap-2.5 rounded-lg border border-brass bg-surface px-5 py-4 transition-colors focus-within:border-brass-bright"
       >
         <input
           type="text"
@@ -84,7 +84,7 @@ function SearchPageBody() {
 
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         <div className="shrink-0 rounded-full bg-brass px-[14px] py-[7px]">
-          <p className="font-ui text-xs font-medium whitespace-nowrap text-base">
+          <p className="font-ui text-xs font-medium whitespace-nowrap text-on-brass">
             Semantic
           </p>
         </div>

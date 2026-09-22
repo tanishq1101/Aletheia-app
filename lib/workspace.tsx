@@ -49,6 +49,11 @@ type WorkspaceValue = {
   /** Set when the API is unreachable or refused; pages render it rather than
    *  showing an empty state that looks like "no papers yet". */
   error: string | null;
+  /** True only when the request never reached the API. A request the API
+   *  understood and refused — an expired session, most often — is a different
+   *  problem, and labelling it "offline" sends people to restart a backend
+   *  that is running fine. */
+  offline: boolean;
   refresh: () => Promise<void>;
 };
 
@@ -68,6 +73,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [papers, setPapers] = useState<Paper[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [offline, setOffline] = useState(false);
 
   // Guards against a slow response for a project the user has since switched
   // away from overwriting the newer one's papers.
@@ -130,6 +136,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         setError(
           err instanceof ApiError ? err.message : "Could not load projects.",
         );
+        setOffline(!(err instanceof ApiError) || err.isUnreachable);
         setLoading(false);
       }
     })();
@@ -153,11 +160,13 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         if (!isCurrent()) return;
         setPapers(next);
         setError(null);
+        setOffline(false);
         setLoading(false);
       },
       (err: unknown) => {
         if (!isCurrent()) return;
         setError(err instanceof ApiError ? err.message : "Could not load papers.");
+        setOffline(!(err instanceof ApiError) || err.isUnreachable);
         setLoading(false);
       },
     );
@@ -204,6 +213,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       papers,
       loading,
       error,
+      offline,
       refresh,
     }),
     [
@@ -215,6 +225,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       papers,
       loading,
       error,
+      offline,
       refresh,
     ],
   );

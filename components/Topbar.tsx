@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import ProjectSwitcher from "@/components/ProjectSwitcher";
+import ThemeToggle from "@/components/ThemeToggle";
 import UserMenu from "@/components/UserMenu";
 import { isInFlight, useWorkspace } from "@/lib/workspace";
 
@@ -12,7 +13,7 @@ const authConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
 export default function Topbar() {
   const router = useRouter();
-  const { papers, error } = useWorkspace();
+  const { papers, error, offline } = useWorkspace();
   const [query, setQuery] = useState("");
 
   const processing = papers.filter(isInFlight).length;
@@ -37,9 +38,14 @@ export default function Topbar() {
 
       {/* Reflects the real job state, so it disappears when nothing is running. */}
       {error ? (
-        <div className="flex shrink-0 items-center gap-[6px] rounded-full border border-oxblood bg-surface px-3 py-[7px]">
+        <div
+          title={error}
+          className="flex shrink-0 items-center gap-[6px] rounded-full border border-oxblood bg-surface px-3 py-[7px]"
+        >
           <span className="size-[6px] shrink-0 rounded-full bg-error" />
-          <p className="font-mono text-[11px] whitespace-nowrap text-error">API offline</p>
+          <p className="font-mono text-[11px] whitespace-nowrap text-error">
+            {offline ? "API offline" : "API error"}
+          </p>
         </div>
       ) : processing > 0 ? (
         <div className="flex shrink-0 items-center gap-[6px] rounded-full border border-brass bg-surface px-3 py-[7px]">
@@ -56,6 +62,8 @@ export default function Topbar() {
           </p>
         </div>
       ) : null}
+
+      <ThemeToggle />
 
       <ProjectSwitcher />
 

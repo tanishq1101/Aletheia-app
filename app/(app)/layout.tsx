@@ -15,9 +15,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <WorkspaceProvider>
       {/* Registers the session-token source before any page fetches. */}
       {authConfigured ? <AuthBridge /> : null}
-      <div className="flex h-full w-full items-start overflow-hidden bg-base">
+      {/* The shell sizes itself by flex, not by percentages.
+          `h-full` cannot work here: `<body>` is `min-h-full` with an auto
+          height, so every `height: 100%` below it resolves against an
+          indefinite containing block and collapses to the content — which is
+          why the sidebar used to stop partway down the page. `flex-1` gives
+          this element a definite height, and the default `stretch` alignment
+          (rather than the `items-start` that used to be here) hands it to the
+          sidebar and the content column. */}
+      <div className="flex min-h-0 w-full flex-1 overflow-hidden bg-base">
         <Sidebar />
-        <div className="flex h-full min-w-px flex-1 flex-col items-start overflow-hidden">
+        <div className="flex min-h-0 min-w-px flex-1 flex-col items-start overflow-hidden">
           <Topbar />
           <main className="flex w-full min-h-px flex-1 flex-col items-start gap-6 overflow-y-auto px-10 py-8">
             {children}

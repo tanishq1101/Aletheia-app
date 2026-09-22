@@ -138,7 +138,7 @@ export default function ClaimVerificationPage() {
           type="button"
           onClick={runExtraction}
           disabled={!paperId || extracting}
-          className="shrink-0 rounded-md bg-oxblood px-[18px] py-[10px] font-ui text-[13px] font-semibold text-primary disabled:opacity-50"
+          className="shrink-0 rounded-md bg-oxblood px-[18px] py-[10px] font-ui text-[13px] font-semibold text-on-accent disabled:opacity-50"
         >
           {extracting
             ? "Extracting…"
@@ -173,7 +173,7 @@ export default function ClaimVerificationPage() {
             >
               <p
                 className={`font-ui text-xs font-medium whitespace-nowrap ${
-                  filter === chip.key ? "text-base" : "text-secondary"
+                  filter === chip.key ? "text-on-brass" : "text-secondary"
                 }`}
               >
                 {chip.label} · {counts[chip.key]}
