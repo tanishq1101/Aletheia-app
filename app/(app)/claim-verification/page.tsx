@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import ApiErrorNotice from "@/components/ApiErrorNotice";
 import ClaimCard from "@/components/ClaimCard";
 import EmptyState from "@/components/EmptyState";
+import FeatureGuide from "@/components/FeatureGuide";
 import PaperSelect from "@/components/PaperSelect";
 import { extractClaims, listPaperClaims, verifyClaim } from "@/lib/api";
 import { useWorkspace } from "@/lib/workspace";
@@ -124,6 +125,26 @@ export default function ClaimVerificationPage() {
         rests on; confidence is what the model reported, not a calibrated
         measurement.
       </p>
+
+      <FeatureGuide
+        purpose="Turn a paper's main statements into individually checkable claims, then test each one against evidence retrieved from the project library."
+        bestFor="fact-checking a paper, reviewing related work, and separating claims with direct support from claims the available corpus cannot settle."
+        steps={[
+          {
+            title: "Select a paper",
+            detail: "Choose the source whose claims you want to examine.",
+          },
+          {
+            title: "Extract claims",
+            detail: "Aletheia identifies concrete statements that can be checked independently.",
+          },
+          {
+            title: "Verify",
+            detail: "Check one claim or all of them, then expand the cited evidence behind each verdict.",
+          },
+        ]}
+        boundary="Insufficient means the retrieved library does not settle the claim. It does not mean the claim is false, and model-reported confidence is not a calibrated probability."
+      />
 
       {(error || workspaceError) && (
         <ApiErrorNotice

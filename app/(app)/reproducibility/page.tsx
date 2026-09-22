@@ -8,6 +8,7 @@ import EmptyState from "@/components/EmptyState";
 import PaperSelect from "@/components/PaperSelect";
 import RepoMetadataCard from "@/components/RepoMetadataCard";
 import DownloadReportButton from "@/components/DownloadReportButton";
+import FeatureGuide from "@/components/FeatureGuide";
 import {
   downloadReproducibilityPdf,
   getReproducibilityReport,
@@ -117,6 +118,26 @@ export default function ReproducibilityPage() {
         each verdict. Nothing here runs the paper&apos;s code, so this is a
         disclosure score, not a replication result.
       </p>
+
+      <FeatureGuide
+        purpose="Audit whether a paper discloses the practical details needed to attempt a replication: code, data, hyperparameters, random seeds, environment, and evaluation protocol."
+        bestFor="screening papers before a replication effort, spotting missing implementation details, and documenting reproducibility risks in a review."
+        steps={[
+          {
+            title: "Select a paper",
+            detail: "Choose any paper that has finished processing.",
+          },
+          {
+            title: "Run the audit",
+            detail: "Aletheia checks six disclosure dimensions and records the evidence for each judgement.",
+          },
+          {
+            title: "Review or export",
+            detail: "Open each checklist item, inspect links and repository metadata, then download the report if needed.",
+          },
+        ]}
+        boundary="This checks what the paper discloses. It does not execute code, validate a repository, reproduce results, or prove that the method is correct."
+      />
 
       {(error || workspaceError) && (
         <ApiErrorNotice

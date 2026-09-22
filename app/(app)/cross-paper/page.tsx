@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import ApiErrorNotice from "@/components/ApiErrorNotice";
 import CitationCard from "@/components/CitationCard";
 import ClaimAgreementTable from "@/components/ClaimAgreementTable";
+import FeatureGuide from "@/components/FeatureGuide";
 import {
   buildCrossPaperMatrix,
   getStoredCrossPaperMatrix,
@@ -38,7 +39,7 @@ export default function CrossPaperPage() {
   const [inspecting, setInspecting] = useState<CrossPaperCell | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [seeded, setSeeded] = useState(false);
+  const [seededProjectId, setSeededProjectId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!projectId) return;
@@ -48,10 +49,17 @@ export default function CrossPaperPage() {
       .then((loadedClaims) => {
         if (cancelled) return;
         setClaims(loadedClaims);
-        if (!seeded) {
+        // Claims often arrive before the shared paper list. Do not mark the
+        // project as seeded until both sides exist, or the default selection
+        // stays empty for the rest of the visit.
+        if (
+          seededProjectId !== projectId &&
+          loadedClaims.length > 0 &&
+          papers.length > 0
+        ) {
           setSelectedPapers(papers.slice(0, 3).map((paper) => paper.id));
           setSelectedClaims(loadedClaims.slice(0, 3).map((claim) => claim.id));
-          setSeeded(true);
+          setSeededProjectId(projectId);
         }
         setError(null);
       })
@@ -65,7 +73,7 @@ export default function CrossPaperPage() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, papers.length]);
+  }, [projectId, papers.length, seededProjectId]);
 
   // Show what has already been checked before spending anything.
   useEffect(() => {
@@ -115,6 +123,7 @@ export default function CrossPaperPage() {
       selectedClaims.includes(cell.claim_id) && selectedPapers.includes(cell.paper_id)
   ).length;
   const total = selectedClaims.length * selectedPapers.length;
+  const pendingCount = Math.max(total - checkedCount, 0);
 
   return (
     <div className="flex w-full flex-col items-start gap-6">
@@ -127,6 +136,26 @@ export default function CrossPaperPage() {
         paper can only agree with a claim it actually discusses. Every cell is a
         separate model call — results are cached and reused.
       </p>
+
+      <FeatureGuide
+        purpose="Compare the same scientific claims across several papers. The matrix makes consensus, disagreement, and evidence gaps visible without blending the papers into one summary."
+        bestFor="literature reviews, finding conflicting results, and checking whether a conclusion is repeated independently or comes from one source."
+        steps={[
+          {
+            title: "Choose papers",
+            detail: "Select up to five processed papers that address the same topic.",
+          },
+          {
+            title: "Choose claims",
+            detail: "Use claims already extracted in Claim Verification, then run the unchecked paper–claim pairs.",
+          },
+          {
+            title: "Inspect the matrix",
+            detail: "Open any verdict to read its rationale and the exact cited passages.",
+          },
+        ]}
+        boundary="An unaddressed cell means that this paper did not provide enough evidence for the claim. It is not automatically a disagreement."
+      />
 
       {(error || workspaceError) && (
         <ApiErrorNotice
@@ -221,18 +250,18 @@ export default function CrossPaperPage() {
 
       {total > 0 && (
         <div className="flex w-full flex-wrap items-center gap-4">
-          <button
-            type="button"
-            onClick={() => run(false)}
-            disabled={running}
-            className="shrink-0 rounded-md bg-oxblood px-[18px] py-[10px] font-ui text-[13px] font-semibold text-on-accent disabled:opacity-50"
-          >
-            {running
-              ? "Checking…"
-              : `Run ${total - checkedCount || total} check${
-                  (total - checkedCount || total) === 1 ? "" : "s"
-                }`}
-          </button>
+          {pendingCount > 0 && (
+            <button
+              type="button"
+              onClick={() => run(false)}
+              disabled={running}
+              className="shrink-0 rounded-md bg-oxblood px-[18px] py-[10px] font-ui text-[13px] font-semibold text-on-accent disabled:opacity-50"
+            >
+              {running
+                ? "Checking…"
+                : `Run ${pendingCount} check${pendingCount === 1 ? "" : "s"}`}
+            </button>
+          )}
           {checkedCount > 0 && (
             <button
               type="button"

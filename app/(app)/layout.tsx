@@ -23,11 +23,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           this element a definite height, and the default `stretch` alignment
           (rather than the `items-start` that used to be here) hands it to the
           sidebar and the content column. */}
-      <div className="flex min-h-0 w-full flex-1 overflow-hidden bg-base">
+      <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-base md:flex-row">
         <Sidebar />
         <div className="flex min-h-0 min-w-px flex-1 flex-col items-start overflow-hidden">
           <Topbar />
-          <main className="flex w-full min-h-px flex-1 flex-col items-start gap-6 overflow-y-auto px-10 py-8">
+          <main className="flex w-full min-h-px flex-1 flex-col items-start gap-6 overflow-y-auto px-4 py-6 sm:px-6 md:px-10 md:py-8">
             {children}
           </main>
         </div>

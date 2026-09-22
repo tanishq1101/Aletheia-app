@@ -21,8 +21,8 @@ export default function ConfidenceMeter({
   const percent = confidence === null ? null : Math.round(confidence * 100);
 
   return (
-    <div className="flex min-w-px flex-1 shrink-0 items-center gap-2">
-      <div className="relative h-1.5 w-[220px] shrink-0 overflow-hidden rounded-sm bg-surface-raised">
+    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:flex-nowrap">
+      <div className="relative h-1.5 min-w-[120px] flex-1 overflow-hidden rounded-sm bg-surface-raised sm:w-[220px] sm:flex-none">
         {percent !== null && percent > 0 && (
           <div
             className={`absolute inset-y-0 left-0 rounded-sm ${fillColor[tone]}`}

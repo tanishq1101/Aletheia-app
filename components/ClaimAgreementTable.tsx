@@ -18,7 +18,10 @@ export default function ClaimAgreementTable({
   );
 
   return (
-    <div className="flex w-full shrink-0 flex-col items-start gap-px overflow-x-auto">
+    <div className="-mx-4 flex w-[calc(100%+2rem)] shrink-0 flex-col items-start gap-px overflow-x-auto px-4 pb-2 sm:mx-0 sm:w-full sm:px-0">
+      <p className="mb-2 font-ui text-[11px] text-muted sm:hidden">
+        Swipe horizontally to compare every selected paper.
+      </p>
       <div className="flex w-full min-w-[720px] shrink-0 items-start bg-surface-raised px-4 py-3">
         <div className="min-w-px flex-[2] shrink-0">
           <p className="font-mono text-[10px] tracking-[0.4px] text-muted">Claim</p>

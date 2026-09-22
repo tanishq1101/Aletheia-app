@@ -33,14 +33,14 @@ export default function ProjectSwitcher() {
         className="flex items-center gap-2 rounded-md border border-hairline bg-surface px-3 py-[7px] transition-colors hover:border-brass"
       >
         <span className="size-[6px] shrink-0 rounded-full bg-brass" />
-        <span className="max-w-[180px] truncate font-ui text-[13px] text-primary">
+        <span className="max-w-[120px] truncate font-ui text-[13px] text-primary sm:max-w-[180px]">
           {project?.name ?? "Loading…"}
         </span>
         <span className="font-mono text-[10px] text-muted">▾</span>
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-[calc(100%+6px)] z-20 flex w-[280px] flex-col items-start gap-px overflow-hidden rounded-md border border-hairline-subtle bg-surface shadow-lg">
+        <div className="absolute right-0 top-[calc(100%+6px)] z-20 flex w-[min(280px,calc(100vw-2rem))] flex-col items-start gap-px overflow-hidden rounded-md border border-hairline-subtle bg-surface shadow-lg">
           {projects.map((candidate) => (
             <button
               key={candidate.id}

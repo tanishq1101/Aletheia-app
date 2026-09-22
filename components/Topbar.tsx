@@ -26,8 +26,8 @@ export default function Topbar() {
   };
 
   return (
-    <header className="flex w-full shrink-0 items-center gap-5 border-b border-hairline-subtle px-10 py-5">
-      <form onSubmit={submit} className="flex flex-1 min-w-px items-center">
+    <header className="flex w-full shrink-0 flex-wrap items-center gap-3 border-b border-hairline-subtle px-4 py-3 sm:px-6 md:flex-nowrap md:gap-5 md:px-10 md:py-5">
+      <form onSubmit={submit} className="order-last flex w-full min-w-px items-center md:order-none md:flex-1">
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}

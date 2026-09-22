@@ -173,14 +173,14 @@ export default function LandingPage() {
   return (
     <main className="flex w-full flex-1 flex-col items-center bg-base">
       {/* --- Masthead ------------------------------------------------------ */}
-      <header className="flex w-full max-w-[1120px] items-center justify-between px-6 py-6 sm:px-10">
+      <header className="flex w-full max-w-[1120px] flex-wrap items-center justify-between gap-y-3 px-6 py-5 sm:flex-nowrap sm:px-10 sm:py-6">
         <div className="flex items-center gap-3">
           <div className="h-[2px] w-8 bg-brass" />
           <span className="font-display text-[17px] font-black tracking-tight text-primary">
             Aletheia
           </span>
         </div>
-        <nav className="flex items-center gap-2 sm:gap-3">
+        <nav className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start sm:gap-3">
           <ThemeToggle />
           <Link
             href="/sign-in"
@@ -198,10 +198,10 @@ export default function LandingPage() {
       </header>
 
       {/* --- Hero ---------------------------------------------------------- */}
-      <section className="flex w-full max-w-[1120px] flex-col gap-10 px-6 pb-20 pt-12 sm:px-10 sm:pt-20">
+      <section className="flex w-full max-w-[1120px] flex-col gap-8 px-6 pb-16 pt-10 sm:gap-10 sm:px-10 sm:pb-20 sm:pt-20">
         <div className="flex max-w-[760px] flex-col gap-6">
           <Eyebrow>THE ARCHIVE</Eyebrow>
-          <h1 className="font-display text-[40px] font-black leading-[1.08] tracking-tight text-primary sm:text-[62px]">
+          <h1 className="font-display text-[38px] font-black leading-[1.08] tracking-tight text-primary sm:text-[62px]">
             Answers you can follow
             <br />
             back to the page.

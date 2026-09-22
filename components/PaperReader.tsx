@@ -73,7 +73,7 @@ export default function PaperReader({ paperId }: { paperId: string }) {
   }, [inFlight, load]);
 
   const header = (
-    <div className="flex w-full shrink-0 items-center gap-3 border-b border-hairline-subtle px-10 py-[18px]">
+    <div className="flex w-full shrink-0 items-center gap-3 border-b border-hairline-subtle px-4 py-4 sm:px-6 md:px-10 md:py-[18px]">
       <Link
         href="/library"
         className="shrink-0 font-ui text-xs whitespace-nowrap text-muted hover:text-secondary"
@@ -88,17 +88,17 @@ export default function PaperReader({ paperId }: { paperId: string }) {
   );
 
   return (
-    <div className="-mx-10 -my-8 flex h-full w-full flex-1 flex-col items-start">
+    <div className="-mx-4 -my-6 flex h-full w-[calc(100%+2rem)] flex-1 flex-col items-start sm:-mx-6 sm:w-[calc(100%+3rem)] md:-mx-10 md:-my-8 md:w-[calc(100%+5rem)]">
       {header}
 
       {error ? (
-        <div className="w-full px-10 py-8">
+        <div className="w-full px-4 py-6 sm:px-6 md:px-10 md:py-8">
           <ApiErrorNotice message={error} onRetry={() => void load()} />
         </div>
       ) : loading || !paper ? (
-        <p className="px-10 py-8 font-ui text-sm text-muted">Loading paper…</p>
+        <p className="px-4 py-6 font-ui text-sm text-muted sm:px-6 md:px-10 md:py-8">Loading paper…</p>
       ) : paper.status === "ready" ? (
-        <div className="flex w-full flex-1 min-h-px items-start">
+        <div className="flex w-full flex-1 min-h-px flex-col items-start lg:flex-row">
           <ReadingPane paper={paper} pages={pages} sections={sections} />
           <ExtractionPanel
             paper={paper}
@@ -110,7 +110,7 @@ export default function PaperReader({ paperId }: { paperId: string }) {
       ) : (
         // Not ready: show the job instead of an empty reader, so the state is
         // legible and a failure is retryable from here.
-        <div className="flex w-full flex-col items-start gap-6 px-10 py-8">
+        <div className="flex w-full flex-col items-start gap-6 px-4 py-6 sm:px-6 md:px-10 md:py-8">
           <h1 className="font-display text-2xl font-semibold text-primary">
             {paperTitle(paper)}
           </h1>

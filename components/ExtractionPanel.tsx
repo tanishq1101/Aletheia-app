@@ -75,8 +75,8 @@ export default function ExtractionPanel({
   }
 
   return (
-    <div className="flex h-full w-[400px] shrink-0 flex-col items-start border-l border-hairline-subtle bg-surface">
-      <div className="flex w-full shrink-0 items-start gap-[22px] border-b border-hairline-subtle px-6">
+    <div className="order-first flex max-h-[420px] w-full shrink-0 flex-col items-start border-b border-hairline-subtle bg-surface lg:order-none lg:h-full lg:max-h-none lg:w-[400px] lg:border-b-0 lg:border-l">
+      <div className="flex w-full shrink-0 items-start gap-4 overflow-x-auto border-b border-hairline-subtle px-4 sm:gap-[22px] sm:px-6">
         {tabs.map((tab) => {
           const active = tab.key === activeTab;
           return (

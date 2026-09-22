@@ -16,7 +16,7 @@ export default function PaperCard({ paper }: { paper: Paper }) {
   return (
     <Link
       href={`/paper/${paper.id}`}
-      className="flex w-[410px] shrink-0 flex-col items-start gap-[14px] rounded-md border border-hairline-subtle bg-surface p-5 transition-colors hover:border-hairline"
+      className="flex w-full shrink-0 flex-col items-start gap-[14px] rounded-md border border-hairline-subtle bg-surface p-5 transition-colors hover:border-hairline sm:w-[410px]"
     >
       <div className="flex w-full items-start gap-2">
         <StatusBadge status={paper.status} />

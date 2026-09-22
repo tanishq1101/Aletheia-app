@@ -21,7 +21,7 @@ export default function ClaimCard({
 
   return (
     <div className="flex w-full shrink-0 flex-col items-start gap-[14px] rounded-md border border-hairline-subtle bg-surface px-[22px] py-[18px]">
-      <div className="flex w-full items-center gap-4">
+      <div className="flex w-full flex-wrap items-center gap-3 sm:flex-nowrap sm:gap-4">
         <p className="min-w-px flex-1 font-ui text-sm font-medium text-primary">
           {claim.text}
         </p>

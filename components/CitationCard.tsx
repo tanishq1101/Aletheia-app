@@ -11,14 +11,14 @@ export default function CitationCard({ citation }: { citation: Citation }) {
       href={`/paper/${citation.paper_id}`}
       className="flex w-full shrink-0 flex-col items-start gap-1.5 rounded-md border border-hairline-subtle bg-surface-raised px-4 py-3 transition-colors hover:border-hairline"
     >
-      <div className="flex w-full items-center gap-2">
+      <div className="flex w-full flex-wrap items-center gap-2 sm:flex-nowrap">
         <span className="shrink-0 rounded-[3px] bg-brass px-1.5 py-[2px] font-mono text-[9px] font-semibold text-on-brass">
           {citation.evidence_id}
         </span>
         <p className="min-w-px flex-1 truncate font-ui text-xs font-semibold text-primary">
           {citation.paper_title ?? "Untitled paper"}
         </p>
-        <p className="shrink-0 font-ui text-[10px] whitespace-nowrap text-muted">
+        <p className="w-full font-ui text-[10px] text-muted sm:w-auto sm:shrink-0 sm:whitespace-nowrap">
           {citation.location}
         </p>
       </div>
