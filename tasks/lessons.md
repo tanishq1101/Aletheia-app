@@ -276,3 +276,18 @@
   24 GB trips every criterion — so the thing that makes the shape attractive is also what
   makes it look abandoned. "Free" has operating conditions, and they are not in the pricing
   table.
+- Check where a deployment's API calls are actually *made* before ruling a topology out. The
+  question "can a deployed frontend use a backend on my laptop?" has opposite answers
+  depending on one prefix: `NEXT_PUBLIC_API_URL` is inlined into the bundle and fetched by
+  the visitor's browser, so the host's servers never need a route to the backend. A
+  server-side proxy would have made the same request impossible. One grep for which
+  components import the API client decided the whole design.
+- Before adding a header to work around a vendor's free tier, check every consumer of the
+  URL. ngrok's interstitial is bypassed with a request header, which covers `fetch` — but
+  `assetUrl` is handed to an `<img>` `src`, which cannot send one. The workaround would have
+  fixed the API and silently broken every figure. That single call site chose the vendor.
+- A value that has to change per environment does not belong in a tracked file. `CORS_ORIGINS`
+  was pinned in `docker-compose.yml` under `environment:`, which overrides `env_file` — so
+  every new frontend origin meant editing committed YAML. Removing the line was the whole
+  fix: the app's own default is the same string, so local dev was unaffected and `.env`
+  became the only place to edit. Deleting configuration beat adding an interpolation.

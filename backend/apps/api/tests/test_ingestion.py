@@ -285,7 +285,7 @@ def test_embed_batch_width_is_a_setting_with_a_memory_bounded_default():
 
     assert get_settings().embed_batch_size == 4, (
         "the default batch width changed. That moves the service's permanent "
-        "memory ceiling, so re-measure in the container and update --memory in "
-        "scripts/deploy_cloudrun.sh, the plan in render.yaml, and the table in "
-        "docs/cloudrun-deploy.md together with it."
+        "memory ceiling, so re-measure in the container and update the memory "
+        "floor quoted in backend/README.md and docs/DEPLOYMENT.md together "
+        "with it."
     )

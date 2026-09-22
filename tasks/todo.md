@@ -1,16 +1,20 @@
-# Aletheia — redeploy: Vercel frontend + Cloud Run backend
+# Aletheia — deployment: Vercel frontend, backend on the developer's machine
 
 Replaces the paused deployment (`aletheia-rag.vercel.app` → `DEPLOYMENT_PAUSED`,
-owned by an account we cannot reach). Frontend moves to a fresh Vercel project
-in *Tanishq's projects*; the API moves off Render to Google Cloud Run.
+owned by an account we cannot reach). The frontend lives in a fresh Vercel
+project in *Tanishq's projects*. **The backend is not deployed anywhere.**
 
-> **Status (2026-09-17).** The frontend is **live** at
-> <https://aletheia-rag.vercel.app>. Cloud Run is the one remaining host and is
-> blocked only on billing — see the closing addendum.
+> **Status (2026-09-22). Settled.** The frontend is live at
+> <https://aletheia-rag.vercel.app>. The API runs under `backend/docker-compose.yml`
+> on a development machine and the deployed site reaches it through a Cloudflare
+> tunnel — see [`docs/DEPLOYMENT.md`](../docs/DEPLOYMENT.md), which is now the
+> only deployment document in the tree.
 >
-> The Cloudflare Containers and Oracle ARM sections below are **superseded**:
-> both hosts were evaluated, built and then removed from the tree. They are kept
-> because they record why each one lost, which is the part worth not repeating.
+> **Every backend-host section below is superseded.** Render, Cloudflare
+> Containers, Cloud Run and Oracle A1 were each evaluated, three of them built,
+> and all four removed. They are kept because they record why each one lost,
+> which is the part worth not repeating. See the closing addendum for what was
+> deleted.
 
 ## Decisions (confirmed with user)
 - Backend host: **Cloudflare Containers**, not Render. Render Standard would
@@ -505,3 +509,76 @@ work that no script can do; `provision.sh` prints both with the instance's publi
 IP rather than pretending otherwise.
 
 413 passed, 13 skipped, 0 failed.
+
+
+---
+
+## Addendum — no backend host at all (2026-09-22)
+
+The user's call, and the right one: the frontend is already deployed, so rather
+than paying for or administering a fourth candidate host, run the backend in
+Docker locally and let the deployed site reach it over a tunnel.
+
+### Why this works here and would not work everywhere
+
+`lib/api.ts:29` reads `NEXT_PUBLIC_API_URL`, and the `NEXT_PUBLIC_` prefix means
+the value is inlined into the bundle and fetched **by the visitor's browser**.
+Verified that every consumer of `lib/api` is a client component — no server
+component, route handler or `proxy.ts` path calls the API. So Vercel's servers
+never need a route to the backend; only an open browser tab does. Had the app
+proxied API calls server-side, "deployed frontend, local backend" would have
+been impossible without exposing the machine to Vercel's infrastructure.
+
+### Tunnel, not `http://localhost:8000`
+
+Pointing the deployed bundle straight at loopback was considered and rejected.
+It works on exactly one machine in Chrome or Firefox: `localhost` resolves to
+*the visitor's* machine, Safari blocks `http://localhost` from an HTTPS page
+outright, and current Chrome gates public→local requests behind a Local Network
+Access prompt. A tunnel costs one terminal and works for everyone.
+
+Cloudflare over ngrok, for a specific reason rather than a preference: ngrok's
+free tier serves a browser interstitial, and while the `ngrok-skip-browser-warning`
+header would clear it for `fetch`, `assetUrl` (`lib/api.ts:334`) is consumed as
+an `<img>`/iframe `src` and cannot send headers — every figure in the paper
+viewer would render ngrok's warning page. The cost is that a quick tunnel's
+hostname changes on restart, and `NEXT_PUBLIC_*` is build-time inlined, so each
+session needs a Vercel redeploy. A named tunnel on an owned domain removes that.
+
+### Removed
+`render.yaml`, `backend/deploy/oracle/` (6 files), `backend/docs/cloudrun-deploy.md`,
+`backend/docs/oracle-deploy.md`, `backend/scripts/deploy_cloudrun.sh`.
+
+The R2 storage backend **stays**: it is off by default (`STORAGE_BACKEND=local`),
+tested, and untouched by the local path. Deleting it would have meant editing
+`services/storage.py` and `config.py` to remove a working, covered code path —
+churn with no benefit, since nothing runs it unless it is switched on.
+
+### Changed so the topology actually works
+- `backend/docker-compose.yml` no longer pins `CORS_ORIGINS`. It was hardcoded
+  to `http://localhost:3000` under `environment:`, which overrides `env_file` —
+  so adding the Vercel origin would have meant editing a tracked file every
+  session. Unset, the API's own default is the same string, so local dev is
+  unchanged and `.env` becomes the single place to edit.
+- `.vercelignore` drops `backend/deploy/` and points at the new doc.
+- `backend/README.md` replaces the two-host section with the local-Docker note
+  and keeps the 4 GB floor, which is the reason there is no host.
+- `docs/DEPLOYMENT.md` rewritten end to end: it described Render, named
+  `middleware.ts` (renamed to `proxy.ts` in 939a4c1) and documented a
+  `render.yaml` that no longer exists.
+
+### Verified
+`npm run typecheck` clean, `docker compose config` valid, backend suite green
+(425 passed, 1 skipped — the 13 skips in the previous run were services being
+down, not tests being disabled). The compose change was verified in the
+container rather than by reading the file: `docker compose run --rm --no-deps
+--entrypoint sh api -c 'echo $CORS_ORIGINS'` now prints the `.env` value, which
+the removed `environment:` entry would have overridden. No reference to a deleted file remains outside the
+historical sections of this file and `lessons.md`.
+
+### Not done, and why
+The tunnel was not raised and Vercel was not reconfigured. Both need decisions
+only the user can make — whether to expose the machine right now, and which
+Clerk instance the deployed site should use — and `docs/DEPLOYMENT.md` insists
+authentication is on *before* a tunnel opens, because a tunnelled API with
+`ALLOW_UNAUTHENTICATED=true` is an open database.

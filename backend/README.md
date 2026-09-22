@@ -18,16 +18,14 @@ The deployable application is one **API container**. It includes ingestion,
 embeddings, reranking, and the research-model diagnostics; do not deploy a
 separate DL service. Postgres and Chroma remain supporting data services.
 
-Two hosts are supported, and the same image runs on both:
+That container is **not** deployed to a cloud host. It runs under
+`docker-compose.yml` on a development machine, and the deployed Vercel frontend
+reaches it over a tunnel — see [`../docs/DEPLOYMENT.md`](../docs/DEPLOYMENT.md).
 
-* [`docs/oracle-deploy.md`](docs/oracle-deploy.md) — an Oracle always-free A1
-  instance (aarch64, 24 GB). Free permanently; a box you administer.
-* [`docs/cloudrun-deploy.md`](docs/cloudrun-deploy.md) — Google Cloud Run.
-  Managed and scale-to-zero, roughly $6/month; needs `--memory 4Gi`.
-
-Both need at least 4 GB of memory: the two local ONNX models are 451 MB resident
-before a request arrives, and ingesting one paper peaks at ~2.3 GB. A 512 MB free
-tier cannot run this at all.
+Whatever runs it needs at least 4 GB of memory: the two local ONNX models are
+451 MB resident before a request arrives, and ingesting one paper peaks at
+~2.3 GB. A 512 MB free tier cannot run this at all, which is most of the reason
+there is no managed host here.
 
 ## Running it
 

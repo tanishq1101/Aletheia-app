@@ -1,5 +1,6 @@
-# Frontend-only deploy: the FastAPI service runs on its own host (see
-# backend/docs/cloudrun-deploy.md), not here.
+# Frontend-only deploy: the FastAPI service is not deployed at all. It runs in
+# Docker on a development machine and is reached over a tunnel — see
+# docs/DEPLOYMENT.md.
 #
 # Two directories the frontend DOES need are deliberately not ignored, because
 # excluding them breaks the build or the running app rather than shrinking it:
@@ -17,7 +18,6 @@
 # excluded, so "backend/" plus a negation would not work.
 backend/apps/
 backend/datasets/
-backend/deploy/
 backend/docs/
 backend/scripts/
 backend/storage/
