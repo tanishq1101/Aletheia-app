@@ -25,8 +25,58 @@ import type {
   SearchResult,
 } from "@/types/api";
 
-export const API_BASE_URL =
+/** Where the API lives, resolved at runtime rather than baked in.
+ *
+ * This used to be a plain `process.env.NEXT_PUBLIC_API_URL`, which Next inlines
+ * at build time. With the backend behind a Cloudflare quick tunnel — whose
+ * hostname changes every time it reconnects — that made a full no-cache
+ * production redeploy part of recovering from a dropped tunnel.
+ *
+ * `/api/config` answers with the current value on every request, reading it
+ * from Edge Config, which can be edited in place. Changing the tunnel is now
+ * one `vercel global-config update` and a reload.
+ *
+ * The build-time value survives as the starting point, so local development,
+ * the first paint and any deployment without Edge Config all behave exactly as
+ * they did before. */
+const BUILD_TIME_API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
+/** The last value we resolved. Read synchronously by `assetContentUrl` and by
+ *  the error messages, both of which need a string rather than a promise. */
+let resolvedApiBaseUrl = BUILD_TIME_API_URL;
+
+/** What the app is currently pointed at. Correct once anything has been
+ *  fetched; before that, the build-time value. */
+export const currentApiBaseUrl = () => resolvedApiBaseUrl;
+
+/** Resolves the base URL once per page load and caches the promise.
+ *
+ *  Cached as a *promise*, not as a value, so that the requests a page fires on
+ *  mount share one lookup instead of racing each other into several. A failure
+ *  is answered with the build-time value rather than thrown: an unreachable
+ *  `/api/config` must not be a harder failure than the unreachable API it is
+ *  trying to describe.
+ *
+ *  Not attempted on the server — `/api/config` is a relative URL, which has no
+ *  meaning during prerender, and every consumer of this module is a client
+ *  component anyway. */
+let apiBaseUrlLookup: Promise<string> | null = null;
+
+function resolveApiBaseUrl(): Promise<string> {
+  if (typeof window === "undefined") {
+    return Promise.resolve(resolvedApiBaseUrl);
+  }
+  apiBaseUrlLookup ??= fetch("/api/config", { cache: "no-store" })
+    .then((response) => (response.ok ? response.json() : null))
+    .then((body: { apiBaseUrl?: unknown } | null) => {
+      const value = body?.apiBaseUrl;
+      if (typeof value === "string" && value) resolvedApiBaseUrl = value;
+      return resolvedApiBaseUrl;
+    })
+    .catch(() => resolvedApiBaseUrl);
+  return apiBaseUrlLookup;
+}
 
 /** Supplies a fresh session token, registered once by `<AuthBridge />`.
  *
@@ -142,12 +192,13 @@ async function readError(response: Response): Promise<ApiError> {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const base = await resolveApiBaseUrl();
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, await withAuth(init));
+    response = await fetch(`${base}${path}`, await withAuth(init));
   } catch {
     throw new ApiError(
-      `Cannot reach the API at ${API_BASE_URL}. Is the backend running?`,
+      `Cannot reach the API at ${base}. Is the backend running?`,
     );
   }
 
@@ -180,10 +231,11 @@ async function downloadPdf(
   body: unknown,
   fallbackName: string,
 ): Promise<void> {
+  const base = await resolveApiBaseUrl();
   let response: Response;
   try {
     response = await fetch(
-      `${API_BASE_URL}${path}`,
+      `${base}${path}`,
       await withAuth({
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -192,7 +244,7 @@ async function downloadPdf(
     );
   } catch {
     throw new ApiError(
-      `Cannot reach the API at ${API_BASE_URL}. Is the backend running?`,
+      `Cannot reach the API at ${base}. Is the backend running?`,
     );
   }
 
@@ -251,12 +303,13 @@ export const downloadReproducibilityPdf = (
 /** Health reports degradation as a 503 *with* a body, so the body is what
  *  matters — a 503 here is a successful read of a bad state, not a failure. */
 export async function getHealth(): Promise<HealthResponse> {
+  const base = await resolveApiBaseUrl();
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}/health`, await withAuth());
+    response = await fetch(`${base}/health`, await withAuth());
   } catch {
     throw new ApiError(
-      `Cannot reach the API at ${API_BASE_URL}. Is the backend running?`,
+      `Cannot reach the API at ${base}. Is the backend running?`,
     );
   }
 
@@ -330,8 +383,13 @@ export const listSections = (paperId: string) =>
 export const listAssets = (paperId: string) =>
   request<PaperAsset[]>(`/papers/${paperId}/assets`);
 
+/** Synchronous on purpose: this is consumed as an `<img src>`, which cannot
+ *  await anything. It reads the resolved value rather than re-resolving, which
+ *  is safe because an asset ID can only have come from `listAssets()` — an
+ *  awaited call that resolves the base URL before it returns. Nothing can ask
+ *  for an asset's URL before the app knows where the API is. */
 export const assetContentUrl = (assetId: string) =>
-  `${API_BASE_URL}/assets/${assetId}/content`;
+  `${resolvedApiBaseUrl}/assets/${assetId}/content`;
 
 export const interpretFigure = (assetId: string) =>
   request<FigureInterpretationResponse>(`/assets/${assetId}/interpret`, {

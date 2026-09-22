@@ -155,16 +155,38 @@ deliberately does not override this value, so `.env` is the only place to edit.
 docker compose up -d --force-recreate api
 ```
 
-**Vercel** — Settings → Environment Variables, Production:
+**Vercel** — one command, no redeploy:
 
-| Variable | Value |
-| --- | --- |
-| `NEXT_PUBLIC_API_URL` | The `https://….trycloudflare.com` URL. **No trailing slash.** |
+```bash
+vercel global-config update aletheia-runtime \
+  --patch '[{"operation":"update","key":"apiBaseUrl","value":"https://….trycloudflare.com"}]'
+```
 
-Then **redeploy, without the build cache**. `NEXT_PUBLIC_*` variables are
-inlined at build time, so saving the variable changes nothing until a rebuild
-happens. This is the single most common way this setup appears broken when it is
-actually just stale.
+**No trailing slash** — every call site concatenates a path onto it.
+
+The front end asks `GET /api/config` for this value on each page load, and that
+route reads it out of Edge Config per request. Edge Config is the only part of
+a Vercel project that can be changed in place: environment variables are bound
+to a deployment, so editing one — `NEXT_PUBLIC_API_URL` or any other — still
+needs a redeploy before a running lambda sees it. A quick tunnel changes
+hostname every time it reconnects, so that used to mean a full no-cache
+production rebuild per reconnection. Now it is the line above and a reload.
+
+`NEXT_PUBLIC_API_URL` still exists and is still the fallback, which is what
+makes local development unchanged: there is no Edge Config on a laptop, so
+`.env.local` remains the single place that says where the API is. `/api/config`
+reports which one it used:
+
+```bash
+curl -s https://aletheia-rag.vercel.app/api/config
+#   {"apiBaseUrl":"https://….trycloudflare.com","source":"edge-config"}
+#   source "build" means Edge Config was unreachable or unset and the
+#   inlined value is in play — the one state where a redeploy still matters.
+```
+
+The store is `aletheia-runtime` (`vercel global-config items aletheia-runtime`
+to read it). Its read token lives in the `EDGE_CONFIG` environment variable;
+rotating that token *is* an env var change, so it needs a redeploy.
 
 ---
 
