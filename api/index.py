@@ -15,6 +15,7 @@ is an ordinary setting and an explicit environment variable still wins:
   INGESTION_MODE       inline — an instance may be frozen after it responds
   STORAGE_BACKEND      r2 when R2 credentials exist, otherwise postgres
   CHROMA_ENABLED       false — pgvector in the same database does retrieval
+  CLERK_ISSUER         derived from NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
   STRANDED_JOB_AFTER_SECONDS  900 — never fail a live neighbour's job
 
 Startup work (auth check, migrations, stranded-job recovery) runs on the first
@@ -27,6 +28,8 @@ next request tries again.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 import os
 import sys
@@ -67,10 +70,41 @@ def _database_url() -> str | None:
     return None
 
 
+def _clerk_issuer_from_publishable_key() -> str | None:
+    """The Frontend API URL a Clerk publishable key encodes.
+
+    `pk_test_<base64("amazed-heron-68.clerk.accounts.dev$")>` — Clerk's own SDKs
+    derive the instance domain the same way. The frontend's key is already a
+    project variable, so the backend can find the issuer without a second
+    variable that has to be kept in step with it.
+    """
+    key = (
+        os.environ.get("CLERK_PUBLISHABLE_KEY")
+        or os.environ.get("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY")
+        or ""
+    ).strip()
+    prefix, _, encoded = key.partition("_")[2].partition("_")
+    if prefix not in {"test", "live"} or not encoded:
+        return None
+    try:
+        decoded = base64.b64decode(encoded + "=" * (-len(encoded) % 4)).decode()
+    except (binascii.Error, UnicodeDecodeError):
+        return None
+    domain = decoded.rstrip("$")
+    if not domain or "/" in domain or " " in domain:
+        return None
+    return f"https://{domain}"
+
+
 def _apply_serverless_defaults() -> None:
     url = _database_url()
     if url:
         os.environ["DATABASE_URL"] = url
+
+    if not os.environ.get("CLERK_ISSUER", "").strip():
+        issuer = _clerk_issuer_from_publishable_key()
+        if issuer:
+            os.environ["CLERK_ISSUER"] = issuer
 
     origins = ["https://aletheia-rag.vercel.app"]
     for name in ("VERCEL_URL", "VERCEL_BRANCH_URL", "VERCEL_PROJECT_PRODUCTION_URL"):

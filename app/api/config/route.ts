@@ -22,9 +22,12 @@ export const revalidate = 0;
 /** Used when Edge Config names nothing. The default is the backend deployed
  *  with this app (`api/index.py`, reached through the `/api/py` rewrite in
  *  `next.config.ts`), on this same origin — locally the same rewrite proxies
- *  to port 8000. `NEXT_PUBLIC_API_URL` still points the app at a backend
- *  hosted somewhere else, and Edge Config overrides both without a redeploy. */
-const FALLBACK = process.env.NEXT_PUBLIC_API_URL || "/api/py";
+ *  to port 8000. Off Vercel, `NEXT_PUBLIC_API_URL` points the app at a backend
+ *  hosted somewhere else. On Vercel it is ignored: the backend ships with the
+ *  deployment, and a value left over from the tunnel era would silently
+ *  bypass it. Edge Config is the override there, changeable without a
+ *  redeploy. */
+const FALLBACK = (process.env.VERCEL ? "" : process.env.NEXT_PUBLIC_API_URL) || "/api/py";
 
 /** Reads one key out of Edge Config over its REST API.
  *
@@ -80,9 +83,9 @@ export async function GET() {
       apiBaseUrl: (fromStore ?? FALLBACK).replace(/\/+$/, ""),
       source: fromStore
         ? "edge-config"
-        : process.env.NEXT_PUBLIC_API_URL
-          ? "build"
-          : "bundled",
+        : FALLBACK === "/api/py"
+          ? "bundled"
+          : "build",
     },
     { headers: { "Cache-Control": "no-store, max-age=0" } },
   );

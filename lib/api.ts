@@ -39,7 +39,11 @@ import type {
  * The build-time value survives as the starting point, so local development,
  * the first paint and any deployment without Edge Config all behave exactly as
  * they did before. */
-const BUILD_TIME_API_URL = process.env.NEXT_PUBLIC_API_URL || "/api/py";
+const BUILD_TIME_API_URL =
+  // Same rule as /api/config: on Vercel the bundled backend, never a leftover
+  // NEXT_PUBLIC_API_URL. NEXT_PUBLIC_VERCEL_ENV is set only in Vercel builds.
+  (process.env.NEXT_PUBLIC_VERCEL_ENV ? "" : process.env.NEXT_PUBLIC_API_URL) ||
+  "/api/py";
 
 /** The last value we resolved. Read synchronously by `assetContentUrl` and by
  *  the error messages, both of which need a string rather than a promise. */

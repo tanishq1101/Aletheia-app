@@ -46,18 +46,14 @@ All of this is in the Vercel dashboard for the `aletheia-rag` project.
    * `OPENAI_ENABLED=false`, `GEMINI_ENABLED=true`, `GEMINI_API_KEY=…`
 
    The same key embeds documents and answers questions.
-3. **Auth.** Keep the Clerk variables the frontend already has
-   (`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`) and add
-   `CLERK_ISSUER` = the instance's Frontend API URL (for example
-   `https://amazed-heron-68.clerk.accounts.dev`). The API refuses to serve
-   anything without it unless `ALLOW_UNAUTHENTICATED=true` says that is
-   deliberate.
-4. **Point the frontend at it.** Remove whatever still points elsewhere:
-   * the `apiBaseUrl` item in the `aletheia-runtime` Edge Config (it holds the
-     old tunnel URL and wins over everything else), and
-   * `NEXT_PUBLIC_API_URL`, if it is set on Vercel.
-
-   With neither set, `/api/config` answers `{"apiBaseUrl":"/api/py","source":"bundled"}`.
+3. **Auth.** Nothing to add. The backend derives `CLERK_ISSUER` from the
+   `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` the frontend already has (the key encodes
+   the instance's domain). Set `CLERK_ISSUER` explicitly only to override it.
+4. **Point the frontend at it.** On Vercel, `NEXT_PUBLIC_API_URL` is ignored,
+   so a leftover value cannot bypass the bundled backend. The one thing that
+   still can is the `apiBaseUrl` item in the `aletheia-runtime` Edge Config,
+   which holds the old tunnel URL: delete it. With it gone, `/api/config`
+   answers `{"apiBaseUrl":"/api/py","source":"bundled"}`.
 5. **Redeploy** production so the function picks up the new variables.
 
 ### Verify
