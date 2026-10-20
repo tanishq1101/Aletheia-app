@@ -65,7 +65,11 @@ async function readApiBaseUrl(): Promise<string | null> {
     );
     if (!response.ok) return null;
     const items = (await response.json()) as Record<string, unknown>;
-    const value = items?.apiBaseUrl;
+    // `apiBaseUrlOverride`, not the tunnel-era `apiBaseUrl`: that item still
+    // holds the old quick-tunnel hostname, and reading it would route every
+    // call away from the backend that now ships with the app. Renaming the
+    // key retires it without anyone having to remember to delete it.
+    const value = items?.apiBaseUrlOverride;
     return typeof value === "string" && value ? value : null;
   } catch {
     // Edge Config unreachable. The fallback below is a working answer rather

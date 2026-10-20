@@ -49,11 +49,11 @@ All of this is in the Vercel dashboard for the `aletheia-rag` project.
 3. **Auth.** Nothing to add. The backend derives `CLERK_ISSUER` from the
    `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` the frontend already has (the key encodes
    the instance's domain). Set `CLERK_ISSUER` explicitly only to override it.
-4. **Point the frontend at it.** On Vercel, `NEXT_PUBLIC_API_URL` is ignored,
-   so a leftover value cannot bypass the bundled backend. The one thing that
-   still can is the `apiBaseUrl` item in the `aletheia-runtime` Edge Config,
-   which holds the old tunnel URL: delete it. With it gone, `/api/config`
-   answers `{"apiBaseUrl":"/api/py","source":"bundled"}`.
+4. **Point the frontend at it.** Nothing to do. On Vercel, `NEXT_PUBLIC_API_URL`
+   is ignored, and `/api/config` reads the Edge Config key `apiBaseUrlOverride`
+   rather than the old `apiBaseUrl` (which still holds the old tunnel URL and
+   can be deleted at leisure). `/api/config` answers
+   `{"apiBaseUrl":"/api/py","source":"bundled"}`.
 5. **Redeploy** production so the function picks up the new variables.
 
 ### Verify
@@ -89,7 +89,7 @@ no `CLERK_ISSUER`, or a migration that failed.
 
 The arrangement this project used before the backend could run on Vercel, and
 still the way to run the full local-model stack (fastembed embeddings and the
-cross-encoder) behind the deployed site. To use it, set the `apiBaseUrl` item in
+cross-encoder) behind the deployed site. To use it, set the `apiBaseUrlOverride` item in
 Edge Config to the tunnel URL as described below; it takes precedence over the
 bundled backend.
 
@@ -237,7 +237,7 @@ docker compose up -d --force-recreate api
 
 ```bash
 vercel global-config update aletheia-runtime \
-  --patch '[{"operation":"update","key":"apiBaseUrl","value":"https://….trycloudflare.com"}]'
+  --patch '[{"operation":"upsert","key":"apiBaseUrlOverride","value":"https://….trycloudflare.com"}]'
 ```
 
 **No trailing slash** — every call site concatenates a path onto it.
