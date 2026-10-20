@@ -61,3 +61,9 @@ GEMINI.md
 # The notebook build/validate scripts run from the repo root.
 __pycache__/
 .pytest_cache/
+
+# Scratch space and generated documents (renders, OCR caches, paper drafts).
+# A few files here predate this rule and stay tracked; ignoring a directory
+# only stops *new* files from being picked up by `git add -A`.
+/tmp/
+/output/
