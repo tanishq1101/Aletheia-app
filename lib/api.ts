@@ -39,8 +39,7 @@ import type {
  * The build-time value survives as the starting point, so local development,
  * the first paint and any deployment without Edge Config all behave exactly as
  * they did before. */
-const BUILD_TIME_API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const BUILD_TIME_API_URL = process.env.NEXT_PUBLIC_API_URL || "/api/py";
 
 /** The last value we resolved. Read synchronously by `assetContentUrl` and by
  *  the error messages, both of which need a string rather than a promise. */
@@ -204,6 +203,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) throw await readError(response);
 
+  // 204 No Content (deletes, upload parts) has no body to parse.
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
 
@@ -365,12 +366,49 @@ export const getPaper = (paperId: string) =>
 export const deletePaper = (paperId: string) =>
   request<void>(`/papers/${paperId}`, { method: "DELETE" });
 
-export const uploadPaper = (projectId: string, file: File) => {
-  const form = new FormData();
-  form.append("file", file);
-  return request<Paper>(`/projects/${projectId}/papers`, {
+/** Files above this go up in parts. Vercel refuses a function request body
+ *  over 4.5 MB, so a single multipart POST of a typical paper never reaches
+ *  the backend there; the API joins the parts and treats the result exactly
+ *  like a one-shot upload. Matches UPLOAD_PART_MAX_BYTES in api/papers.py. */
+const UPLOAD_PART_BYTES = 4 * 1024 * 1024;
+
+export const uploadPaper = async (projectId: string, file: File) => {
+  if (file.size <= UPLOAD_PART_BYTES) {
+    const form = new FormData();
+    form.append("file", file);
+    return request<Paper>(`/projects/${projectId}/papers`, {
+      method: "POST",
+      body: form,
+    });
+  }
+
+  const { upload_id: uploadId, part_max_bytes: partBytes } = await request<{
+    upload_id: string;
+    part_max_bytes: number;
+  }>(`/projects/${projectId}/uploads`, { method: "POST" });
+
+  const size = Math.min(partBytes, UPLOAD_PART_BYTES);
+  const partCount = Math.ceil(file.size / size);
+  for (let index = 0; index < partCount; index += 1) {
+    const part = file.slice(index * size, (index + 1) * size);
+    await request<void>(
+      `/projects/${projectId}/uploads/${uploadId}/parts/${index}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/octet-stream" },
+        body: part,
+      },
+    );
+  }
+
+  return request<Paper>(`/projects/${projectId}/uploads/${uploadId}/complete`, {
     method: "POST",
-    body: form,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      filename: file.name,
+      content_type: file.type || null,
+      part_count: partCount,
+    }),
   });
 };
 

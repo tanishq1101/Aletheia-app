@@ -48,6 +48,33 @@ class Settings(BaseSettings):
     # latency. Raise it only on a host with RAM measured to spare.
     embed_batch_size: int = 4
 
+    # Where embeddings come from: `local` (fastembed/ONNX, above) or a hosted
+    # endpoint, `openai` or `gemini`, using that vendor's API key. Serverless
+    # hosts cannot hold the local model, so the Vercel entrypoint defaults this
+    # to the enabled LLM vendor. See services/embedding.py.
+    embedding_provider: str = "local"
+    # Blank uses the vendor's default in embedding.HOSTED_PROFILES.
+    embedding_model: str = ""
+    # Blank uses the vendor's own endpoint. Set for an OpenAI-compatible proxy
+    # or gateway in front of it.
+    embedding_base_url: str = ""
+    # A hosted call costs latency, not resident memory, so batches are wide.
+    hosted_embed_batch_size: int = 64
+
+    # `local` is the fastembed cross-encoder below. `none` keeps retrieval's
+    # own order: for deployments that cannot hold a second ONNX model.
+    reranker_provider: str = "local"
+
+    # `background` returns the upload's 201 first and extracts afterwards,
+    # in-process. `inline` extracts before responding: the only correct mode on
+    # a serverless host, which may freeze the instance once a response is sent.
+    ingestion_mode: str = "background"
+    # Startup recovery fails jobs left `running`. 0 means "every one", which is
+    # right for a single long-lived process. With many short-lived instances a
+    # job that is `running` may belong to a live neighbour, so only jobs older
+    # than this many seconds are treated as stranded.
+    stranded_job_after_seconds: int = 0
+
     # Retrieval. PRD Section 5.1 step 7: semantic top ~20 -> rerank -> top 5-8.
     # `search_top_k` is the candidate set reranking consumes; `rerank_top_k` is
     # how many survive as evidence.

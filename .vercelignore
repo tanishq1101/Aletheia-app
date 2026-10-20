@@ -1,8 +1,9 @@
-# Frontend-only deploy: the FastAPI service is not deployed at all. It runs in
-# Docker on a development machine and is reached over a tunnel — see
-# docs/DEPLOYMENT.md.
+# The FastAPI backend deploys WITH the frontend: api/index.py serves it as a
+# Python function on the same origin (see docs/DEPLOYMENT.md). So backend/apps/
+# must ship, and is no longer listed below; its tests, scripts and datasets
+# still stay out.
 #
-# Two directories the frontend DOES need are deliberately not ignored, because
+# Two more directories the frontend needs are deliberately not ignored, because
 # excluding them breaks the build or the running app rather than shrinking it:
 #
 #   colab/          — app/api/training/[task]/route.ts reads the notebooks from
@@ -16,7 +17,7 @@
 # backend/ is therefore excluded child by child rather than wholesale: with
 # gitignore semantics a file cannot be re-included once its parent directory is
 # excluded, so "backend/" plus a negation would not work.
-backend/apps/
+backend/apps/api/tests/
 backend/datasets/
 backend/docs/
 backend/scripts/

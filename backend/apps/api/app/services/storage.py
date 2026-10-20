@@ -1,6 +1,6 @@
 """Storage seam.
 
-Two backends implement `StorageBackend`:
+Three backends implement `StorageBackend`:
 
   * `local` — a directory on disk. What development and any host with a
     persistent volume use.
@@ -8,6 +8,8 @@ Two backends implement `StorageBackend`:
     ephemeral disk: Cloudflare Containers hand a container a *fresh* disk every
     time it wakes from sleep, so a local-disk deployment there would leave the
     `papers` rows in Postgres pointing at files that no longer exist.
+  * `postgres` — the `stored_objects` table. For serverless hosts (Vercel)
+    where the database is the only durable thing already provisioned.
 
 R2 is spoken to directly over `httpx` with SigV4 signing rather than through
 boto3. botocore is ~50 MB for four verbs, and this API ships in a slim
@@ -258,6 +260,71 @@ class R2Storage:
             )
 
 
+class PostgresStorage:
+    """Bytes in the `stored_objects` table (migration 0012).
+
+    For hosts with no durable disk where a separate object store is not worth
+    provisioning yet — the Vercel deployment's default. Reads and writes go
+    through the application's own connection pool, so it needs no settings of
+    its own beyond `DATABASE_URL`.
+    """
+
+    def store(self, *, key: str, data: bytes) -> str:
+        from app.db.session import get_connection
+
+        key = _validate_key(key)
+        try:
+            with get_connection() as conn, conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO stored_objects (key, data, size_bytes)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (key) DO UPDATE
+                       SET data = EXCLUDED.data,
+                           size_bytes = EXCLUDED.size_bytes,
+                           created_at = now()
+                    """,
+                    (key, data, len(data)),
+                )
+                conn.commit()
+        except Exception as exc:
+            raise StorageError(f"Could not store {key}: {exc}") from exc
+        return key
+
+    def read(self, *, key: str) -> bytes:
+        from app.db.session import get_connection
+
+        key = _validate_key(key)
+        try:
+            with get_connection() as conn, conn.cursor() as cur:
+                cur.execute("SELECT data FROM stored_objects WHERE key = %s", (key,))
+                row = cur.fetchone()
+        except Exception as exc:
+            raise StorageError(f"Could not read {key}: {exc}") from exc
+        if row is None:
+            raise StorageError(f"No stored object at {key}")
+        return bytes(row["data"])
+
+    def exists(self, *, key: str) -> bool:
+        from app.db.session import get_connection
+
+        key = _validate_key(key)
+        with get_connection() as conn, conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM stored_objects WHERE key = %s", (key,))
+            return cur.fetchone() is not None
+
+    def delete(self, *, key: str) -> None:
+        from app.db.session import get_connection
+
+        key = _validate_key(key)
+        try:
+            with get_connection() as conn, conn.cursor() as cur:
+                cur.execute("DELETE FROM stored_objects WHERE key = %s", (key,))
+                conn.commit()
+        except Exception as exc:
+            raise StorageError(f"Could not delete {key}: {exc}") from exc
+
+
 def build_storage(settings: Settings) -> StorageBackend:
     backend = settings.storage_backend.lower()
     if backend == "local":
@@ -270,6 +337,8 @@ def build_storage(settings: Settings) -> StorageBackend:
             secret_access_key=settings.r2_secret_access_key,
             region=settings.r2_region,
         )
+    if backend == "postgres":
+        return PostgresStorage()
     if backend == "supabase":
         raise StorageError(
             "STORAGE_BACKEND=supabase is not implemented yet. Use 'r2' for "

@@ -275,7 +275,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     "AI requests",
                 )
             )
-        if request.method == "POST" and path.endswith("/papers"):
+        # A chunked upload counts once, when it is joined, not once per part.
+        if request.method == "POST" and (
+            path.endswith("/papers") or path.endswith("/complete")
+        ):
             budgets.append(
                 (
                     f"upload:{identity}",

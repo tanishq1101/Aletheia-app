@@ -53,6 +53,17 @@ def health(response: Response) -> HealthResponse:
             log.error("Health check: R2 unreachable: %s", exc)
             storage = f"unreachable: {exc}"
             healthy = False
+    elif backend_name == "postgres":
+        # Proves the table exists, i.e. migration 0012 ran — a missing table
+        # is the failure here, and it would otherwise surface as the first
+        # upload's 500.
+        try:
+            build_storage(settings).exists(key="_health/probe")
+            storage = "ok (postgres)"
+        except Exception as exc:
+            log.error("Health check: stored_objects unusable: %s", exc)
+            storage = f"unusable: {type(exc).__name__}"
+            healthy = False
     else:
         storage = f"backend={settings.storage_backend} (not implemented)"
         healthy = False

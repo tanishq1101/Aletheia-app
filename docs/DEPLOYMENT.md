@@ -1,23 +1,105 @@
-# Running Aletheia: Vercel front end, local backend
+# Deploying Aletheia
 
-The front end is deployed. The backend is not, and is not going to be — it runs
-in Docker on a development machine and the deployed site reaches it through a
-tunnel.
+**Default: everything on Vercel.** The Next.js app and the FastAPI backend ship
+in one Vercel project. The browser calls `https://<site>/api/py/...`; a rewrite
+in `next.config.ts` sends that to the Python function `api/index.py`, which runs
+the unchanged app from `backend/apps/api`. There is no tunnel to keep alive, no
+second origin and no CORS, and Clerk's session cookie reaches the API, so figure
+images authenticate too.
 
-That sounds like a compromise and mostly is, but it rests on a real property of
-this codebase rather than on hope:
+The backend was written for one long-lived process with about 2 GB of RAM. A
+serverless function is neither of those things, so `api/index.py` changes the
+defaults for exactly the parts that assumed one:
 
-```ts
-// lib/api.ts:29
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+| Assumption | Long-lived container (docker compose) | Vercel function |
+|---|---|---|
+| Embeddings | fastembed / ONNX in process, ~1.4 GB | `EMBEDDING_PROVIDER` = the enabled LLM vendor's `/embeddings` (OpenAI `text-embedding-3-small` or Gemini `gemini-embedding-001`, both at 512 dims) |
+| Reranking | local cross-encoder | `RERANKER_PROVIDER=none`, which keeps retrieval order |
+| Ingestion | background task after the 201 | `INGESTION_MODE=inline`, finished before the response, because a frozen instance would strand it |
+| File storage | local disk volume | `STORAGE_BACKEND=postgres` (table `stored_objects`), or `r2` when R2 keys are set |
+| Uploads > 4.5 MB | one multipart POST | sent in 4 MB parts and joined server-side, since Vercel rejects larger request bodies |
+| Startup recovery | fails every `running` job | only jobs idle > 15 min (`STRANDED_JOB_AFTER_SECONDS`) |
+| Migrations | `scripts/migrate.py` in the container CMD | applied on each instance's first request, under an advisory lock |
+| Vector index | Chroma + pgvector | pgvector only (`CHROMA_ENABLED=false`) |
+
+Every one of those is an ordinary environment variable, and setting it
+explicitly on Vercel overrides the default.
+
+**What that costs.** Two honest trade-offs. Retrieval loses the cross-encoder
+pass, so the evidence ranking is the bi-encoder's alone. And each indexed chunk
+and each question is one embedding call to the vendor, which costs a fraction
+of a cent per paper with `text-embedding-3-small` and is free within Gemini's
+free tier.
+
+## Setting it up (one time, about 5 minutes)
+
+All of this is in the Vercel dashboard for the `aletheia-rag` project.
+
+1. **Database.** Storage → *Create Database* → **Neon** (free tier) → connect it
+   to this project for Production and Preview. That injects `DATABASE_URL`.
+   pgvector is available on Neon; the first request creates every table. Any
+   other Postgres with pgvector works too: set `DATABASE_URL` yourself, using
+   the pooled endpoint if there is one. Supabase's injected `POSTGRES_URL` is
+   also picked up.
+2. **AI key.** Settings → Environment Variables:
+   * `OPENAI_ENABLED=true` and `OPENAI_API_KEY=sk-…`, **or**
+   * `OPENAI_ENABLED=false`, `GEMINI_ENABLED=true`, `GEMINI_API_KEY=…`
+
+   The same key embeds documents and answers questions.
+3. **Auth.** Keep the Clerk variables the frontend already has
+   (`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`) and add
+   `CLERK_ISSUER` = the instance's Frontend API URL (for example
+   `https://amazed-heron-68.clerk.accounts.dev`). The API refuses to serve
+   anything without it unless `ALLOW_UNAUTHENTICATED=true` says that is
+   deliberate.
+4. **Point the frontend at it.** Remove whatever still points elsewhere:
+   * the `apiBaseUrl` item in the `aletheia-runtime` Edge Config (it holds the
+     old tunnel URL and wins over everything else), and
+   * `NEXT_PUBLIC_API_URL`, if it is set on Vercel.
+
+   With neither set, `/api/config` answers `{"apiBaseUrl":"/api/py","source":"bundled"}`.
+5. **Redeploy** production so the function picks up the new variables.
+
+### Verify
+
+```bash
+APP=https://aletheia-rag.vercel.app
+curl -s $APP/api/config               # "source":"bundled"
+curl -s $APP/api/py/health            # status ok, database ok, storage ok (postgres)
+curl -s -o /dev/null -w '%{http_code}\n' $APP/api/py/projects   # 401: auth is on
 ```
 
-`NEXT_PUBLIC_` means that URL is inlined into the JavaScript bundle and every
-call to it is made **by the visitor's browser**. Every consumer of `lib/api` is
-a client component; no server component, route handler or `proxy.ts` path ever
-fetches the API. So Vercel's servers never need to reach the backend — only
-whichever browser has the page open does. Vercel is serving static assets and
-nothing more.
+Then sign in, upload a PDF, and ask a question. If a route answers
+`503 Backend is not ready: …`, the message names what is missing: no database,
+no `CLERK_ISSUER`, or a migration that failed.
+
+### Limits worth knowing
+
+* **Function duration is 300 s** (`vercel.json`). Ingesting a long paper and a
+  multi-step research-agent run both have to fit inside it. A 12-page, 6 MB
+  PDF ingests in a few seconds; a several-hundred-page scan may not.
+* **Postgres storage counts against the database quota.** Neon's free tier is
+  0.5 GB, which is a few dozen typical papers with their figures. Past that, set
+  the `R2_*` variables (`backend/.env.example`) and storage switches to R2
+  automatically; `backend/scripts/backfill_r2.py` copies existing files across.
+* **Papers indexed by the local model are not searchable here, and vice versa.**
+  Every chunk records the model that embedded it, and retrieval only compares
+  vectors from the same model. A library moved from the Docker setup needs its
+  papers reprocessed (the *Retry* action) after the move.
+
+---
+
+# Alternative: Vercel front end, self-hosted backend over a tunnel
+
+The arrangement this project used before the backend could run on Vercel, and
+still the way to run the full local-model stack (fastembed embeddings and the
+cross-encoder) behind the deployed site. To use it, set the `apiBaseUrl` item in
+Edge Config to the tunnel URL as described below; it takes precedence over the
+bundled backend.
+
+Every API call is made **by the visitor's browser** (every consumer of
+`lib/api` is a client component), so Vercel's servers never need to reach a
+self-hosted backend; only the browser that has the page open does.
 
 The whole arrangement is therefore: **Vercel serves the app → the visitor's
 browser calls a tunnel URL → the tunnel reaches port 8000 on the machine
@@ -239,17 +321,18 @@ thing standing in front of it. Bring it up for a demo, take it down after.
 
 ---
 
-## Why the backend is not deployed
+---
 
-Not for lack of trying — Render, Cloudflare Containers, Google Cloud Run and an
-Oracle always-free A1 VM were each built out and then removed. The arithmetic is
-in `tasks/todo.md`. The short version: this service holds two ONNX models in
-memory, writes to a disk, and runs ingestion in-process, so it needs ~4 GB and
-persistent storage. Every free tier is 512 MB and ephemeral, which cannot run it
-at all, and the cheapest host that genuinely fits was ~$6–27/month for something
-with no users yet.
+## Why the backend can now run on Vercel
 
-The backend is portable when that changes: the `Dockerfile` binds `$PORT` with a
-fallback to 8000 and runs unmodified on Render, Fly.io, Railway or Cloud Run.
-Vercel is the one host it cannot use — long-lived model objects, disk writes and
-in-process jobs do not survive a serverless function.
+Render, Cloudflare Containers, Google Cloud Run and an Oracle always-free A1 VM
+were each built out and then removed (the arithmetic is in `tasks/todo.md`).
+They failed for the same reason: the service held two ONNX models in memory,
+wrote to a disk, and ran ingestion in-process, so it needed ~2–4 GB and
+persistent storage, and every free tier is 512 MB and ephemeral.
+
+Those three properties are exactly what the serverless mode replaces: the models
+by hosted embeddings and `RERANKER_PROVIDER=none`, the disk by Postgres (or R2)
+storage, and the in-process job by inline ingestion. The `Dockerfile` remains
+the way to run the original local-model configuration, unchanged, on Render,
+Fly.io, Railway or Cloud Run.

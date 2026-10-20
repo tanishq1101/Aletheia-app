@@ -11,7 +11,14 @@ The repository holds two halves:
 /            Next.js 16 frontend — the UI, wired to the API below
 backend/     FastAPI service — ingestion, chunking, embeddings, retrieval,
              reranking, grounded answering (see backend/README.md)
+api/index.py the same FastAPI service as a Vercel Python function
 ```
+
+Both deploy together to Vercel: the site calls its own `/api/py/*`, served by
+`api/index.py` in serverless mode (hosted embeddings, Postgres-backed file
+storage, inline ingestion). Setup is a database, an AI key and a Clerk issuer;
+see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). Docker Compose still runs the
+full local-model stack for development.
 
 ## What is actually wired
 
@@ -106,9 +113,10 @@ npm run dev
 Open `http://localhost:3000`. It redirects to `/library`, resolves a project
 (creating "My Library" on first run), and from there you can upload a PDF.
 
-`NEXT_PUBLIC_API_URL` in `.env.local` must match `CORS_ORIGINS` in
-`backend/.env` — default `http://localhost:8000` and `http://localhost:3000`
-respectively.
+With `NEXT_PUBLIC_API_URL` left blank, the app calls `/api/py/*` and `next dev`
+proxies it to the API on port 8000, so no CORS setup is needed. If you point
+`NEXT_PUBLIC_API_URL` at another origin, add the app's origin to `CORS_ORIGINS`
+in `backend/.env`.
 
 If the backend is down, the topbar shows **API offline** and each page renders
 the reason rather than an empty state that reads like "you have no papers".
