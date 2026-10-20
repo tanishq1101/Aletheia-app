@@ -101,6 +101,17 @@ def _apply_serverless_defaults() -> None:
     if url:
         os.environ["DATABASE_URL"] = url
 
+    # Only one vendor's key, and neither switch set: use that vendor. With
+    # OPENAI_ENABLED defaulting to true, a deployment given just a Gemini key
+    # would otherwise fail every upload asking for an OpenAI key it never had.
+    # Explicit switches always win.
+    has_openai = bool(os.environ.get("OPENAI_API_KEY", "").strip())
+    has_gemini = bool(os.environ.get("GEMINI_API_KEY", "").strip())
+    switches_set = "OPENAI_ENABLED" in os.environ or "GEMINI_ENABLED" in os.environ
+    if has_gemini and not has_openai and not switches_set:
+        os.environ["OPENAI_ENABLED"] = "false"
+        os.environ["GEMINI_ENABLED"] = "true"
+
     if not os.environ.get("CLERK_ISSUER", "").strip():
         issuer = _clerk_issuer_from_publishable_key()
         if issuer:
@@ -224,6 +235,18 @@ def _startup() -> None:
         from app.services.ingestion import recover_stranded_jobs
 
         configure_logging(get_settings().log_level)
+        # Names only, never values: which AI settings this function can see.
+        # A key added under another name, or only to Preview, shows up here.
+        import logging
+
+        visible = sorted(
+            name
+            for name in os.environ
+            if any(t in name.upper() for t in ("OPENAI", "GEMINI", "GOOGLE", "EMBEDDING"))
+        )
+        logging.getLogger("vercel.entry").warning(
+            "AI settings visible to this function: %s", ", ".join(visible) or "none"
+        )
         check_auth_configuration()
         if os.environ.get("AUTO_MIGRATE", "true").strip().lower() != "false":
             _migrate()
