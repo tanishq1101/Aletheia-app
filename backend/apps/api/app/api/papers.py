@@ -2,7 +2,17 @@ import hashlib
 import re
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    File,
+    HTTPException,
+    Request,
+    UploadFile,
+    status,
+)
+from fastapi.concurrency import run_in_threadpool
+from pydantic import BaseModel, Field
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
@@ -69,21 +79,43 @@ async def upload_paper(
 
     Returns as soon as the records exist; extraction runs in the background
     (execution model decided in PROGRESS.md) so a long PDF cannot block the
-    request. Poll the paper for status.
+    request. Poll the paper for status. With `INGESTION_MODE=inline` the
+    extraction finishes before the response instead — see `_start_processing`.
     """
     settings = get_settings()
-    filename = file.filename or "upload"
-
     # Read with a hard ceiling rather than `await file.read()`. The size limit
     # was previously enforced only after the whole upload was already in
     # memory, so an oversized body cost the full allocation before being
     # rejected — the one request shape that could take the process down.
     # Reading one chunk past the limit is enough to know it is over.
     data = await _read_capped(file, settings.max_upload_bytes)
+    return await _accept_upload(
+        project_id=project_id,
+        filename=file.filename or "upload",
+        content_type=file.content_type,
+        data=data,
+        background=background,
+    )
+
+
+async def _accept_upload(
+    *,
+    project_id: UUID,
+    filename: str,
+    content_type: str | None,
+    data: bytes,
+    background: BackgroundTasks,
+) -> PaperWithJob:
+    """Validate, store and record one source, then start its extraction.
+
+    Shared by the single-request upload and the chunked one, so a file that
+    arrived in parts is held to exactly the same checks as one that did not.
+    """
+    settings = get_settings()
     try:
         validate_upload(
             filename=filename,
-            content_type=file.content_type,
+            content_type=content_type,
             data=data,
             max_bytes=settings.max_upload_bytes,
         )
@@ -186,10 +218,155 @@ async def upload_paper(
         job_row["id"],
     )
 
-    # Runs after the response is sent.
-    background.add_task(process_paper, paper_id, job_row["id"])
+    return await _start_processing(
+        paper_id, job_row["id"], background, paper_row, job_row
+    )
 
+
+async def _start_processing(
+    paper_id: UUID, job_id, background: BackgroundTasks, paper_row, job_row
+) -> PaperWithJob:
+    """Run extraction after the response (`background`) or before it (`inline`).
+
+    A serverless function may be frozen the moment its response is sent, which
+    would leave a background extraction stuck at `running` forever. There the
+    work has to finish inside the request, and the response then carries the
+    finished paper rather than a queued one.
+    """
+    if get_settings().ingestion_mode.strip().lower() != "inline":
+        # Runs after the response is sent.
+        background.add_task(process_paper, paper_id, job_id)
+        return PaperWithJob(**paper_row, job=ProcessingJob(**job_row))
+
+    # process_paper is synchronous and slow; keep it off the event loop.
+    await run_in_threadpool(process_paper, paper_id, job_id)
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            f"SELECT {PAPER_COLUMNS} FROM papers WHERE id = %s", (str(paper_id),)
+        )
+        paper_row = cur.fetchone() or paper_row
+        cur.execute(
+            f"SELECT {JOB_COLUMNS} FROM processing_jobs WHERE id = %s", (str(job_id),)
+        )
+        job_row = cur.fetchone() or job_row
     return PaperWithJob(**paper_row, job=ProcessingJob(**job_row))
+
+
+# --- Chunked uploads --------------------------------------------------------
+#
+# Vercel refuses any function request body over 4.5 MB, and most papers are
+# bigger than that. The browser therefore sends large files as numbered parts,
+# each well under the limit, which are parked in storage and joined when the
+# client says it is done. Nothing about a part is trusted: the joined file goes
+# through `_accept_upload` exactly like a single-request upload.
+
+UPLOAD_PART_MAX_BYTES = 4 * 1024 * 1024
+
+
+def _part_key(project_id: UUID, upload_id: UUID, index: int) -> str:
+    return f"_uploads/{project_id}/{upload_id}/{index:05d}"
+
+
+class ChunkedUploadStarted(BaseModel):
+    upload_id: UUID
+    part_max_bytes: int
+
+
+class ChunkedUploadComplete(BaseModel):
+    filename: str = Field(min_length=1, max_length=512)
+    content_type: str | None = None
+    part_count: int = Field(ge=1)
+
+
+@router.post(
+    "/projects/{project_id}/uploads",
+    response_model=ChunkedUploadStarted,
+    status_code=status.HTTP_201_CREATED,
+)
+def start_chunked_upload(project_id: UUID) -> ChunkedUploadStarted:
+    with get_connection() as conn:
+        if not _project_exists(conn, project_id):
+            raise HTTPException(status.HTTP_404_NOT_FOUND, f"No project {project_id}")
+    return ChunkedUploadStarted(
+        upload_id=uuid4(), part_max_bytes=UPLOAD_PART_MAX_BYTES
+    )
+
+
+@router.put(
+    "/projects/{project_id}/uploads/{upload_id}/parts/{index}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def put_upload_part(
+    project_id: UUID, upload_id: UUID, index: int, request: Request
+) -> None:
+    settings = get_settings()
+    max_parts = settings.max_upload_bytes // UPLOAD_PART_MAX_BYTES + 1
+    if not 0 <= index < max_parts:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, f"Part index must be 0..{max_parts - 1}."
+        )
+    body = bytearray()
+    async for block in request.stream():
+        body.extend(block)
+        if len(body) > UPLOAD_PART_MAX_BYTES:
+            raise HTTPException(
+                status.HTTP_413_CONTENT_TOO_LARGE,
+                f"A part may be at most {UPLOAD_PART_MAX_BYTES} bytes.",
+            )
+    if not body:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Empty upload part.")
+    try:
+        build_storage(settings).store(
+            key=_part_key(project_id, upload_id, index), data=bytes(body)
+        )
+    except StorageError as exc:
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR, f"Could not store part: {exc}"
+        ) from exc
+
+
+@router.post(
+    "/projects/{project_id}/uploads/{upload_id}/complete",
+    response_model=PaperWithJob,
+    status_code=status.HTTP_201_CREATED,
+)
+async def complete_chunked_upload(
+    project_id: UUID,
+    upload_id: UUID,
+    payload: ChunkedUploadComplete,
+    background: BackgroundTasks,
+) -> PaperWithJob:
+    settings = get_settings()
+    storage = build_storage(settings)
+    keys = [_part_key(project_id, upload_id, i) for i in range(payload.part_count)]
+
+    data = bytearray()
+    try:
+        for key in keys:
+            data.extend(storage.read(key=key))
+            if len(data) > settings.max_upload_bytes:
+                break
+    except StorageError as exc:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Upload is incomplete — a part is missing ({exc}). Upload it again.",
+        ) from exc
+    finally:
+        # The parts are scratch space either way. A failed delete only leaves
+        # an orphan under _uploads/, never a broken paper.
+        for key in keys:
+            try:
+                storage.delete(key=key)
+            except StorageError:
+                log.warning("Could not delete upload part %s", key)
+
+    return await _accept_upload(
+        project_id=project_id,
+        filename=payload.filename,
+        content_type=payload.content_type,
+        data=bytes(data),
+        background=background,
+    )
 
 
 @router.get("/projects/{project_id}/papers", response_model=list[PaperWithJob])
@@ -336,7 +513,7 @@ def get_paper_sections(paper_id: UUID) -> list[PaperSection]:
 
 
 @router.post("/papers/{paper_id}/reprocess", response_model=PaperWithJob)
-def reprocess_paper(paper_id: UUID, background: BackgroundTasks) -> PaperWithJob:
+async def reprocess_paper(paper_id: UUID, background: BackgroundTasks) -> PaperWithJob:
     """Retry extraction for a paper (PRD Section 12: failed jobs are retryable).
 
     Opens a new job rather than reusing the old one, so the failure history
@@ -381,8 +558,9 @@ def reprocess_paper(paper_id: UUID, background: BackgroundTasks) -> PaperWithJob
         conn.commit()
 
     log.info("Reprocess requested for paper %s; queued job %s", paper_id, job_row["id"])
-    background.add_task(process_paper, paper_id, job_row["id"])
 
     paper_row["status"] = "uploaded"
     paper_row["processed_at"] = None
-    return PaperWithJob(**paper_row, job=ProcessingJob(**job_row))
+    return await _start_processing(
+        paper_id, job_row["id"], background, paper_row, job_row
+    )

@@ -121,6 +121,41 @@ class FastEmbedReranker:
         return ranked[:top_k]
 
 
+class RetrievalOrderReranker:
+    """`RERANKER_PROVIDER=none`: keep the order retrieval produced.
+
+    For hosts that cannot hold the cross-encoder (serverless functions). The
+    candidates arrive ranked by cosine similarity already, so this is the
+    bi-encoder ranking without the second opinion — a weaker judgement of
+    "does this passage answer the question", and reported as such through
+    `name`, but never a wrong one. Scores are reciprocal ranks so they stay
+    best-first and are not mistaken for cross-encoder logits.
+    """
+
+    name = "none (retrieval order)"
+
+    def rerank(
+        self, *, query: str, chunks: list[tuple[str, str]], top_k: int
+    ) -> list[RerankedChunk]:
+        if top_k < 1:
+            raise RerankError(f"top_k must be at least 1, got {top_k}")
+        return [
+            RerankedChunk(chunk_id=chunk_id, score=1.0 / (rank + 1))
+            for rank, (chunk_id, _) in enumerate(chunks[:top_k])
+        ]
+
+
 @lru_cache
-def build_reranker() -> FastEmbedReranker:
+def build_reranker() -> FastEmbedReranker | RetrievalOrderReranker:
+    mode = get_settings().reranker_provider.strip().lower() or "local"
+    if mode == "none":
+        return RetrievalOrderReranker()
+    if mode != "local":
+        raise RerankError(
+            f"Unknown RERANKER_PROVIDER={mode!r}; expected local or none."
+        )
     return FastEmbedReranker()
+
+
+def reranker_name() -> str:
+    return build_reranker().name

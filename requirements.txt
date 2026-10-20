@@ -1,0 +1,22 @@
+# Python dependencies for the Vercel function in api/index.py — the FastAPI
+# backend in backend/apps/api, minus everything a serverless host cannot or
+# need not run. Versions match backend/apps/api/requirements.txt; bump both.
+#
+# Deliberately absent:
+#   fastembed / onnxruntime  local models; Vercel uses hosted embeddings and
+#                            RERANKER_PROVIDER=none (see api/index.py)
+#   chromadb-client          CHROMA_ENABLED=false; pgvector does retrieval
+#   uvicorn                  Vercel runs the ASGI app itself
+#   pytest                   tests do not ship
+fastapi==0.120.4
+pydantic==2.12.4
+pydantic-settings==2.13.0
+psycopg[binary]==3.2.12
+psycopg-pool==3.2.6
+python-multipart==0.0.20
+pymupdf==1.28.2
+numpy==2.5.2
+httpx==0.28.1
+reportlab==5.0.1
+pyjwt[crypto]==2.10.1
+redis==6.4.0

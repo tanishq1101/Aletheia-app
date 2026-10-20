@@ -10,7 +10,8 @@ from fastapi import APIRouter
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.schemas.models import SettingsResponse, SettingsUpdate
-from app.services.embedding import MODEL_NAME as EMBEDDING_MODEL
+from app.services.embedding import embedding_model_name
+from app.services.reranking import reranker_name
 from app.services.settings_store import get_effective_settings, update_settings
 
 router = APIRouter(tags=["settings"])
@@ -37,8 +38,8 @@ def _current() -> SettingsResponse:
             env.active_provider
             and getattr(env, f"{env.active_provider}_api_key", "")
         ),
-        embedding_model=EMBEDDING_MODEL,
-        rerank_model=env.rerank_model,
+        embedding_model=embedding_model_name(),
+        rerank_model=reranker_name(),
         chunk_max_tokens=env.chunk_max_tokens,
         chunk_overlap_tokens=env.chunk_overlap_tokens,
         storage_backend=env.storage_backend,

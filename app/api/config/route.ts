@@ -19,11 +19,12 @@ import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-/** Build-time fallback, and the whole story in local development: there is no
- *  Edge Config on a laptop, and `.env.local` is already the right place to say
- *  where the API is. */
-const FALLBACK =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+/** Used when Edge Config names nothing. The default is the backend deployed
+ *  with this app (`api/index.py`, reached through the `/api/py` rewrite in
+ *  `next.config.ts`), on this same origin — locally the same rewrite proxies
+ *  to port 8000. `NEXT_PUBLIC_API_URL` still points the app at a backend
+ *  hosted somewhere else, and Edge Config overrides both without a redeploy. */
+const FALLBACK = process.env.NEXT_PUBLIC_API_URL || "/api/py";
 
 /** Reads one key out of Edge Config over its REST API.
  *
@@ -77,7 +78,11 @@ export async function GET() {
     {
       // No trailing slash: every call site concatenates a path onto this.
       apiBaseUrl: (fromStore ?? FALLBACK).replace(/\/+$/, ""),
-      source: fromStore ? "edge-config" : "build",
+      source: fromStore
+        ? "edge-config"
+        : process.env.NEXT_PUBLIC_API_URL
+          ? "build"
+          : "bundled",
     },
     { headers: { "Cache-Control": "no-store, max-age=0" } },
   );

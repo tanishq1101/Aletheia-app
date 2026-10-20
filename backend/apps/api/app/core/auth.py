@@ -231,9 +231,18 @@ def _development_user() -> AuthenticatedUser:
 def _bearer_token(request: Request) -> str | None:
     header = request.headers.get("authorization") or ""
     scheme, _, token = header.partition(" ")
-    if scheme.lower() != "bearer" or not token.strip():
-        return None
-    return token.strip()
+    if scheme.lower() == "bearer" and token.strip():
+        return token.strip()
+    # An `<img src>` cannot carry a header, so figure images would always 401.
+    # When the API is served from the app's own origin, Clerk's `__session`
+    # cookie (the same signed session JWT) arrives with them. Accepted for
+    # reads only: a cookie rides along on cross-site requests too, and a
+    # state-changing route must not be triggerable by another site's form.
+    if request.method in {"GET", "HEAD"}:
+        cookie = request.cookies.get("__session", "").strip()
+        if cookie:
+            return cookie
+    return None
 
 
 def get_current_user(request: Request) -> AuthenticatedUser:

@@ -22,6 +22,7 @@ from app.services.embedding import (
     EmbeddingError,
     build_embedding_provider,
     build_token_counter,
+    embedding_mode,
 )
 from app.services.parsing import build_parser
 from app.services.providers import ParsedDocument, ParserError
@@ -366,7 +367,12 @@ def process_paper(paper_id: UUID, job_id: UUID) -> None:
             _set_stage(conn, job_id, *STAGE_EMBED)
 
         vectors: list[list[float]] = []
-        batch_size = settings.embed_batch_size
+        # The local model's batch is a memory ceiling; a hosted call's is not.
+        batch_size = (
+            settings.embed_batch_size
+            if embedding_mode() == "local"
+            else settings.hosted_embed_batch_size
+        )
         for start in range(0, len(chunks), batch_size):
             batch = chunks[start : start + batch_size]
             vectors.extend(provider.embed(texts=[c.content for c in batch]))
@@ -462,7 +468,13 @@ def recover_stranded_jobs() -> int:
     picked up — including papers uploaded before extraction existed. Both are
     stranded forever otherwise: without this they would sit in the UI showing
     perpetual progress with no way to recover them.
+
+    That reasoning holds for one long-lived process. On a serverless host many
+    instances boot all the time and a `running` job may belong to a live
+    neighbour, so `STRANDED_JOB_AFTER_SECONDS` limits recovery to jobs idle for
+    longer than any instance is allowed to run.
     """
+    older_than = max(0, get_settings().stranded_job_after_seconds)
     try:
         with get_connection() as conn:
             with conn.cursor() as cur:
@@ -478,8 +490,10 @@ def recover_stranded_jobs() -> int:
                            END,
                            updated_at = now(), finished_at = now()
                      WHERE status IN ('running', 'pending')
+                       AND (%s = 0 OR updated_at < now() - make_interval(secs => %s))
                  RETURNING paper_id
-                    """
+                    """,
+                    (older_than, older_than),
                 )
                 stranded = [r["paper_id"] for r in cur.fetchall()]
                 if stranded:

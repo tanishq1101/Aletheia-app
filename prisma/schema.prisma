@@ -414,3 +414,14 @@ model SchemaMigration {
 
   @@map("schema_migrations")
 }
+
+// File bytes for STORAGE_BACKEND=postgres (backend/apps/api/app/services/
+// storage.py). Keys are the same storage keys `papers.storage_path` holds.
+model StoredObject {
+  key       String   @id
+  data      Bytes
+  sizeBytes Int      @map("size_bytes")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("stored_objects")
+}

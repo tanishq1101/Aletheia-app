@@ -14,7 +14,11 @@ from uuid import UUID
 
 from app.core.logging import get_logger
 from app.db.session import get_connection
-from app.services.embedding import EmbeddingError, build_embedding_provider
+from app.services.embedding import (
+    EmbeddingError,
+    build_embedding_provider,
+    embedding_model_name,
+)
 from app.services.vector_store import VectorStoreError
 from app.services.vector_store import query as vector_query
 
@@ -188,6 +192,11 @@ def _retrieve_pgvector(
          LEFT JOIN paper_pages pg ON pg.id = c.page_id
              WHERE p.project_id = %s
                AND c.embedding IS NOT NULL
+               -- Vectors from another model live in a different space: their
+               -- cosine scores look plausible and mean nothing. A paper
+               -- embedded before a provider switch is found again once it is
+               -- reprocessed.
+               AND c.embedding_model = %s
                AND (%s::uuid[] IS NULL OR c.paper_id = ANY(%s::uuid[]))
           ORDER BY c.embedding <=> %s::vector
              LIMIT %s
@@ -195,6 +204,7 @@ def _retrieve_pgvector(
             (
                 str(query_vector),
                 str(project_id),
+                embedding_model_name(),
                 scope,
                 scope,
                 str(query_vector),
