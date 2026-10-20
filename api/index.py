@@ -96,11 +96,31 @@ def _apply_serverless_defaults() -> None:
 
 _apply_serverless_defaults()
 
-from app.core.config import get_settings  # noqa: E402
-from main import app as backend  # noqa: E402
-
 _startup_lock = threading.Lock()
 _started = False
+_backend = None
+
+
+def _load_backend():
+    """Import the FastAPI app on first use, not at module import.
+
+    `main` reads its settings while importing, and settings without a
+    DATABASE_URL raise. Done at import time that error kills the function
+    before it can answer anything; done here it becomes a 503 that says what
+    is missing.
+    """
+    global _backend
+    if _backend is None:
+        from main import app
+
+        _backend = app
+    return _backend
+
+
+def get_settings():
+    from app.core.config import get_settings as settings
+
+    return settings()
 
 
 def _migrate() -> None:
@@ -164,6 +184,7 @@ def _startup() -> None:
                 "No database configured. Connect a Postgres database to this "
                 "Vercel project (Storage → Neon) or set DATABASE_URL."
             )
+        _load_backend()
         from app.core.auth import check_auth_configuration
         from app.core.logging import configure_logging
         from app.services.ingestion import recover_stranded_jobs
@@ -220,8 +241,8 @@ async def app(scope, receive, send):
             except Exception as exc:  # reported, then retried next request
                 # `/health` answers regardless: it exists to describe exactly
                 # this kind of broken state, database by database.
-                if path == "/health":
-                    await backend(scope, receive, send)
+                if path == "/health" and _backend is not None:
+                    await _backend(scope, receive, send)
                     return
                 await _send_json(
                     send,
@@ -230,4 +251,4 @@ async def app(scope, receive, send):
                 )
                 return
 
-    await backend(scope, receive, send)
+    await _load_backend()(scope, receive, send)
